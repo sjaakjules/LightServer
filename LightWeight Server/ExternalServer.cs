@@ -14,25 +14,17 @@ namespace LightWeight_Server
     class ExternalServer
     {
         // Thread signals to pause until data has been received
-        public ManualResetEvent haveReceived = new ManualResetEvent(false);
+        ManualResetEvent haveReceived = new ManualResetEvent(false);
 
-
-        public int _BufferSize = 1024;
-        public byte[] _buffer;
+        int _BufferSize = 1024;
+        byte[] _buffer;
         Socket _UdpSocket;
         IPEndPoint _localEP;
         int _Port;
         XmlDocument _SendXML;
-
-        // Thread safe lists for updating and storing of robot information.
-        public ConcurrentStack<StateObject> DataHistory;
-
-        public RobotInfo _Robot;
-
-
-
-
-
+        
+        RobotInfo _Robot;
+        
         #region Constructor:
         /// <summary>
         /// Creates a UDP server with XML read and write via a port with threadSafe shared robot information
@@ -43,15 +35,9 @@ namespace LightWeight_Server
         {
             _Robot = robot;
             _Port = port;
-
-
-            // initialise external objects.
-            DataHistory = new ConcurrentStack<StateObject>();
-
-
+            
             SetupXML();
-
-
+            
             // Create Socket
             string catchStatement = "while trying to create new socket:";
             try
@@ -142,35 +128,38 @@ namespace LightWeight_Server
 
                 // Selects the first IP in the list and writes it to screen
                 int addressSelction = Convert.ToInt32(Console.ReadKey(true).KeyChar) - 48;
+                while (addressSelction >= ipHostInfo.AddressList.Length)
+                {
+
+                    if (addressSelction == 28 || addressSelction == 60)
+                    {
+                        return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
+                    }
+                    Console.WriteLine("Please use numbers only or Press L for local host.");
+                    addressSelction = Convert.ToInt32(Console.ReadKey(true).KeyChar) - 48;
+                }
                 return new IPEndPoint(ipHostInfo.AddressList[addressSelction], _Port);
-
-
             }
             catch (SocketException se)
             {
                 _Robot.updateError("SocketException " + catchStatement);
                 _Robot.updateError(se.Message);
-                return new IPEndPoint(IPAddress.Any, 0);
+                return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
             catch (ObjectDisposedException ob)
             {
                 _Robot.updateError("ObjectDisposedException " + catchStatement);
                 _Robot.updateError(ob.Message);
-                return new IPEndPoint(IPAddress.Any, 0);
+                return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
             catch (Exception e)
             {
                 _Robot.updateError("Generic error " + catchStatement);
                 _Robot.updateError(e.Message);
-                return new IPEndPoint(IPAddress.Any, _Port);
+                return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
         }
-
-        public void oneOffSend(string msg)
-        {
-
-        }
-
+        
         public void ConstantReceive()
         {
             while (true)
@@ -191,7 +180,6 @@ namespace LightWeight_Server
                 {
                     newState.clientEP = (EndPoint)new IPEndPoint(IPAddress.Any, _Port); ;
                     _UdpSocket.BeginReceiveFrom(_buffer, 0, _BufferSize, SocketFlags.None, ref newState.clientEP, new AsyncCallback(FinishReceiveFrom), newState);
-                    //     _Robot.updateError("Listening for data on port: " +  _Port);
                 }
                 catch (SocketException se)
                 {
@@ -237,7 +225,8 @@ namespace LightWeight_Server
 
                 // Process byte information on state object
                 processData(connectedState);
-
+                
+                haveReceived.Set();
                 // Send return message to same connection that the data was received.
                 SendData(connectedState);
             }
@@ -314,7 +303,6 @@ namespace LightWeight_Server
                 _Robot.updateError(e.Message);
             }
 
-            haveReceived.Set();
         }
 
         private void processData(StateObject State)

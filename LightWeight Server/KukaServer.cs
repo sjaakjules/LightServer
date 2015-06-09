@@ -47,19 +47,18 @@ namespace LightWeight_Server
     class KukaServer
     {
         // Thread signals to pause until data has been received
-        public ManualResetEvent haveReceived = new ManualResetEvent(false);
+        ManualResetEvent haveReceived = new ManualResetEvent(false);
 
 
-        public int _BufferSize = 1024;
-        public byte[] _buffer;
+        int _BufferSize = 1024;
+        byte[] _buffer;
         Socket _UdpSocket;
         IPEndPoint _localEP;
         int _Port = 6008;
         XmlDocument _SendXML;
         long _IPOC, _LIPOC;
 
-
-        public RobotInfo _Robot;
+        RobotInfo _Robot;
 
         #region Constructor:
         /// <summary>
@@ -166,38 +165,39 @@ namespace LightWeight_Server
                 IPHostEntry ipHostInfo = Dns.Resolve(Dns.GetHostName());
                 _Robot.updateError(Dns.GetHostName().ToString());
 
-                // Using this DNS displayes a list of available IP
-                Console.WriteLine("Available IP: ");
-                int counter = 0;
-                foreach (var IP in ipHostInfo.AddressList)
-                {
-                    Console.WriteLine("[" + counter + "] : " + IP.ToString());
-                    counter++;
-                }
                 Console.WriteLine("Select IP to bind Kuka server...");
+
                 // Selects the first IP in the list and writes it to screen
                 int addressSelction = Convert.ToInt32(Console.ReadKey(true).KeyChar) - 48;
+                while (addressSelction >= ipHostInfo.AddressList.Length)
+                {
+
+                    if (addressSelction == 28 || addressSelction == 60)
+                    {
+                        return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
+                    }
+                    Console.WriteLine("Please use numbers only or Press L for local host.");
+                    addressSelction = Convert.ToInt32(Console.ReadKey(true).KeyChar) - 48;
+                }
                 return new IPEndPoint(ipHostInfo.AddressList[addressSelction], _Port);
-
-
             }
             catch (SocketException se)
             {
                 _Robot.updateError("SocketException " + catchStatement);
                 _Robot.updateError(se.Message);
-                return new IPEndPoint(IPAddress.Any, 0);
+                return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
             catch (ObjectDisposedException ob)
             {
                 _Robot.updateError("ObjectDisposedException " + catchStatement);
                 _Robot.updateError(ob.Message);
-                return new IPEndPoint(IPAddress.Any, 0);
+                return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
             catch (Exception e)
             {
                 _Robot.updateError("Generic error " + catchStatement);
                 _Robot.updateError(e.Message);
-                return new IPEndPoint(IPAddress.Any, 0);
+                return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
         }
 
@@ -247,6 +247,7 @@ namespace LightWeight_Server
 
         public void FinishReceiveFrom(IAsyncResult ar)
         {
+            _Robot.Connect();
             string catchStatement = "while receive data is active, reading data:";
             try
             {
@@ -286,6 +287,8 @@ namespace LightWeight_Server
                 _Robot.updateError("Generic error " + catchStatement);
                 _Robot.updateError(e.Message);
             }
+
+
         }
 
         private void processData(StateObject State)
@@ -322,26 +325,21 @@ namespace LightWeight_Server
                     switch (Node.Name)
                     {
                         case "RIst":
-                            _Robot.updateRobotInfo(double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value),
+                            _Robot.updateRobotPosition(double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value),
                                             double.Parse(Node.Attributes["Z"].Value), double.Parse(Node.Attributes["A"].Value),
                                             double.Parse(Node.Attributes["B"].Value), double.Parse(Node.Attributes["C"].Value));
                             break;
 
                         case "Torque":
-                            _Robot.Torque["A1"] = double.Parse(Node.Attributes["A1"].Value);
-                            _Robot.Torque["A2"] = double.Parse(Node.Attributes["A2"].Value);
-                            _Robot.Torque["A3"] = double.Parse(Node.Attributes["A3"].Value);
-                            _Robot.Torque["A4"] = double.Parse(Node.Attributes["A4"].Value);
-                            _Robot.Torque["A5"] = double.Parse(Node.Attributes["A5"].Value);
-                            _Robot.Torque["A6"] = double.Parse(Node.Attributes["A6"].Value);
+                            _Robot.updateRobotTorque(double.Parse(Node.Attributes["A1"].Value), double.Parse(Node.Attributes["A2"].Value),
+                                                    double.Parse(Node.Attributes["A3"].Value), double.Parse(Node.Attributes["A4"].Value),
+                                                    double.Parse(Node.Attributes["A5"].Value), double.Parse(Node.Attributes["A6"].Value));
                             break;
                         default:
                             break;
                     }
                 }
 
-                // Refresh the trajectory ensuring command position is current
-                _Robot.updateComandPosition();
                 // Write the new command to the robot
                 UpdateXML(State);
 
@@ -514,13 +512,14 @@ namespace LightWeight_Server
             XmlNode IpocNode = _SendXML.SelectSingleNode("//Sen/IPOC");
             IpocNode.InnerText = state.IPOC.ToString();
 
+            
             XmlNode comPosNode = _SendXML.SelectSingleNode("//Sen/RKorr");
-            comPosNode.Attributes["X"].Value = String.Format("{0:0.0000}", _Robot.CommandedPosition["X"]);
-            comPosNode.Attributes["Y"].Value = String.Format("{0:0.0000}", _Robot.CommandedPosition["Y"]);
-            comPosNode.Attributes["Z"].Value = String.Format("{0:0.0000}", _Robot.CommandedPosition["Z"]);
-            comPosNode.Attributes["A"].Value = String.Format("{0:0.0000}", _Robot.CommandedPosition["A"]);
-            comPosNode.Attributes["B"].Value = String.Format("{0:0.0000}", _Robot.CommandedPosition["B"]);
-            comPosNode.Attributes["C"].Value = String.Format("{0:0.0000}", _Robot.CommandedPosition["C"]);
+            comPosNode.Attributes["X"].Value = String.Format("{0:0.0000}", _Robot.GetCommandedPosition(0));
+            comPosNode.Attributes["Y"].Value = String.Format("{0:0.0000}", _Robot.GetCommandedPosition(0));
+            comPosNode.Attributes["Z"].Value = String.Format("{0:0.0000}", _Robot.GetCommandedPosition(0));
+            comPosNode.Attributes["A"].Value = String.Format("{0:0.0000}", _Robot.GetCommandedPosition(0));
+            comPosNode.Attributes["B"].Value = String.Format("{0:0.0000}", _Robot.GetCommandedPosition(0));
+            comPosNode.Attributes["C"].Value = String.Format("{0:0.0000}", _Robot.GetCommandedPosition(0));
                        
             XmlNode gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER_A");
             if (_Robot.GripperIsOpen)

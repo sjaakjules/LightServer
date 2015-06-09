@@ -11,94 +11,69 @@ namespace LightWeight_Server
     class RobotInfo
     {
 
-        Stopwatch updateTime, ServerTime;
+        Stopwatch KukaUpdateTime = new Stopwatch();
         // Time of loop in SECONDS
-        double loopTime;
+        double loopTime = 0;
 
-        public ConcurrentDictionary<String, double> ReadPosition;
-        public ConcurrentDictionary<String, double> LastPosition;
-        public ConcurrentDictionary<String, double> Velocity;
-        public ConcurrentDictionary<String, double> LastVelocity;
-        public ConcurrentDictionary<String, double> acceleration;
-        public ConcurrentDictionary<String, double> Torque;
-        public ConcurrentDictionary<String, double> DesiredPosition;
-        public ConcurrentDictionary<String, double> CommandedPosition;
+        ConcurrentDictionary<String, double> ReadPosition = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> LastPosition = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> Velocity = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> LastVelocity = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> acceleration = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> Torque = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> DesiredPosition = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> CommandedPosition = new ConcurrentDictionary<string, double>();
         // Thread safe lists for updating and storing of robot information.
         // public ConcurrentStack<StateObject> DataHistory;
 
-        public ConcurrentDictionary<String, StringBuilder> text;
+        ConcurrentDictionary<String, StringBuilder> text = new ConcurrentDictionary<string, StringBuilder>();
 
-        public Trajectory CurrentTrajectory;
+        Trajectory CurrentTrajectory;
 
-        public bool GripperIsOpen;
+        bool GripperIsOpen = true;
 
-        private double maxSpeed = 0.5;
+        bool isConnected = false;
 
-        //StateObject latestState;
+        double maxSpeed = 0.5;
 
+        StringBuilder _PrintMsg = new StringBuilder();
 
         public RobotInfo()
         {
-            ReadPosition = new ConcurrentDictionary<string, double>();
-            LastPosition = new ConcurrentDictionary<string, double>();
-            Velocity = new ConcurrentDictionary<string, double>();
-            LastVelocity = new ConcurrentDictionary<string, double>();
-            acceleration = new ConcurrentDictionary<string, double>();
-            Torque = new ConcurrentDictionary<string, double>();
-            CommandedPosition = new ConcurrentDictionary<string, double>();
-            DesiredPosition = new ConcurrentDictionary<string, double>();
-
-            // initialise external objects.
-            // DataHistory = new ConcurrentStack<StateObject>();
-
-            text = new ConcurrentDictionary<string, StringBuilder>();
-
             text.TryAdd("msg", new StringBuilder());
             text.TryAdd("Error", new StringBuilder());
 
+            setupCardinalDictionaries(ReadPosition, 540.5, -18.1, 833.3);
+            setupCardinalDictionaries(LastPosition);
+            setupCardinalDictionaries(Velocity);
+            setupCardinalDictionaries(LastVelocity);
+            setupCardinalDictionaries(acceleration);
+            setupCardinalDictionaries(CommandedPosition);
+            setupCardinalDictionaries(DesiredPosition, 540.5, -18.1, 833.3);
 
-            Torque.TryAdd("A1", 0);
-            Torque.TryAdd("A2", 0);
-            Torque.TryAdd("A3", 0);
-            Torque.TryAdd("A4", 0);
-            Torque.TryAdd("A5", 0);
-            Torque.TryAdd("A6", 0);
-
-            setupDictionaries(ReadPosition);
-            setupDictionaries(LastPosition);
-            setupDictionaries(Velocity);
-            setupDictionaries(LastVelocity);
-            setupDictionaries(acceleration);
-            setupDictionaries(CommandedPosition);
-            setupDictionaries(DesiredPosition);
-
-            ReadPosition["X"] = 540.5;
-            ReadPosition["Y"] = -18.1;
-            ReadPosition["Z"] = 833.3;
-
-            DesiredPosition["X"] = 540.5;
-            DesiredPosition["Y"] = -18.1;
-            DesiredPosition["Z"] = 833.3;
+            setupAxisDictionaries(Torque);
 
             text["Error"].Append("---------------------------------\n             Errors:\n");
-            GripperIsOpen = true;
 
-
-            CurrentTrajectory = new Trajectory(new double[] { 540.5, -18.1, 833.3 }, this);
-
-            updateTime = new Stopwatch();
-            ServerTime = new Stopwatch();
-            loopTime = 0;
-
-            // Start timer
-            ServerTime.Start();
-            updateTime.Start();
         }
+
+        public void Connect()
+        {
+            if (!isConnected)
+            {
+                CurrentTrajectory = new Trajectory(new double[] { 540.5, -18.1, 833.3 }, this);
+
+                // Start timer
+                KukaUpdateTime.Start();
+                isConnected = true;
+            }
+        }
+
+        #region ScreenDisplay
 
         public void updateError(string newError)
         {
             text["Error"].AppendLine(newError);
-
         }
 
         // Dedicated loop thread
@@ -110,10 +85,11 @@ namespace LightWeight_Server
                 {
                     updateMsg();
                     Console.Clear();
-                    string tempText = text["Error"].ToString();
-                    Console.WriteLine(tempText);
-                    tempText = text["msg"].ToString();
-                    Console.WriteLine(tempText);
+                    _PrintMsg.Clear();
+                    text.TryGetValue("Error", out _PrintMsg);
+                    Console.WriteLine(_PrintMsg.ToString());
+                    text.TryGetValue("msg", out _PrintMsg);
+                    Console.WriteLine(_PrintMsg.ToString());
                     System.Threading.Thread.Sleep(100);
 
                 }
@@ -124,7 +100,7 @@ namespace LightWeight_Server
             }
         }
 
-        public void updateMsg()
+        void updateMsg()
         {
             text["msg"].Clear();
             text["msg"].AppendLine("---------------------------------\n              Info:\n");
@@ -157,20 +133,15 @@ namespace LightWeight_Server
             }
 
         }
+        #endregion
 
-
-        void setupDictionaries(ConcurrentDictionary<string, double> dic)
+        #region Movement
+        public void updateRobotPosition(double x, double y, double z, double a, double b, double c)
         {
-            dic.TryAdd("X", 0);
-            dic.TryAdd("Y", 0);
-            dic.TryAdd("Z", 0);
-            dic.TryAdd("A", 0);
-            dic.TryAdd("B", 0);
-            dic.TryAdd("C", 0);
-        }
 
-        public void updateRobotInfo(double x, double y, double z, double a, double b, double c)
-        {
+            KukaUpdateTime.Stop();
+            loopTime = 1.0 * KukaUpdateTime.ElapsedTicks / TimeSpan.TicksPerSecond;
+            KukaUpdateTime.Restart();
 
             LastPosition["X"] = ReadPosition["X"];
             LastPosition["Y"] = ReadPosition["Y"];
@@ -193,9 +164,6 @@ namespace LightWeight_Server
             LastVelocity["B"] = Velocity["B"];
             LastVelocity["C"] = Velocity["C"];
 
-            updateTime.Stop();
-            loopTime = 1.0 * updateTime.ElapsedTicks / TimeSpan.TicksPerSecond;
-
             Velocity["X"] = 1.0 * (ReadPosition["X"] - LastPosition["X"]) / loopTime;
             Velocity["Y"] = 1.0 * (ReadPosition["Y"] - LastPosition["Y"]) / loopTime;
             Velocity["Z"] = 1.0 * (ReadPosition["Z"] - LastPosition["Z"]) / loopTime;
@@ -210,17 +178,40 @@ namespace LightWeight_Server
             acceleration["B"] = 1.0 * (Velocity["B"] - LastVelocity["B"]) / loopTime;
             acceleration["C"] = 1.0 * (Velocity["C"] - LastVelocity["C"]) / loopTime;
 
-            updateTime.Restart();
         }
 
-        public void newPosition()
+        public void updateRobotTorque(double a1, double a2, double a3, double a4, double a5, double a6)
+        {
+            Torque["A1"] = a1;
+            Torque["A2"] = a2;
+            Torque["A3"] = a3;
+            Torque["A4"] = a4;
+            Torque["A5"] = a5;
+            Torque["A6"] = a6;
+        }
+
+        void newPosition()
         {
             double[] finalPosition = new double[] { DesiredPosition["X"], DesiredPosition["Y"], DesiredPosition["Z"] };
             CurrentTrajectory = new Trajectory(finalPosition, this);
         }
 
+        public double GetCommandPosition(int Axis)
+        {
+            if (CurrentTrajectory.IsActive)
+            {
+                double[] newComandPos = getKukaDisplacement();
 
-        public void updateComandPosition()
+                return newComandPos[Axis];
+
+            }
+            else
+            {
+                return 0.0;
+            }
+        }
+
+        void updateComandPosition()
         {
             if (CurrentTrajectory.IsActive)
             {
@@ -256,7 +247,7 @@ namespace LightWeight_Server
 
         }
 
-        public double[] getKukaDisplacement()
+        double[] getKukaDisplacement()
         {
             double[] displacement = new double[3];
             double sumDisplacement = 0;
@@ -272,11 +263,46 @@ namespace LightWeight_Server
                 sumDisplacement += displacement[i];
             }
             // Are we within 0.05mm of goal?
-            if (Math.Abs(sumDisplacement)<0.05)
+            if (Math.Abs(sumDisplacement) < 0.05)
             {
                 CurrentTrajectory.IsActive = false;
             }
             return displacement;
         }
+        #endregion
+
+        #region Setup
+
+        void setupCardinalDictionaries(ConcurrentDictionary<string, double> dic)
+        {
+            dic.TryAdd("X", 0);
+            dic.TryAdd("Y", 0);
+            dic.TryAdd("Z", 0);
+            dic.TryAdd("A", 0);
+            dic.TryAdd("B", 0);
+            dic.TryAdd("C", 0);
+        }
+        void setupCardinalDictionaries(ConcurrentDictionary<string, double> dic, double x, double y, double z)
+        {
+            dic.TryAdd("X", x);
+            dic.TryAdd("Y", y);
+            dic.TryAdd("Z", z);
+            dic.TryAdd("A", 0);
+            dic.TryAdd("B", 0);
+            dic.TryAdd("C", 0);
+        }
+
+        void setupAxisDictionaries(ConcurrentDictionary<string, double> dic)
+        {
+
+            dic.TryAdd("A1", 0);
+            dic.TryAdd("A2", 0);
+            dic.TryAdd("A3", 0);
+            dic.TryAdd("A4", 0);
+            dic.TryAdd("A5", 0);
+            dic.TryAdd("A6", 0);
+        }
+        #endregion
+
     }
 }
