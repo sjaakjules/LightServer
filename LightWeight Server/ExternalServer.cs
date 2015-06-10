@@ -312,7 +312,6 @@ namespace LightWeight_Server
 
                 // Encode msg from state object
                 State.MessageIn = Encoding.UTF8.GetString(State.PacketIn, 0, State.PacketInSize);
-                double[] newPosition = new double[3];
                 // create xml document from state message in.
                 XmlDocument xmlIn = new XmlDocument();
                 xmlIn.LoadXml(State.MessageIn);
@@ -325,7 +324,24 @@ namespace LightWeight_Server
                     switch (Node.Name)
                     {
                         case "Position":
-                            _Robot.newPosition(double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value), double.Parse(Node.Attributes["Z"].Value));
+                            double[] newPosition = new double[4];
+                            for (int i = 0; i < 3; i++)
+                            {
+                                double result;
+                                if (double.TryParse(Node.Attributes[StaticFunctions.getCardinalKey(i)].Value, out result))
+                                {
+                                    newPosition[i] = result;
+                                    newPosition[3] += 1;
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+                            if (newPosition[3] == 3)
+                            {
+                                _Robot.newPosition(double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value), double.Parse(Node.Attributes["Z"].Value));
+                            }
                             break;
 
                         case "Velocity":
@@ -334,11 +350,11 @@ namespace LightWeight_Server
                         case "Gripper":
                             if (int.Parse(Node.InnerText) == 0)
                             {
-                                _Robot.GripperIsOpen = false;
+                                _Robot.gripperIsOpen = false;
                             }
                             else
                             {
-                                _Robot.GripperIsOpen = true;
+                                _Robot.gripperIsOpen = true;
                             }
                             break;
                         default:

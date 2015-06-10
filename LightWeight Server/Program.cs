@@ -36,16 +36,16 @@ namespace LightWeight_Server
                     switch (System.Console.ReadKey(true).Key)
                     {
                         case ConsoleKey.P:
-                            ConnectedKuka.GripperIsOpen = false;
+                            ConnectedKuka.gripperIsOpen = false;
                             break;
                         case ConsoleKey.O:
-                            ConnectedKuka.GripperIsOpen = true;
+                            ConnectedKuka.gripperIsOpen = true;
                             break;
                         case ConsoleKey.OemPlus:
-                            ConnectedKuka.CurrentMotionMaxSpeed += 0.1;
+                            ConnectedKuka.MaxSpeed += 0.1;
                             break;
                         case ConsoleKey.OemMinus:
-                            ConnectedKuka.CurrentMotionMaxSpeed -= 0.1;
+                            ConnectedKuka.MaxSpeed -= 0.1;
                             break;
 
                     }

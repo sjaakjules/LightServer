@@ -232,7 +232,7 @@ namespace LightWeight_Server
                 }
                 catch (SocketException se)
                 {
-                    _Robot.reset();
+                    _Robot.Disconnected();
                     haveReceived.Set();
                 }
                 catch (ObjectDisposedException ob)
@@ -347,6 +347,7 @@ namespace LightWeight_Server
                             break;
                     }
                 }
+                _Robot.LoadTrajectory();
 
                 // As the robot positions have been updated, calculate change in position and update command dictionary
                 _Robot.updateComandPosition();
@@ -355,7 +356,7 @@ namespace LightWeight_Server
                 UpdateXML(State);
 
                 processDataTimer.Stop();
-                _Robot.ProcessDataTimer = processDataTimer.ElapsedMilliseconds;
+                _Robot.ProcessDataTimer = 1.0*processDataTimer.ElapsedTicks/TimeSpan.TicksPerMillisecond;
 
             }
             catch (SocketException se)
@@ -535,7 +536,7 @@ namespace LightWeight_Server
             }
                        
             XmlNode gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER_A");
-            if (_Robot.GripperIsOpen)
+            if (_Robot.gripperIsOpen)
             {
                 gripperNode.InnerText = "1";
 
@@ -545,7 +546,7 @@ namespace LightWeight_Server
                 gripperNode.InnerText = "0";
             }
             gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER_B");
-            if (_Robot.GripperIsOpen)
+            if (_Robot.gripperIsOpen)
             {
                 gripperNode.InnerText = "0";
 
