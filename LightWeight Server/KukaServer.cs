@@ -165,8 +165,13 @@ namespace LightWeight_Server
                 // Finds the DNS name of the computer and prints to screen.
                 //IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
                 IPHostEntry ipHostInfo = Dns.Resolve(Dns.GetHostName());
-                _Robot.updateError(Dns.GetHostName().ToString());
+                Console.WriteLine(Dns.GetHostName().ToString());
 
+                for (int i = 0; i<ipHostInfo.AddressList.Length;i++)
+                {
+                    Console.WriteLine("[{0}] : {1}", i, ipHostInfo.AddressList[i]);
+                }
+                Console.WriteLine("[L] : Local Host");
                 Console.WriteLine("Select IP to bind Kuka server...");
 
                 // Selects the first IP in the list and writes it to screen
@@ -208,9 +213,9 @@ namespace LightWeight_Server
         {
             while (true)
             {
+
                 // resets the event to nonsignaled state.
                 haveReceived.Reset();
-                
                 // Resets buffer and other variables loosing any unsaved data
                 _buffer = new byte[_BufferSize];
 
@@ -227,8 +232,8 @@ namespace LightWeight_Server
                 }
                 catch (SocketException se)
                 {
-                    _Robot.updateError("SocketException " + catchStatement);
-                    _Robot.updateError(se.Message);
+                    _Robot.reset();
+                    haveReceived.Set();
                 }
                 catch (ObjectDisposedException ob)
                 {

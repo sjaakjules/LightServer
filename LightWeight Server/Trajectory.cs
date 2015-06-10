@@ -49,7 +49,7 @@ namespace LightWeight_Server
             double distance = Math.Sqrt(Math.Pow(finalX - robot.CurrentPosition(0), 2) + Math.Pow(finalY - robot.CurrentPosition(1), 2) + Math.Pow(finalZ - robot.CurrentPosition(2), 2));
 
             trajectoryTime = new TimeSpan(0, 0, 0, 0, Convert.ToInt32(1000 * (distance / AVE_SPEED)));
-            _robot.updateError("Current Distance = " + distance.ToString() + " Time: " + (trajectoryTime.Milliseconds).ToString());
+            //_robot.updateError("Current Distance = " + distance.ToString() + " Time: " + (trajectoryTime.Milliseconds).ToString());
             quinticParameters = new double[6, 3];
             FindQuintic(_finalPosition);
 
@@ -112,7 +112,7 @@ namespace LightWeight_Server
         {
             if (elapsedTime.ElapsedMilliseconds > trajectoryTime.Milliseconds)
             {
-                _robot.updateError("elapse time is exceeded : " + elapsedTime.ElapsedMilliseconds + "ms Of " + trajectoryTime.Milliseconds + "ms");
+                //_robot.updateError("elapse time is exceeded : " + elapsedTime.ElapsedMilliseconds + "ms Of " + trajectoryTime.Milliseconds + "ms");
                 return _finalPosition[Axis];
             }
             else

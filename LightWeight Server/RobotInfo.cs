@@ -10,6 +10,7 @@ namespace LightWeight_Server
 {
     class RobotInfo
     {
+        public readonly double[] startPosition = new double[] { 540.5, -18.1, 833.3, 0.0, 0.0, 0.0 };
         public object trajectoryLock = new object();
 
         Stopwatch KukaUpdateTime = new Stopwatch();
@@ -41,6 +42,7 @@ namespace LightWeight_Server
         double _maxSpeed = 0.5;
 
         StringBuilder _PrintMsg = new StringBuilder();
+        String errorMsg = String.Empty;
 
         public double ProcessDataTimer
         {
@@ -95,17 +97,20 @@ namespace LightWeight_Server
             _text.TryAdd("msg", new StringBuilder());
             _text.TryAdd("Error", new StringBuilder());
 
-            setupCardinalDictionaries(_ReadPosition, 540.5, -18.1, 833.3);
+            setupCardinalDictionaries(_ReadPosition, startPosition);
+            setupCardinalDictionaries(_DesiredPosition, startPosition);
             setupCardinalDictionaries(_LastPosition);
             setupCardinalDictionaries(_Velocity);
             setupCardinalDictionaries(_LastVelocity);
             setupCardinalDictionaries(_acceleration);
             setupCardinalDictionaries(_CommandedPosition);
-            setupCardinalDictionaries(_DesiredPosition, 540.5, -18.1, 833.3);
 
             setupAxisDictionaries(_Torque);
 
             _text["Error"].Append("---------------------------------\n             Errors:\n");
+
+
+            newPosition(540.5, -18.1, 833.3);
 
         }
 
@@ -118,7 +123,23 @@ namespace LightWeight_Server
             }
         }
 
+        public void reset()
+        {
+            GripperIsOpen = true;
 
+            _isConnected = false;
+
+            setupCardinalDictionaries(_ReadPosition, startPosition);
+            setupCardinalDictionaries(_DesiredPosition, startPosition);
+
+            _maxSpeed = 0.5;
+            loopTime = 0;
+            processDataTimer = 0;
+            maxProcessDataTimer = 0;
+
+            newPosition(540.5, -18.1, 833.3);
+
+        }
 
 
         #region ScreenDisplay
@@ -137,18 +158,32 @@ namespace LightWeight_Server
                 {
                     updateMsg();
                     Console.Clear();
-                    _PrintMsg.Clear();
-                    _text.TryGetValue("Error", out _PrintMsg);
+                    bool hasgotMsg = false;
+                    while (!hasgotMsg)
+                    {
+                        hasgotMsg = _text.TryGetValue("Error", out _PrintMsg);
+                    }
                     Console.WriteLine(_PrintMsg.ToString());
                     if (_isConnected)
                     {
                         _text.TryGetValue("msg", out _PrintMsg);
                         Console.WriteLine(_PrintMsg.ToString());
                     }
+                    else
+                    {
+                        Console.WriteLine("---------------------------------\n   Not Connected to Kuka Robot");
+                        Console.WriteLine("{0} : {1} : {2} : {3} : {4} : {5}", _ReadPosition["X"], _ReadPosition["Y"], _ReadPosition["Z"], _ReadPosition["A"], _ReadPosition["B"], _ReadPosition["C"]);
+                    }
+                    if (KukaUpdateTime.ElapsedMilliseconds > 1000)
+                    {
+                        _isConnected = false;
+                        reset();
+                    }
                     System.Threading.Thread.Sleep(100);
                 }
                 catch (Exception)
                 {
+                    Console.WriteLine("Error printing to Screen");
                 }
 
             }
@@ -186,6 +221,8 @@ namespace LightWeight_Server
                 _text["msg"].AppendLine("Trajectory is NOT Active");
             }
             _text["msg"].AppendLine("Process data time: " + processDataTimer.ToString() + "ms.");
+            _text["msg"].AppendLine("Kuka cycle time: " + loopTime.ToString() + "ms.");
+
 
         }
         #endregion
@@ -193,7 +230,7 @@ namespace LightWeight_Server
         #region Movement
         public void updateRobotPosition(double x, double y, double z, double a, double b, double c)
         {
-
+            //updateError(x.ToString() + " : " + y.ToString() + " : " + z.ToString() + " : " + a.ToString() + " : " + b.ToString() + " : " + c.ToString());
             KukaUpdateTime.Stop();
             loopTime = 1.0 * KukaUpdateTime.ElapsedTicks / TimeSpan.TicksPerSecond;
             KukaUpdateTime.Restart();
@@ -273,7 +310,7 @@ namespace LightWeight_Server
         {
             lock (trajectoryLock)
             {
-                if (_CurrentTrajectory.IsActive)
+                if (_CurrentTrajectory.IsActive )
                 {
                     return getKukaDisplacement();
                 }
@@ -349,32 +386,34 @@ namespace LightWeight_Server
 
         void setupCardinalDictionaries(ConcurrentDictionary<string, double> dic)
         {
-            dic.TryAdd("X", 0);
-            dic.TryAdd("Y", 0);
-            dic.TryAdd("Z", 0);
-            dic.TryAdd("A", 0);
-            dic.TryAdd("B", 0);
-            dic.TryAdd("C", 0);
+            for (int i = 0; i < 6; i++)
+            {
+                if (!dic.TryAdd(StaticFunctions.getCardinalKey(i), 0))
+                {
+                    dic[StaticFunctions.getCardinalKey(i)] = 0;
+                }
+            }
         }
-        void setupCardinalDictionaries(ConcurrentDictionary<string, double> dic, double x, double y, double z)
+        void setupCardinalDictionaries(ConcurrentDictionary<string, double> dic, double[] Values)
         {
-            dic.TryAdd("X", x);
-            dic.TryAdd("Y", y);
-            dic.TryAdd("Z", z);
-            dic.TryAdd("A", 0);
-            dic.TryAdd("B", 0);
-            dic.TryAdd("C", 0);
+            for (int i = 0; i < Values.Length; i++)
+            {
+                if (!dic.TryAdd(StaticFunctions.getCardinalKey(i), Values[i]))
+                {
+                    dic[StaticFunctions.getCardinalKey(i)] = Values[i];
+                }                
+            }
         }
 
         void setupAxisDictionaries(ConcurrentDictionary<string, double> dic)
         {
-
-            dic.TryAdd("A1", 0);
-            dic.TryAdd("A2", 0);
-            dic.TryAdd("A3", 0);
-            dic.TryAdd("A4", 0);
-            dic.TryAdd("A5", 0);
-            dic.TryAdd("A6", 0);
+            for (int i = 0; i < 6; i++)
+            {
+                if (!dic.TryAdd(StaticFunctions.getAxisKey(i), 0))
+                {
+                    dic[StaticFunctions.getAxisKey(i)] = 0;
+                }
+            }
         }
         #endregion
 

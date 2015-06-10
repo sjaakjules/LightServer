@@ -122,7 +122,6 @@ namespace LightWeight_Server
                 // Finds the DNS name of the computer and prints to screen.
                 //IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
                 IPHostEntry ipHostInfo = Dns.Resolve(Dns.GetHostName());
-                _Robot.updateError(Dns.GetHostName().ToString());
 
                 Console.WriteLine("Select IP to bind External server...");
 
