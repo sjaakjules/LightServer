@@ -58,6 +58,8 @@ namespace LightWeight_Server
         XmlDocument _SendXML;
         long _IPOC, _LIPOC;
 
+        Stopwatch processDataTimer = new Stopwatch();
+
         RobotInfo _Robot;
 
         #region Constructor:
@@ -296,6 +298,7 @@ namespace LightWeight_Server
             string catchStatement = "while trying to process Data:";
             try
             {
+                processDataTimer.Restart();
                 // Encode msg from state object
                 State.MessageIn = Encoding.UTF8.GetString(State.PacketIn, 0, State.PacketInSize);
 
@@ -340,8 +343,14 @@ namespace LightWeight_Server
                     }
                 }
 
-                // Write the new command to the robot
+                // As the robot positions have been updated, calculate change in position and update command dictionary
+                _Robot.updateComandPosition();
+
+                // Write the new command to the robot accessing the command dictionary
                 UpdateXML(State);
+
+                processDataTimer.Stop();
+                _Robot.ProcessDataTimer = processDataTimer.ElapsedMilliseconds;
 
             }
             catch (SocketException se)
@@ -514,12 +523,11 @@ namespace LightWeight_Server
 
             
             XmlNode comPosNode = _SendXML.SelectSingleNode("//Sen/RKorr");
-            comPosNode.Attributes["X"].Value = String.Format("{0:0.0000}", _Robot.GetCommandedPosition(0));
-            comPosNode.Attributes["Y"].Value = String.Format("{0:0.0000}", _Robot.GetCommandedPosition(0));
-            comPosNode.Attributes["Z"].Value = String.Format("{0:0.0000}", _Robot.GetCommandedPosition(0));
-            comPosNode.Attributes["A"].Value = String.Format("{0:0.0000}", _Robot.GetCommandedPosition(0));
-            comPosNode.Attributes["B"].Value = String.Format("{0:0.0000}", _Robot.GetCommandedPosition(0));
-            comPosNode.Attributes["C"].Value = String.Format("{0:0.0000}", _Robot.GetCommandedPosition(0));
+            for (int i = 0; i < 6; i++)
+            {
+            comPosNode.Attributes[StaticFunctions.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CommandedPosition(i));
+                
+            }
                        
             XmlNode gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER_A");
             if (_Robot.GripperIsOpen)
@@ -542,7 +550,7 @@ namespace LightWeight_Server
                 gripperNode.InnerText = "1";
             }
 
-            flushCommandPosition();
+            _Robot.flushCommands();
 
             state.XMLout = (XmlDocument)_SendXML.Clone();
 
@@ -569,17 +577,6 @@ namespace LightWeight_Server
             return sb.ToString();
         }
 
-        public void flushCommandPosition()
-        {
-
-            _Robot.CommandedPosition["X"] = _Robot.CommandedPosition["X"] * 0.8;
-            _Robot.CommandedPosition["Y"] = _Robot.CommandedPosition["Y"] * 0.8;
-            _Robot.CommandedPosition["Z"] = _Robot.CommandedPosition["Z"] * 0.8;
-            _Robot.CommandedPosition["A"] = _Robot.CommandedPosition["A"] * 0.8;
-            _Robot.CommandedPosition["B"] = _Robot.CommandedPosition["B"] * 0.8;
-            _Robot.CommandedPosition["C"] = _Robot.CommandedPosition["C"] * 0.8;
-
-        }
 
         #endregion
     }

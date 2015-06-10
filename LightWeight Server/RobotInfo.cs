@@ -10,70 +10,122 @@ namespace LightWeight_Server
 {
     class RobotInfo
     {
+        public object trajectoryLock = new object();
 
         Stopwatch KukaUpdateTime = new Stopwatch();
+
         // Time of loop in SECONDS
         double loopTime = 0;
+        double processDataTimer = 0;
+        double maxProcessDataTimer = 0;
 
-        ConcurrentDictionary<String, double> ReadPosition = new ConcurrentDictionary<string, double>();
-        ConcurrentDictionary<String, double> LastPosition = new ConcurrentDictionary<string, double>();
-        ConcurrentDictionary<String, double> Velocity = new ConcurrentDictionary<string, double>();
-        ConcurrentDictionary<String, double> LastVelocity = new ConcurrentDictionary<string, double>();
-        ConcurrentDictionary<String, double> acceleration = new ConcurrentDictionary<string, double>();
-        ConcurrentDictionary<String, double> Torque = new ConcurrentDictionary<string, double>();
-        ConcurrentDictionary<String, double> DesiredPosition = new ConcurrentDictionary<string, double>();
-        ConcurrentDictionary<String, double> CommandedPosition = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> _ReadPosition = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> _LastPosition = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> _Velocity = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> _LastVelocity = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> _acceleration = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> _Torque = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> _DesiredPosition = new ConcurrentDictionary<string, double>();
+        ConcurrentDictionary<String, double> _CommandedPosition = new ConcurrentDictionary<string, double>();
         // Thread safe lists for updating and storing of robot information.
         // public ConcurrentStack<StateObject> DataHistory;
 
-        ConcurrentDictionary<String, StringBuilder> text = new ConcurrentDictionary<string, StringBuilder>();
+        ConcurrentDictionary<String, StringBuilder> _text = new ConcurrentDictionary<string, StringBuilder>();
 
-        Trajectory CurrentTrajectory;
+        Trajectory _CurrentTrajectory;
 
-        bool GripperIsOpen = true;
+        public bool GripperIsOpen = true;
 
-        bool isConnected = false;
+        bool _isConnected = false;
 
-        double maxSpeed = 0.5;
+        double _maxSpeed = 0.5;
 
         StringBuilder _PrintMsg = new StringBuilder();
 
+        public double ProcessDataTimer
+        {
+            get { return _processDataTimer; }
+            set
+            {
+                if (maxProcessDataTimer <= value)
+                {
+                    maxProcessDataTimer = value;
+                }
+                processDataTimer = value;
+            }
+        }
+
+        public double CommandedPosition(int index)
+        {
+            return StaticFunctions.Getvalue(_CommandedPosition, StaticFunctions.getCardinalKey(index));
+        }
+        public double CurrentPosition(int index)
+        {
+            return StaticFunctions.Getvalue(_ReadPosition, StaticFunctions.getCardinalKey(index));
+        }
+        public double CurrentVelocity(int index)
+        {
+            return StaticFunctions.Getvalue(_Velocity, StaticFunctions.getCardinalKey(index));
+        }
+        public double CurrentAcceleration(int index)
+        {
+            return StaticFunctions.Getvalue(_acceleration, StaticFunctions.getCardinalKey(index));
+        }
+
+
+        public double CurrentMotionMaxSpeed
+        {
+            get
+            {
+                lock (trajectoryLock)
+                {
+                    return _CurrentTrajectory.maxSpeed;
+                }
+            }
+            set
+            {
+                lock (trajectoryLock)
+                {
+                    _CurrentTrajectory.maxSpeed = value;
+                }
+            }
+        }
         public RobotInfo()
         {
-            text.TryAdd("msg", new StringBuilder());
-            text.TryAdd("Error", new StringBuilder());
+            _text.TryAdd("msg", new StringBuilder());
+            _text.TryAdd("Error", new StringBuilder());
 
-            setupCardinalDictionaries(ReadPosition, 540.5, -18.1, 833.3);
-            setupCardinalDictionaries(LastPosition);
-            setupCardinalDictionaries(Velocity);
-            setupCardinalDictionaries(LastVelocity);
-            setupCardinalDictionaries(acceleration);
-            setupCardinalDictionaries(CommandedPosition);
-            setupCardinalDictionaries(DesiredPosition, 540.5, -18.1, 833.3);
+            setupCardinalDictionaries(_ReadPosition, 540.5, -18.1, 833.3);
+            setupCardinalDictionaries(_LastPosition);
+            setupCardinalDictionaries(_Velocity);
+            setupCardinalDictionaries(_LastVelocity);
+            setupCardinalDictionaries(_acceleration);
+            setupCardinalDictionaries(_CommandedPosition);
+            setupCardinalDictionaries(_DesiredPosition, 540.5, -18.1, 833.3);
 
-            setupAxisDictionaries(Torque);
+            setupAxisDictionaries(_Torque);
 
-            text["Error"].Append("---------------------------------\n             Errors:\n");
+            _text["Error"].Append("---------------------------------\n             Errors:\n");
 
         }
 
         public void Connect()
         {
-            if (!isConnected)
+            if (!_isConnected)
             {
-                CurrentTrajectory = new Trajectory(new double[] { 540.5, -18.1, 833.3 }, this);
-
-                // Start timer
-                KukaUpdateTime.Start();
-                isConnected = true;
+                newPosition(540.5, -18.1, 833.3);
+                _isConnected = true;
             }
         }
+
+
+
 
         #region ScreenDisplay
 
         public void updateError(string newError)
         {
-            text["Error"].AppendLine(newError);
+            _text["Error"].AppendLine(newError);
         }
 
         // Dedicated loop thread
@@ -86,14 +138,16 @@ namespace LightWeight_Server
                     updateMsg();
                     Console.Clear();
                     _PrintMsg.Clear();
-                    text.TryGetValue("Error", out _PrintMsg);
+                    _text.TryGetValue("Error", out _PrintMsg);
                     Console.WriteLine(_PrintMsg.ToString());
-                    text.TryGetValue("msg", out _PrintMsg);
-                    Console.WriteLine(_PrintMsg.ToString());
+                    if (_isConnected)
+                    {
+                        _text.TryGetValue("msg", out _PrintMsg);
+                        Console.WriteLine(_PrintMsg.ToString());
+                    }
                     System.Threading.Thread.Sleep(100);
-
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                 }
 
@@ -102,35 +156,36 @@ namespace LightWeight_Server
 
         void updateMsg()
         {
-            text["msg"].Clear();
-            text["msg"].AppendLine("---------------------------------\n              Info:\n");
-            text["msg"].AppendLine("Current Position:     (" + String.Format("{0:0.00}", ReadPosition["X"]) + " , " +
-                                                                    String.Format("{0:0.00}", ReadPosition["Y"]) + " , " +
-                                                                    String.Format("{0:0.00}", ReadPosition["Z"]) + ")");
-            text["msg"].AppendLine("Desired Position:     (" + String.Format("{0:0.00}", DesiredPosition["X"]) + " , " +
-                                                                    String.Format("{0:0.00}", DesiredPosition["Y"]) + " , " +
-                                                                    String.Format("{0:0.00}", DesiredPosition["Z"]) + ")");
-            text["msg"].AppendLine("Command Position:     (" + String.Format("{0:0.00}", CommandedPosition["X"]) + " , " +
-                                                                    String.Format("{0:0.00}", CommandedPosition["Y"]) + " , " +
-                                                                    String.Format("{0:0.00}", CommandedPosition["Z"]) + ")");
+            _text["msg"].Clear();
+            _text["msg"].AppendLine("---------------------------------\n              Info:\n");
+            _text["msg"].AppendLine("Current Position:     (" + String.Format("{0:0.00}", _ReadPosition["X"]) + " , " +
+                                                                    String.Format("{0:0.00}", _ReadPosition["Y"]) + " , " +
+                                                                    String.Format("{0:0.00}", _ReadPosition["Z"]) + ")");
+            _text["msg"].AppendLine("Desired Position:     (" + String.Format("{0:0.00}", _DesiredPosition["X"]) + " , " +
+                                                                    String.Format("{0:0.00}", _DesiredPosition["Y"]) + " , " +
+                                                                    String.Format("{0:0.00}", _DesiredPosition["Z"]) + ")");
+            _text["msg"].AppendLine("Command Position:     (" + String.Format("{0:0.00}", _CommandedPosition["X"]) + " , " +
+                                                                    String.Format("{0:0.00}", _CommandedPosition["Y"]) + " , " +
+                                                                    String.Format("{0:0.00}", _CommandedPosition["Z"]) + ")");
 
-            text["msg"].AppendLine("Max Speed: " + CurrentTrajectory.MaxSpeed.ToString() + "mm per cycle");
+            _text["msg"].AppendLine("Max Speed: " + CurrentMotionMaxSpeed.ToString() + "mm per cycle");
             if (GripperIsOpen)
             {
-                text["msg"].AppendLine("Gripper is OPEN.");
+                _text["msg"].AppendLine("Gripper is OPEN.");
             }
             else
             {
-                text["msg"].AppendLine("Gripper is CLOSED");
+                _text["msg"].AppendLine("Gripper is CLOSED");
             }
-            if (CurrentTrajectory.IsActive)
+            if (_CurrentTrajectory.IsActive)
             {
-                text["msg"].AppendLine("Trajectory is Active");
+                _text["msg"].AppendLine("Trajectory is Active");
             }
             else
             {
-                text["msg"].AppendLine("Trajectory is NOT Active");
+                _text["msg"].AppendLine("Trajectory is NOT Active");
             }
+            _text["msg"].AppendLine("Process data time: " + processDataTimer.ToString() + "ms.");
 
         }
         #endregion
@@ -143,91 +198,102 @@ namespace LightWeight_Server
             loopTime = 1.0 * KukaUpdateTime.ElapsedTicks / TimeSpan.TicksPerSecond;
             KukaUpdateTime.Restart();
 
-            LastPosition["X"] = ReadPosition["X"];
-            LastPosition["Y"] = ReadPosition["Y"];
-            LastPosition["Z"] = ReadPosition["Z"];
-            LastPosition["A"] = ReadPosition["A"];
-            LastPosition["B"] = ReadPosition["B"];
-            LastPosition["C"] = ReadPosition["C"];
+            _LastPosition["X"] = _ReadPosition["X"];
+            _LastPosition["Y"] = _ReadPosition["Y"];
+            _LastPosition["Z"] = _ReadPosition["Z"];
+            _LastPosition["A"] = _ReadPosition["A"];
+            _LastPosition["B"] = _ReadPosition["B"];
+            _LastPosition["C"] = _ReadPosition["C"];
 
-            ReadPosition["X"] = x;
-            ReadPosition["Y"] = y;
-            ReadPosition["Z"] = z;
-            ReadPosition["A"] = a;
-            ReadPosition["B"] = b;
-            ReadPosition["C"] = c;
+            _ReadPosition["X"] = x;
+            _ReadPosition["Y"] = y;
+            _ReadPosition["Z"] = z;
+            _ReadPosition["A"] = a;
+            _ReadPosition["B"] = b;
+            _ReadPosition["C"] = c;
 
-            LastVelocity["X"] = Velocity["X"];
-            LastVelocity["Y"] = Velocity["Y"];
-            LastVelocity["Z"] = Velocity["Z"];
-            LastVelocity["A"] = Velocity["A"];
-            LastVelocity["B"] = Velocity["B"];
-            LastVelocity["C"] = Velocity["C"];
+            _LastVelocity["X"] = _Velocity["X"];
+            _LastVelocity["Y"] = _Velocity["Y"];
+            _LastVelocity["Z"] = _Velocity["Z"];
+            _LastVelocity["A"] = _Velocity["A"];
+            _LastVelocity["B"] = _Velocity["B"];
+            _LastVelocity["C"] = _Velocity["C"];
 
-            Velocity["X"] = 1.0 * (ReadPosition["X"] - LastPosition["X"]) / loopTime;
-            Velocity["Y"] = 1.0 * (ReadPosition["Y"] - LastPosition["Y"]) / loopTime;
-            Velocity["Z"] = 1.0 * (ReadPosition["Z"] - LastPosition["Z"]) / loopTime;
-            Velocity["A"] = 1.0 * (ReadPosition["A"] - LastPosition["A"]) / loopTime;
-            Velocity["B"] = 1.0 * (ReadPosition["B"] - LastPosition["B"]) / loopTime;
-            Velocity["C"] = 1.0 * (ReadPosition["C"] - LastPosition["C"]) / loopTime;
+            _Velocity["X"] = 1.0 * (_ReadPosition["X"] - _LastPosition["X"]) / loopTime;
+            _Velocity["Y"] = 1.0 * (_ReadPosition["Y"] - _LastPosition["Y"]) / loopTime;
+            _Velocity["Z"] = 1.0 * (_ReadPosition["Z"] - _LastPosition["Z"]) / loopTime;
+            _Velocity["A"] = 1.0 * (_ReadPosition["A"] - _LastPosition["A"]) / loopTime;
+            _Velocity["B"] = 1.0 * (_ReadPosition["B"] - _LastPosition["B"]) / loopTime;
+            _Velocity["C"] = 1.0 * (_ReadPosition["C"] - _LastPosition["C"]) / loopTime;
 
-            acceleration["X"] = 1.0 * (Velocity["X"] - LastVelocity["X"]) / loopTime;
-            acceleration["Y"] = 1.0 * (Velocity["Y"] - LastVelocity["Y"]) / loopTime;
-            acceleration["Z"] = 1.0 * (Velocity["Z"] - LastVelocity["Z"]) / loopTime;
-            acceleration["A"] = 1.0 * (Velocity["A"] - LastVelocity["A"]) / loopTime;
-            acceleration["B"] = 1.0 * (Velocity["B"] - LastVelocity["B"]) / loopTime;
-            acceleration["C"] = 1.0 * (Velocity["C"] - LastVelocity["C"]) / loopTime;
+            _acceleration["X"] = 1.0 * (_Velocity["X"] - _LastVelocity["X"]) / loopTime;
+            _acceleration["Y"] = 1.0 * (_Velocity["Y"] - _LastVelocity["Y"]) / loopTime;
+            _acceleration["Z"] = 1.0 * (_Velocity["Z"] - _LastVelocity["Z"]) / loopTime;
+            _acceleration["A"] = 1.0 * (_Velocity["A"] - _LastVelocity["A"]) / loopTime;
+            _acceleration["B"] = 1.0 * (_Velocity["B"] - _LastVelocity["B"]) / loopTime;
+            _acceleration["C"] = 1.0 * (_Velocity["C"] - _LastVelocity["C"]) / loopTime;
 
         }
 
         public void updateRobotTorque(double a1, double a2, double a3, double a4, double a5, double a6)
         {
-            Torque["A1"] = a1;
-            Torque["A2"] = a2;
-            Torque["A3"] = a3;
-            Torque["A4"] = a4;
-            Torque["A5"] = a5;
-            Torque["A6"] = a6;
+            _Torque["A1"] = a1;
+            _Torque["A2"] = a2;
+            _Torque["A3"] = a3;
+            _Torque["A4"] = a4;
+            _Torque["A5"] = a5;
+            _Torque["A6"] = a6;
         }
 
-        void newPosition()
+        /// <summary>
+        /// Resets timer and sets is active to true. Must occure in a trajectory lock.
+        /// </summary>
+        void startMovement()
         {
-            double[] finalPosition = new double[] { DesiredPosition["X"], DesiredPosition["Y"], DesiredPosition["Z"] };
-            CurrentTrajectory = new Trajectory(finalPosition, this);
+            // Start timer
+            KukaUpdateTime.Restart();
+            _CurrentTrajectory.IsActive = true;
         }
 
-        public double GetCommandPosition(int Axis)
+        public void newPosition(double x, double y, double z)
         {
-            if (CurrentTrajectory.IsActive)
+            _DesiredPosition["X"] = x;
+            _DesiredPosition["Y"] = y;
+            _DesiredPosition["Z"] = z;
+            lock (trajectoryLock)
             {
-                double[] newComandPos = getKukaDisplacement();
-
-                return newComandPos[Axis];
-
-            }
-            else
-            {
-                return 0.0;
+                _CurrentTrajectory = new Trajectory( x, y, z, this);
+                startMovement();
             }
         }
 
-        void updateComandPosition()
+
+
+        double[] GetCommandPosition()
         {
-            if (CurrentTrajectory.IsActive)
+            lock (trajectoryLock)
             {
-                double[] newComandPos = getKukaDisplacement();
-
-                CommandedPosition["X"] = newComandPos[0];
-                CommandedPosition["Y"] = newComandPos[1];
-                CommandedPosition["Z"] = newComandPos[2];
+                if (_CurrentTrajectory.IsActive)
+                {
+                    return getKukaDisplacement();
+                }
+                else
+                {
+                    return new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+                }
 
             }
-            else
-            {
-                CommandedPosition["X"] = 0.0;
-                CommandedPosition["Y"] = 0.0;
-                CommandedPosition["Z"] = 0.0;
-            }
+
+        }
+
+        public void updateComandPosition()
+        {
+            double[] newComandPos = GetCommandPosition();
+
+            _CommandedPosition["X"] = newComandPos[0];
+            _CommandedPosition["Y"] = newComandPos[1];
+            _CommandedPosition["Z"] = newComandPos[2];
+
             /*
             try
             {
@@ -244,20 +310,19 @@ namespace LightWeight_Server
 
             }
              * */
-
         }
 
         double[] getKukaDisplacement()
         {
-            double[] displacement = new double[3];
+            double[] displacement = new double[6];
             double sumDisplacement = 0;
-            // For each axis of movement get isplacement of current position and trajectory position
+            // For each axis of movement get displacement of current position and trajectory position
             for (int i = 0; i < 3; i++)
             {
-                displacement[i] = CurrentTrajectory.RefPos(i) - ReadPosition[CurrentTrajectory.axisKey[i]];
+                displacement[i] = _CurrentTrajectory.RefPos(i) - _ReadPosition[StaticFunctions.getCardinalKey(i)];
                 if (Math.Abs(displacement[i]) > 0.5)
                 {
-                    updateError("Error, " + CurrentTrajectory.axisKey[i] + " Axis sent a huge distance, at " + displacement[i].ToString() + "mm");
+                    updateError("Error, " + StaticFunctions.getCardinalKey(i) + " Axis sent a huge distance, at " + displacement[i].ToString() + "mm");
                     displacement[i] = 0.5 * Math.Sign(displacement[i]);
                 }
                 sumDisplacement += displacement[i];
@@ -265,13 +330,22 @@ namespace LightWeight_Server
             // Are we within 0.05mm of goal?
             if (Math.Abs(sumDisplacement) < 0.05)
             {
-                CurrentTrajectory.IsActive = false;
+                _CurrentTrajectory.IsActive = false;
             }
             return displacement;
         }
+
+        public void flushCommands()
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                _CommandedPosition[StaticFunctions.getCardinalKey(i)] = 0.0;
+            }
+        }
+
         #endregion
 
-        #region Setup
+        #region Dictionary Setup
 
         void setupCardinalDictionaries(ConcurrentDictionary<string, double> dic)
         {
@@ -304,5 +378,7 @@ namespace LightWeight_Server
         }
         #endregion
 
+
+        public double _processDataTimer { get; set; }
     }
 }

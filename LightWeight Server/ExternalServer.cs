@@ -22,9 +22,9 @@ namespace LightWeight_Server
         IPEndPoint _localEP;
         int _Port;
         XmlDocument _SendXML;
-        
+
         RobotInfo _Robot;
-        
+
         #region Constructor:
         /// <summary>
         /// Creates a UDP server with XML read and write via a port with threadSafe shared robot information
@@ -35,9 +35,9 @@ namespace LightWeight_Server
         {
             _Robot = robot;
             _Port = port;
-            
+
             SetupXML();
-            
+
             // Create Socket
             string catchStatement = "while trying to create new socket:";
             try
@@ -159,7 +159,7 @@ namespace LightWeight_Server
                 return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
         }
-        
+
         public void ConstantReceive()
         {
             while (true)
@@ -225,7 +225,7 @@ namespace LightWeight_Server
 
                 // Process byte information on state object
                 processData(connectedState);
-                
+
                 haveReceived.Set();
                 // Send return message to same connection that the data was received.
                 SendData(connectedState);
@@ -310,16 +310,15 @@ namespace LightWeight_Server
             string catchStatement = "while trying to process Data:";
             try
             {
+
                 // Encode msg from state object
                 State.MessageIn = Encoding.UTF8.GetString(State.PacketIn, 0, State.PacketInSize);
-
+                double[] newPosition = new double[3];
                 // create xml document from state message in.
                 XmlDocument xmlIn = new XmlDocument();
                 xmlIn.LoadXml(State.MessageIn);
-                //_Robot.updateError(State.MessageIn);
-                // Update desired position from xml document.
-               // XmlNode parentNode = xmlIn.ChildNodes("//Robot");
 
+                // Update desired position from xml document.
                 XmlNodeList parentNode = xmlIn.ChildNodes;
                 XmlNodeList ExternalInfoNodes = parentNode.Item(0).ChildNodes;
                 foreach (XmlNode Node in ExternalInfoNodes)
@@ -327,9 +326,7 @@ namespace LightWeight_Server
                     switch (Node.Name)
                     {
                         case "Position":
-                            _Robot.DesiredPosition["X"] = double.Parse(Node.Attributes["X"].Value);
-                            _Robot.DesiredPosition["Y"] = double.Parse(Node.Attributes["Y"].Value);
-                            _Robot.DesiredPosition["Z"] = double.Parse(Node.Attributes["Z"].Value);    
+                            _Robot.newPosition(double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value), double.Parse(Node.Attributes["Z"].Value));
                             break;
 
                         case "Velocity":
@@ -349,9 +346,6 @@ namespace LightWeight_Server
                             break;
                     }
                 }
-
-                _Robot.newPosition();
-
                 UpdateXML(State);
 
             }
@@ -461,7 +455,7 @@ namespace LightWeight_Server
             return sb.ToString();
         }
 
-        
+
         /// <summary>
         /// updates the _sendXML XDocument object with position, velocity and acceleration then copies the updated xml document to the state object.
         /// </summary>
@@ -471,34 +465,28 @@ namespace LightWeight_Server
             XmlNode currentPosition = _SendXML.SelectSingleNode("//Robot/Position");
             if (currentPosition != null)
             {
-                currentPosition.Attributes["X"].Value = String.Format("{0:0.0000}", _Robot.ReadPosition["X"]);
-                currentPosition.Attributes["Y"].Value = String.Format("{0:0.0000}", _Robot.ReadPosition["Y"]);
-                currentPosition.Attributes["Z"].Value = String.Format("{0:0.0000}", _Robot.ReadPosition["Z"]);
-                currentPosition.Attributes["A"].Value = String.Format("{0:0.0000}", _Robot.ReadPosition["A"]);
-                currentPosition.Attributes["B"].Value = String.Format("{0:0.0000}", _Robot.ReadPosition["B"]);
-                currentPosition.Attributes["C"].Value = String.Format("{0:0.0000}", _Robot.ReadPosition["C"]);
+                for (int i = 0; i < 6; i++)
+                {
+                    currentPosition.Attributes[StaticFunctions.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CurrentPosition(i));
+                }
             }
 
             XmlNode currentVelocity = _SendXML.SelectSingleNode("//Robot/Velocity");
             if (currentVelocity != null)
             {
-                currentVelocity.Attributes["X"].Value = String.Format("{0:0.0000}", _Robot.Velocity["X"]);
-                currentVelocity.Attributes["Y"].Value = String.Format("{0:0.0000}", _Robot.Velocity["Y"]);
-                currentVelocity.Attributes["Z"].Value = String.Format("{0:0.0000}", _Robot.Velocity["Z"]);
-                currentVelocity.Attributes["A"].Value = String.Format("{0:0.0000}", _Robot.Velocity["A"]);
-                currentVelocity.Attributes["B"].Value = String.Format("{0:0.0000}", _Robot.Velocity["B"]);
-                currentVelocity.Attributes["C"].Value = String.Format("{0:0.0000}", _Robot.Velocity["C"]);
+                for (int i = 0; i < 6; i++)
+                {
+                    currentVelocity.Attributes[StaticFunctions.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CurrentVelocity(i));
+                }
             }
 
             XmlNode currentAcceleration = _SendXML.SelectSingleNode("//Robot/Acceleration");
             if (currentAcceleration != null)
             {
-                currentAcceleration.Attributes["X"].Value = String.Format("{0:0.0000}", _Robot.acceleration["X"]);
-                currentAcceleration.Attributes["Y"].Value = String.Format("{0:0.0000}", _Robot.acceleration["Y"]);
-                currentAcceleration.Attributes["Z"].Value = String.Format("{0:0.0000}", _Robot.acceleration["Z"]);
-                currentAcceleration.Attributes["A"].Value = String.Format("{0:0.0000}", _Robot.acceleration["A"]);
-                currentAcceleration.Attributes["B"].Value = String.Format("{0:0.0000}", _Robot.acceleration["B"]);
-                currentAcceleration.Attributes["C"].Value = String.Format("{0:0.0000}", _Robot.acceleration["C"]);
+                for (int i = 0; i < 6; i++)
+                {
+                    currentAcceleration.Attributes[StaticFunctions.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CurrentAcceleration(i));
+                }
             }
 
             state.XMLout = (XmlDocument)_SendXML.Clone();

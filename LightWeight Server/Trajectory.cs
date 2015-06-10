@@ -18,42 +18,21 @@ namespace LightWeight_Server
 {
     class Trajectory
     {
-        // Threadsafe Locks
-        private object speedLock = new object();
-        private object activeLock = new object();
 
-        private double maxSpeed = 0.5;
-        private double[,] quinticParameters;
+        public double maxSpeed = 0.5;
+        double[,] quinticParameters;
         //private readonly Quaternion finalOrientation;
 
         public double AVE_SPEED = 10; // Average velocity used to calculate trajectories (mm/s)
 
-        private TimeSpan trajectoryTime;
-        private bool isActive = false;
-        private Stopwatch elapsedTime;
-        public string[] axisKey = new string[] { "X", "Y", "Z" };
+        TimeSpan trajectoryTime;
+        bool isActive = false;
+        Stopwatch elapsedTime;
         double[] _finalPosition;
-        public double[] normalVector, displacemnet;
+        double[] normalVector, displacemnet;
 
         RobotInfo _robot;
 
-        public double MaxSpeed
-        {
-            get
-            {
-                lock (speedLock)
-                {
-                    return maxSpeed;
-                }
-            }
-            set
-            {
-                lock (speedLock)
-                {
-                    maxSpeed = value;
-                }
-            }
-        }
 
         /// <summary>
         /// Overloaded constructor for various poses
@@ -61,21 +40,19 @@ namespace LightWeight_Server
         /// Set up variables, quaternion for slerp and time from cardinal distance
         /// Populate quintinParameters with x y z quintic curves where each entry in the list is the next point
         /// </summary>
-        public Trajectory(double[] FinalPose, RobotInfo robot)
+        public Trajectory(double finalX, double finalY, double finalZ, RobotInfo robot)
         {
-            _finalPosition = FinalPose;
+            _finalPosition = new double[] { finalX, finalY, finalZ };
             elapsedTime = new Stopwatch();
-            /* if (pose.Length == 6)
-             {
-                 finalOrientation = StaticFunctions.MakeQuaternion(pose);
-             }*/
-            _robot = robot;
-            double distance = Math.Sqrt(Math.Pow(FinalPose[0] - robot.ReadPosition["X"], 2) + Math.Pow(FinalPose[1] - robot.ReadPosition["Y"], 2) + Math.Pow(FinalPose[2] - robot.ReadPosition["Z"], 2));
 
-            trajectoryTime = new TimeSpan(0, 0, 0, 0, Convert.ToInt32(1000 * 1.2 * (distance / AVE_SPEED)));
+            _robot = robot;
+            double distance = Math.Sqrt(Math.Pow(finalX - robot.CurrentPosition(0), 2) + Math.Pow(finalY - robot.CurrentPosition(1), 2) + Math.Pow(finalZ - robot.CurrentPosition(2), 2));
+
+            trajectoryTime = new TimeSpan(0, 0, 0, 0, Convert.ToInt32(1000 * (distance / AVE_SPEED)));
             _robot.updateError("Current Distance = " + distance.ToString() + " Time: " + (trajectoryTime.Milliseconds).ToString());
             quinticParameters = new double[6, 3];
             FindQuintic(_finalPosition);
+
             IsActive = true;
         }
 
@@ -86,7 +63,7 @@ namespace LightWeight_Server
             displacemnet = new double[3];
             for (int i = 0; i < 3; i++)
             {
-                displacemnet[i] = _finalPosition[i] - _robot.ReadPosition[axisKey[i]];
+                displacemnet[i] = _finalPosition[i] - _robot.CurrentPosition(i);
             }
             normalVector = new double[3];
             double magnatude = Math.Sqrt(Math.Pow(displacemnet[0], 2) + Math.Pow(displacemnet[1], 2) + Math.Pow(displacemnet[2], 2));
@@ -95,7 +72,7 @@ namespace LightWeight_Server
 
             for (int i = 0; i < 3; i++)
             {
-                normalVector[i] = MaxSpeed * sf * displacemnet[i] / magnatude;
+                normalVector[i] = maxSpeed * sf * displacemnet[i] / magnatude;
 
             }
         }
@@ -108,26 +85,22 @@ namespace LightWeight_Server
         {
             get
             {
-                lock (activeLock)
-                {
-                    return isActive;
-                }
+                return isActive;
+
             }
             set
             {
-                lock (activeLock)
+                if (!isActive & value)
                 {
-                    if (!isActive & value)
-                    {
-                        isActive = value;
-                        elapsedTime.Start();
-                    }
-                    else if (isActive & !value)
-                    {
-                        isActive = value;
-                        elapsedTime.Reset();
-                    }
+                    isActive = value;
+                    elapsedTime.Start();
                 }
+                else if (isActive & !value)
+                {
+                    isActive = value;
+                    elapsedTime.Reset();
+                }
+
             }
         }
 
@@ -140,7 +113,6 @@ namespace LightWeight_Server
             if (elapsedTime.ElapsedMilliseconds > trajectoryTime.Milliseconds)
             {
                 _robot.updateError("elapse time is exceeded : " + elapsedTime.ElapsedMilliseconds + "ms Of " + trajectoryTime.Milliseconds + "ms");
-                IsActive = false;
                 return _finalPosition[Axis];
             }
             else
@@ -194,7 +166,7 @@ namespace LightWeight_Server
             Matrix<double> tempQuinticParam = Matrix<double>.Build.Dense(6, 3);
             for (int i = 0; i < 3; i++)
             {
-                tempQuinticParam.SetColumn(i, FindCurve(0, 1.0 * trajectoryTime.Milliseconds, _robot.ReadPosition[axisKey[i]], poses[i], _robot.Velocity[axisKey[i]], 0)); // magic numbers are zero start time and zero final velocity
+                tempQuinticParam.SetColumn(i, FindCurve(0, 1.0 * trajectoryTime.Milliseconds, _robot.CurrentPosition(i), poses[i], _robot.CurrentVelocity(i), 0)); // magic numbers are zero start time and zero final velocity
 
             }
             quinticParameters = tempQuinticParam.ToArray();
