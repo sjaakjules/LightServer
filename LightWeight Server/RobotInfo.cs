@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Xna.Framework;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -81,6 +82,21 @@ namespace LightWeight_Server
         {
             return StaticFunctions.Getvalue(_acceleration, StaticFunctions.getCardinalKey(index));
         }
+
+        public double[] currentDoublePose { get { return StaticFunctions.getCardinalDoubleArray(_ReadPosition); } }
+
+        public Matrix currentPose
+        {
+            get
+            {
+                double[] doublePose = currentDoublePose;
+                Matrix pose = Matrix.CreateFromQuaternion(StaticFunctions.MakeQuaternion(currentDoublePose));
+                pose.Translation = new Vector3((float)doublePose[0], (float)doublePose[1], (float)doublePose[2]);
+                return pose;
+            }
+        }
+
+        public Quaternion currentRotation { get { return StaticFunctions.MakeQuaternion(currentDoublePose); } }
 
         public double MaxSpeed
         {

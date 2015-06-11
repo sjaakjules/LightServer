@@ -4,35 +4,61 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-//using Microsoft.Xna.Framework;
-//using Microsoft.Xna.Framework.Audio;
-//using Microsoft.Xna.Framework.Content;
-//using Microsoft.Xna.Framework.GamerServices;
-//using Microsoft.Xna.Framework.Graphics;
-//using Microsoft.Xna.Framework.Input;
-//using Microsoft.Xna.Framework.Media;
-//using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Audio;
+using Microsoft.Xna.Framework.Content;
+using Microsoft.Xna.Framework.GamerServices;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Media;
+using Microsoft.Xna.Framework;
 using MathNet.Numerics.LinearAlgebra;
-
+ 
 namespace LightWeight_Server
 {
     class Trajectory
     {
+        double[,] _quinticParameters = new double[4, 6];
+        Stopwatch _elapsedTime = new Stopwatch();
+        bool _isActive = false;
+        Matrix _finalPose;
+        TimeSpan _trajectoryTime;
 
-        public double maxSpeed = 0.5;
-        double[,] quinticParameters;
-        //private readonly Quaternion finalOrientation;
+        //double[] normalVector, displacemnet;
 
-        public double AVE_SPEED = 10; // Average velocity used to calculate trajectories (mm/s)
+        RobotInfo _robot; 
 
-        TimeSpan trajectoryTime;
-        bool isActive = false;
-        Stopwatch elapsedTime;
-        double[] _finalPosition;
-        double[] normalVector, displacemnet;
+        public Trajectory(RobotInfo robot)
+        {
+            _robot = robot;
+        }
 
-        RobotInfo _robot;
 
+        /// <summary>
+        /// Controls when the trajectory begins moving
+        /// </summary>
+        public Boolean IsActive
+        {
+            get
+            {
+                return _isActive;
+
+            }
+            set
+            {
+                if (!_isActive & value)
+                {
+                    _isActive = value;
+                    _elapsedTime.Start();
+                }
+                else if (_isActive & !value)
+                {
+                    _isActive = value;
+                    _elapsedTime.Reset();
+                }
+
+            }
+        }
 
         /// <summary>
         /// Overloaded constructor for various poses
@@ -40,23 +66,47 @@ namespace LightWeight_Server
         /// Set up variables, quaternion for slerp and time from cardinal distance
         /// Populate quintinParameters with x y z quintic curves where each entry in the list is the next point
         /// </summary>
-        public Trajectory(double finalX, double finalY, double finalZ, RobotInfo robot)
+        public Trajectory(double finalX, double finalY, double finalZ, RobotInfo robot) : this(robot)
         {
-            _finalPosition = new double[] { finalX, finalY, finalZ };
-            elapsedTime = new Stopwatch();
-
-            _robot = robot;
-            double distance = Math.Sqrt(Math.Pow(finalX - robot.CurrentPosition(0), 2) + Math.Pow(finalY - robot.CurrentPosition(1), 2) + Math.Pow(finalZ - robot.CurrentPosition(2), 2));
-
-            trajectoryTime = new TimeSpan(0, 0, 0, 0, Convert.ToInt32(1000 * (distance / AVE_SPEED)));
-            //_robot.updateError("Current Distance = " + distance.ToString() + " Time: " + (trajectoryTime.Milliseconds).ToString());
-            quinticParameters = new double[6, 3];
-            FindQuintic(_finalPosition);
-
-            IsActive = true;
+            _finalPose = Matrix.Identity;
+            _finalPose.Translation = new Vector3((float)finalX, (float)finalY, (float)finalZ);
         }
 
+        public Trajectory(double[] finalPosition, Vector3[] finalRotation, RobotInfo robot) : this(robot)
+        {
+            _finalPose = new Matrix(finalRotation[0].X,     finalRotation[0].Y,         finalRotation[0].Z,     0f, 
+                                    finalRotation[1].X,     finalRotation[1].Y,         finalRotation[1].Z,     0f, 
+                                    finalRotation[2].X,     finalRotation[2].Y,         finalRotation[2].Z,     0f, 
+                                    (float)finalPosition[0], (float)finalPosition[1],   (float)finalPosition[2], 1f);
 
+        }
+
+        public Trajectory(Matrix finalPose, RobotInfo robot) : this(robot) 
+        {
+            _finalPose = finalPose;
+        }
+
+        public void Start()
+        {
+            if (IsActive)
+            {
+                _robot.updateError("Trying to start while active...");
+            }
+            else
+            {
+                double totalDistance = Math.Sqrt(Math.Pow(_finalPose.Translation.X - _robot.CurrentPosition(0), 2) + Math.Pow(_finalPose.Translation.Y - _robot.CurrentPosition(1), 2) + Math.Pow(_finalPose.Translation.Z - _robot.CurrentPosition(2), 2));
+                _trajectoryTime = new TimeSpan(0, 0, 0, 0, Convert.ToInt32(1000 * (totalDistance / _robot.MaxSpeed)));
+                FindQuintic();
+                IsActive = true;
+            }
+        }
+
+        public void Stop()
+        {
+
+        }
+
+        /*
         public void updateSpeed()
         {
 
@@ -76,52 +126,34 @@ namespace LightWeight_Server
 
             }
         }
+        */
 
 
-        /// <summary>
-        /// Controls when the trajectory begins moving
-        /// </summary>
-        public Boolean IsActive
+        public double[] getReferencePosition()
         {
-            get
+            if (_elapsedTime.ElapsedMilliseconds > _trajectoryTime.Milliseconds)
             {
-                return isActive;
-
-            }
-            set
-            {
-                if (!isActive & value)
-                {
-                    isActive = value;
-                    elapsedTime.Start();
-                }
-                else if (isActive & !value)
-                {
-                    isActive = value;
-                    elapsedTime.Reset();
-                }
-
+                return 
             }
         }
-
 
         /// <summary>
         /// Gets the Position at a specified time, returns -1 if out of time boundaries
         /// </summary>
         public double RefPos(int Axis)
         {
-            if (elapsedTime.ElapsedMilliseconds > trajectoryTime.Milliseconds)
+            if (_elapsedTime.ElapsedMilliseconds > _trajectoryTime.Milliseconds)
             {
                 //_robot.updateError("elapse time is exceeded : " + elapsedTime.ElapsedMilliseconds + "ms Of " + trajectoryTime.Milliseconds + "ms");
                 return _finalPosition[Axis];
             }
             else
-                return quinticParameters[0, Axis] +
-                    quinticParameters[1, Axis] * Math.Pow(elapsedTime.ElapsedMilliseconds, 1) +
-                    quinticParameters[2, Axis] * Math.Pow(elapsedTime.ElapsedMilliseconds, 2) +
-                    quinticParameters[3, Axis] * Math.Pow(elapsedTime.ElapsedMilliseconds, 3) +
-                    quinticParameters[4, Axis] * Math.Pow(elapsedTime.ElapsedMilliseconds, 4) +
-                    quinticParameters[5, Axis] * Math.Pow(elapsedTime.ElapsedMilliseconds, 5);
+                return _quinticParameters[0, Axis] +
+                    _quinticParameters[1, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 1) +
+                    _quinticParameters[2, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 2) +
+                    _quinticParameters[3, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 3) +
+                    _quinticParameters[4, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 4) +
+                    _quinticParameters[5, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 5);
         }
 
         /// <summary>
@@ -129,16 +161,16 @@ namespace LightWeight_Server
         /// </summary>
         public double RefVel(int Axis)
         {
-            if (elapsedTime.ElapsedMilliseconds > trajectoryTime.Milliseconds)
+            if (_elapsedTime.ElapsedMilliseconds > _trajectoryTime.Milliseconds)
             {
                 return 0;
             }
             else
-                return quinticParameters[1, Axis] +
-                    2 * quinticParameters[2, Axis] * Math.Pow(elapsedTime.ElapsedMilliseconds, 1) +
-                    3 * quinticParameters[3, Axis] * Math.Pow(elapsedTime.ElapsedMilliseconds, 2) +
-                    4 * quinticParameters[4, Axis] * Math.Pow(elapsedTime.ElapsedMilliseconds, 3) +
-                    5 * quinticParameters[5, Axis] * Math.Pow(elapsedTime.ElapsedMilliseconds, 4);
+                return _quinticParameters[1, Axis] +
+                    2 * _quinticParameters[2, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 1) +
+                    3 * _quinticParameters[3, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 2) +
+                    4 * _quinticParameters[4, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 3) +
+                    5 * _quinticParameters[5, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 4);
         }
 
         /// <summary>
@@ -146,30 +178,40 @@ namespace LightWeight_Server
         /// </summary>
         public double RefAcc(int Axis)
         {
-            if (elapsedTime.ElapsedMilliseconds > trajectoryTime.Milliseconds)
+            if (_elapsedTime.ElapsedMilliseconds > _trajectoryTime.Milliseconds)
             {
                 return 0;
             }
             else
-                return 2 * quinticParameters[2, Axis] +
-                    6 * quinticParameters[3, Axis] * Math.Pow(elapsedTime.ElapsedMilliseconds, 1) +
-                    12 * quinticParameters[4, Axis] * Math.Pow(elapsedTime.ElapsedMilliseconds, 2) +
-                    20 * quinticParameters[5, Axis] * Math.Pow(elapsedTime.ElapsedMilliseconds, 3);
+                return 2 * _quinticParameters[2, Axis] +
+                    6 * _quinticParameters[3, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 1) +
+                    12 * _quinticParameters[4, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 2) +
+                    20 * _quinticParameters[5, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 3);
+        }
+
+
+        private void FindQuintic()
+        {
+            Quaternion finalRotation = Quaternion.CreateFromRotationMatrix(_finalPose);
+            Quaternion currentRotation = _robot.currentRotation;
+            Quaternion.Slerp(currentRotation, finalRotation, )
+
         }
 
         /// <summary>
         /// Given a pose it calculates the quintic coefficients conserving the current position and velocity
         /// It assumes zero initial time, zero final velocity and when half the time has elapsed it is hafway  with the average velocity
         /// </summary>
+        /// <param name="poses"></param>
         private void FindQuintic(double[] poses)
         {
             Matrix<double> tempQuinticParam = Matrix<double>.Build.Dense(6, 3);
             for (int i = 0; i < 3; i++)
             {
-                tempQuinticParam.SetColumn(i, FindCurve(0, 1.0 * trajectoryTime.Milliseconds, _robot.CurrentPosition(i), poses[i], _robot.CurrentVelocity(i), 0)); // magic numbers are zero start time and zero final velocity
+                tempQuinticParam.SetColumn(i, FindCurve(0, 1.0 * _trajectoryTime.Milliseconds, _robot.CurrentPosition(i), poses[i], _robot.CurrentVelocity(i), 0)); // magic numbers are zero start time and zero final velocity
 
             }
-            quinticParameters = tempQuinticParam.ToArray();
+            _quinticParameters = tempQuinticParam.ToArray();
         }
 
         /// <summary>
