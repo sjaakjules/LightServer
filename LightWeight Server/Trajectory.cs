@@ -21,8 +21,10 @@ namespace LightWeight_Server
         double[,] _quinticParameters = new double[4, 6];
         Stopwatch _elapsedTime = new Stopwatch();
         bool _isActive = false;
-        Matrix _finalPose;
+        Matrix _finalPose, _startPose;
         TimeSpan _trajectoryTime;
+        Vector3 _axis;
+        float _finalAngle;
 
         //double[] normalVector, displacemnet;
 
@@ -48,13 +50,13 @@ namespace LightWeight_Server
             {
                 if (!_isActive & value)
                 {
+                    _elapsedTime.Restart();
                     _isActive = value;
-                    _elapsedTime.Start();
                 }
                 else if (_isActive & !value)
                 {
-                    _isActive = value;
                     _elapsedTime.Reset();
+                    _isActive = value;
                 }
 
             }
@@ -96,6 +98,7 @@ namespace LightWeight_Server
             {
                 double totalDistance = Math.Sqrt(Math.Pow(_finalPose.Translation.X - _robot.CurrentPosition(0), 2) + Math.Pow(_finalPose.Translation.Y - _robot.CurrentPosition(1), 2) + Math.Pow(_finalPose.Translation.Z - _robot.CurrentPosition(2), 2));
                 _trajectoryTime = new TimeSpan(0, 0, 0, 0, Convert.ToInt32(1000 * (totalDistance / _robot.MaxSpeed)));
+                _startPose = _robot.currentPose;
                 FindQuintic();
                 IsActive = true;
             }
@@ -103,8 +106,9 @@ namespace LightWeight_Server
 
         public void Stop()
         {
-
+            IsActive = false;
         }
+                
 
         /*
         public void updateSpeed()
@@ -129,25 +133,44 @@ namespace LightWeight_Server
         */
 
 
-        public double[] getReferencePosition()
+        public Matrix getReferencePose()
         {
+            Matrix referencePose = Matrix.Identity;
             if (_elapsedTime.ElapsedMilliseconds > _trajectoryTime.Milliseconds)
             {
-                return 
+                referencePose.M11 = _finalPose.M11;
+                referencePose.M12 = _finalPose.M12;
+                referencePose.M13 = _finalPose.M13;
+                referencePose.M14 = _finalPose.M14;
+                referencePose.M21 = _finalPose.M21;
+                referencePose.M22 = _finalPose.M22;
+                referencePose.M23 = _finalPose.M23;
+                referencePose.M24 = _finalPose.M24;
+                referencePose.M31 = _finalPose.M31;
+                referencePose.M32 = _finalPose.M32;
+                referencePose.M33 = _finalPose.M33;
+                referencePose.M34 = _finalPose.M34;
+                referencePose.M41 = _finalPose.M41;
+                referencePose.M42 = _finalPose.M42;
+                referencePose.M43 = _finalPose.M43;
+                referencePose.M44 = _finalPose.M44;
+                return referencePose;
             }
+            referencePose = Matrix.CreateFromQuaternion(Quaternion.CreateFromAxisAngle(_axis, 1.0f * _elapsedTime.ElapsedMilliseconds / _trajectoryTime.Milliseconds));
+            referencePose.Translation = RefPos();
+            return referencePose;
+        }
+
+        public Vector3 RefPos()
+        {
+            return new Vector3((float)RefPosition(0), (float)RefPosition(1), (float)RefPosition(1));
         }
 
         /// <summary>
         /// Gets the Position at a specified time, returns -1 if out of time boundaries
         /// </summary>
-        public double RefPos(int Axis)
+        public double RefPosition(int Axis)
         {
-            if (_elapsedTime.ElapsedMilliseconds > _trajectoryTime.Milliseconds)
-            {
-                //_robot.updateError("elapse time is exceeded : " + elapsedTime.ElapsedMilliseconds + "ms Of " + trajectoryTime.Milliseconds + "ms");
-                return _finalPosition[Axis];
-            }
-            else
                 return _quinticParameters[0, Axis] +
                     _quinticParameters[1, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 1) +
                     _quinticParameters[2, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 2) +
@@ -194,8 +217,15 @@ namespace LightWeight_Server
         {
             Quaternion finalRotation = Quaternion.CreateFromRotationMatrix(_finalPose);
             Quaternion currentRotation = _robot.currentRotation;
-            Quaternion.Slerp(currentRotation, finalRotation, )
-
+            Quaternion toRotation = Quaternion.Conjugate(currentRotation) * finalRotation;
+            StaticFunctions.getAxisAngle(toRotation, ref _axis, ref _finalAngle);
+            Matrix<double> tempQuinticParam = Matrix<double>.Build.Dense(6, 4);
+            // magic numbers are zero start time and zero final velocity
+            tempQuinticParam.SetColumn(0, FindCurve(0, 1.0 * _trajectoryTime.Milliseconds, _startPose.Translation.X, _finalPose.Translation.X, _robot.CurrentVelocity(0), 0));
+            tempQuinticParam.SetColumn(1, FindCurve(0, 1.0 * _trajectoryTime.Milliseconds, _startPose.Translation.Y, _finalPose.Translation.Y, _robot.CurrentVelocity(1), 0));
+            tempQuinticParam.SetColumn(2, FindCurve(0, 1.0 * _trajectoryTime.Milliseconds, _startPose.Translation.Z, _finalPose.Translation.Z, _robot.CurrentVelocity(2), 0));
+            tempQuinticParam.SetColumn(3, FindCurve(0, 1.0 * _trajectoryTime.Milliseconds, 0, _finalAngle, 0, 0));
+            _quinticParameters = tempQuinticParam.ToArray();
         }
 
         /// <summary>

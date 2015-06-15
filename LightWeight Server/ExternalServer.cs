@@ -340,7 +340,30 @@ namespace LightWeight_Server
                             }
                             if (newPosition[3] == 3)
                             {
-                                _Robot.newPosition(double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value), double.Parse(Node.Attributes["Z"].Value));
+                                _Robot.newPosition(newPosition[0], newPosition[1], newPosition[2]);
+                            }
+                            break;
+
+                        case "Angle":
+                            double[] newRotation = new double[10];
+                            for (int i = 0; i < 3; i++)
+                            {
+                                double result;
+                                if (double.TryParse(Node.Attributes[StaticFunctions.getrotationKeys(i)].Value, out result))
+                                {
+                                    newRotation[i] = result;
+                                    newRotation[9] += 1;
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+                            if (newRotation[9] == 9)
+                            {
+                                _Robot.newRotation((float)newRotation[0], (float)newRotation[1], (float)newRotation[2],
+                                                   (float)newRotation[3], (float)newRotation[4], (float)newRotation[5],
+                                                   (float)newRotation[6], (float)newRotation[7], (float)newRotation[8]);
                             }
                             break;
 

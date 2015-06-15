@@ -31,6 +31,7 @@ namespace LightWeight_Server
         ConcurrentDictionary<String, double> _Torque = new ConcurrentDictionary<string, double>();
         ConcurrentDictionary<String, double> _DesiredPosition = new ConcurrentDictionary<string, double>();
         ConcurrentDictionary<String, double> _CommandedPosition = new ConcurrentDictionary<string, double>();
+        Quaternion _DesiredRotation = Quaternion.Identity;
         // Thread safe lists for updating and storing of robot information.
         // public ConcurrentStack<StateObject> DataHistory;
 
@@ -51,6 +52,8 @@ namespace LightWeight_Server
         String _errorMsg = String.Empty;
 
         public readonly double[] homePosition = new double[] { 540.5, -18.1, 833.3, 0.0, 0.0, 0.0 };
+
+
 
         public double ProcessDataTimer
         {
@@ -89,14 +92,11 @@ namespace LightWeight_Server
         {
             get
             {
-                double[] doublePose = currentDoublePose;
-                Matrix pose = Matrix.CreateFromQuaternion(StaticFunctions.MakeQuaternion(currentDoublePose));
-                pose.Translation = new Vector3((float)doublePose[0], (float)doublePose[1], (float)doublePose[2]);
-                return pose;
+                return StaticFunctions.MakeMatrixFromKuka(currentDoublePose);
             }
         }
 
-        public Quaternion currentRotation { get { return StaticFunctions.MakeQuaternion(currentDoublePose); } }
+        public Quaternion currentRotation { get { return StaticFunctions.MakeQuaternionFromKuka(currentDoublePose); } }
 
         public double MaxSpeed
         {
@@ -176,8 +176,11 @@ namespace LightWeight_Server
             _isConnected = true;
         }
 
-        public void Disconnected()
+        public void Disconnect()
         {
+            _KukaCycleTime.Reset();
+            _processDataTimer = 0;
+            _maxProcessDataTimer = 0;
             _isConnected = false;
         }
 
@@ -240,15 +243,16 @@ namespace LightWeight_Server
                         Console.WriteLine("---------------------------------\n   Not Connected to Kuka Robot");
                         Console.WriteLine("{0} : {1} : {2} : {3} : {4} : {5}", _ReadPosition["X"], _ReadPosition["Y"], _ReadPosition["Z"], _ReadPosition["A"], _ReadPosition["B"], _ReadPosition["C"]);
                     }
-                    if (_KukaCycleTime.ElapsedMilliseconds > 500)
+                    if (_KukaCycleTime.ElapsedMilliseconds > 10000)
                     {
-                        _isConnected = false;
+                        Disconnect();
                     }
                     System.Threading.Thread.Sleep(100);
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
                     Console.WriteLine("Error printing to Screen");
+                    Console.WriteLine(e.Message);
                 }
 
             }
@@ -277,21 +281,15 @@ namespace LightWeight_Server
             {
                 _text["msg"].AppendLine("Gripper is CLOSED");
             }
-            if (_CurrentTrajectory.IsActive)
+            if (_isCommanded)
             {
+                _text["msg"].AppendLine("Robot is Commanded");
                 _text["msg"].AppendLine("Trajectory is Active");
             }
             else
             {
-                _text["msg"].AppendLine("Trajectory is NOT Active");
-            }
-            if (_isCommanded)
-            {
-                _text["msg"].AppendLine("Robot is Commanded");
-            }
-            else
-            {
                 _text["msg"].AppendLine("Robot is NOT Commanded");
+                _text["msg"].AppendLine("Trajectory is NOT Active");
             }
             _text["msg"].AppendLine("Process data time: " + _processDataTimer.ToString() + "ms.");
             _text["msg"].AppendLine("Max Process data time: " + _maxProcessDataTimer.ToString() + "ms.");
@@ -306,7 +304,14 @@ namespace LightWeight_Server
         {
             //updateError(x.ToString() + " : " + y.ToString() + " : " + z.ToString() + " : " + a.ToString() + " : " + b.ToString() + " : " + c.ToString());
             _KukaCycleTime.Stop();
-            _loopTime = 1.0 * _KukaCycleTime.ElapsedTicks / TimeSpan.TicksPerSecond;
+            if (_KukaCycleTime.ElapsedTicks == 0)
+            {
+                _loopTime = 1.0 / 73;
+            }
+            else
+            {
+                _loopTime = 1.0 * _KukaCycleTime.ElapsedTicks / TimeSpan.TicksPerSecond;
+            }
             _KukaCycleTime.Restart();
 
             _LastPosition["X"] = _ReadPosition["X"];
@@ -362,33 +367,38 @@ namespace LightWeight_Server
             {
                 if (_newCommandLoaded)
                 {
-                    _CurrentTrajectory = new Trajectory(StaticFunctions.Getvalue(_DesiredPosition, "X"), StaticFunctions.Getvalue(_DesiredPosition, "Y"), StaticFunctions.Getvalue(_DesiredPosition, "Z"), this);
+                    Matrix tempFinalPose = Matrix.CreateFromQuaternion(_DesiredRotation);
+                    tempFinalPose.Translation = new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]);
+                    _CurrentTrajectory = new Trajectory(tempFinalPose, this);
                     _CurrentTrajectory.Start();
                     _newCommandLoaded = false;
                     _isCommanded = true;
                 }
             }
         }
-
-        /// <summary>
-        /// Resets timer and sets is active to true. Must occure in a trajectory lock.
-        /// </summary>
-        void startMovement()
-        {
-            // Start timer
-            _KukaCycleTime.Restart();
-            _CurrentTrajectory.IsActive = true;
-        }
-
+        
         public void newPosition(double x, double y, double z)
         {
-            _DesiredPosition["X"] = x;
-            _DesiredPosition["Y"] = y;
-            _DesiredPosition["Z"] = z;
+            lock (trajectoryLock)
+            {
+                _DesiredPosition["X"] = x;
+                _DesiredPosition["Y"] = y;
+                _DesiredPosition["Z"] = z;
+            }
+            /*
             lock (trajectoryLock)
             {
                 _CurrentTrajectory = new Trajectory(x, y, z, this);
                 startMovement();
+            }
+             */
+        }
+
+        public void newRotation(float x1, float x2, float x3, float y1, float y2, float y3, float z1, float z2, float z3)
+        {
+            lock (trajectoryLock)
+            {
+                _DesiredRotation = Quaternion.CreateFromRotationMatrix(new Matrix(x1, x2, x3, 0, y1, y2, y3, 0, z1, z2, z3, 0, 0, 0, 0, 1));
             }
         }
 
@@ -396,19 +406,26 @@ namespace LightWeight_Server
 
         public void updateComandPosition()
         {
-            if (_isConnected && _isCommanded && _CurrentTrajectory.IsActive)
+            lock (trajectoryLock)
             {
-                // Update the command position all lights green
-                double[] newComandPos = getKukaDisplacement();
+                if (_isConnected && _isCommanded && _CurrentTrajectory.IsActive)
+                {
+                    // Update the command position all lights green
+                    double[] newComandPos = getKukaDisplacement();
 
-                _CommandedPosition["X"] = newComandPos[0];
-                _CommandedPosition["Y"] = newComandPos[1];
-                _CommandedPosition["Z"] = newComandPos[2];
-            }
-            else
-            {
-                // End condition, or disconnected half way command position is zero
-                flushCommands();
+                    _CommandedPosition["X"] = newComandPos[0];
+                    _CommandedPosition["Y"] = newComandPos[1];
+                    _CommandedPosition["Z"] = newComandPos[2];
+                    _CommandedPosition["A"] = newComandPos[3];
+                    _CommandedPosition["B"] = newComandPos[4];
+                    _CommandedPosition["C"] = newComandPos[5];
+                }
+                else
+                {
+                    // End condition, or disconnected half way command position is zero
+                    flushCommands();
+                }
+
             }
 
             /*
@@ -431,19 +448,22 @@ namespace LightWeight_Server
 
         double[] getKukaDisplacement()
         {
-            double[] displacement = new double[6];
+            Matrix tempRefPose = _CurrentTrajectory.getReferencePose();
+            double[] KukaUpdate = new double[6];
+            StaticFunctions.getKukaAngles(tempRefPose, ref KukaUpdate);
             double sumDisplacement = 0;
+
             // For each axis of movement get displacement of current position and trajectory position
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 6; i++)
             {
-                displacement[i] = _CurrentTrajectory.RefPos(i) - StaticFunctions.Getvalue(_ReadPosition, StaticFunctions.getCardinalKey(i));
-                if (Math.Abs(displacement[i]) > MaxDisplacement)
+                if (Math.Abs(KukaUpdate[i]) > MaxDisplacement)
                 {
-                    updateError("Error, " + StaticFunctions.getCardinalKey(i) + " Axis sent a huge distance, at " + displacement[i].ToString() + "mm");
-                    displacement[i] = 0.5 * Math.Sign(displacement[i]);
+                    updateError("Error, " + StaticFunctions.getCardinalKey(i) + " Axis sent a huge distance, at " + KukaUpdate[i].ToString() + "mm");
+                    KukaUpdate[i] = MaxDisplacement * Math.Sign(KukaUpdate[i]);
                 }
-                sumDisplacement += displacement[i];
+                sumDisplacement += KukaUpdate[i];
             }
+
             // Are we within 0.05mm of goal stop motion
             // NOTE TODO: angular coordinate end condition
             if (Math.Abs(sumDisplacement) < 0.05)
@@ -451,7 +471,7 @@ namespace LightWeight_Server
                 _isCommanded = false;
                 _CurrentTrajectory.Stop();
             }
-            return displacement;
+            return KukaUpdate;
         }
 
 
