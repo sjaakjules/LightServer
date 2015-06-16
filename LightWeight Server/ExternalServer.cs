@@ -346,7 +346,7 @@ namespace LightWeight_Server
 
                         case "Angle":
                             double[] newRotation = new double[10];
-                            for (int i = 0; i < 3; i++)
+                            for (int i = 0; i < 9; i++)
                             {
                                 double result;
                                 if (double.TryParse(Node.Attributes[StaticFunctions.getrotationKeys(i)].Value, out result))
