@@ -344,10 +344,11 @@ namespace LightWeight_Server
                             {
                                 _Robot.newPosition(newPosition[0], newPosition[1], newPosition[2]);
                                 _loadedPosition = true;
+                                _Robot.updateError("Position loaded");
                             }
                             break;
 
-                        case "Angle":
+                        case "Rotation":
                             double[] newRotation = new double[10];
                             for (int i = 0; i < 9; i++)
                             {
@@ -368,6 +369,7 @@ namespace LightWeight_Server
                                                    (float)newRotation[3], (float)newRotation[4], (float)newRotation[5],
                                                    (float)newRotation[6], (float)newRotation[7], (float)newRotation[8]);
                                 _loadedRotation = true;
+                                _Robot.updateError("Rotation loaded");
                             }
                             break;
 
@@ -390,7 +392,10 @@ namespace LightWeight_Server
                 }
                 if (_loadedPosition || _loadedRotation)
                 {
+                    _loadedPosition = false;
+                    _loadedRotation = false;
                     _Robot.LoadedCommand();
+                    _Robot.updateError("Loaded both rotation and position");
                 }
                 UpdateXML(State);
 

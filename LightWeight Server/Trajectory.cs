@@ -88,7 +88,7 @@ namespace LightWeight_Server
             _finalPose = finalPose;
         }
 
-        public void Start()
+        public void Start(Matrix startPose)
         {
             if (IsActive)
             {
@@ -96,10 +96,18 @@ namespace LightWeight_Server
             }
             else
             {
-                double totalDistance = Math.Sqrt(Math.Pow(_finalPose.Translation.X - _robot.CurrentPosition(0), 2) + Math.Pow(_finalPose.Translation.Y - _robot.CurrentPosition(1), 2) + Math.Pow(_finalPose.Translation.Z - _robot.CurrentPosition(2), 2));
-                _trajectoryTime = new TimeSpan(0, 0, 0, 0, Convert.ToInt32(1000 * (totalDistance / _robot.MaxSpeed)));
-                _startPose = _robot.currentPose;
+                _startPose = startPose;
+                Vector3 distance = _finalPose.Translation - _startPose.Translation;
+                //double totalDistance = Math.Sqrt(Math.Pow(_finalPose.Translation.X - _robot.CurrentPosition(0), 2) + Math.Pow(_finalPose.Translation.Y - _robot.CurrentPosition(1), 2) + Math.Pow(_finalPose.Translation.Z - _robot.CurrentPosition(2), 2));
+                _trajectoryTime = new TimeSpan(0, 0, 0, 0, Convert.ToInt32(1000 * (distance.Length() / _robot.MaxSpeed)));
                 FindQuintic();
+                _robot.updateError("Start Position: " + _startPose.Translation.ToString());
+                _robot.updateError("Final Position: " + _finalPose.Translation.ToString());
+                _robot.updateError("Trajectory Time: " + _trajectoryTime.TotalMilliseconds.ToString());
+                for (int i = 0; i < 4; i++)
+                {
+                    _robot.updateError(i.ToString() + ": " + _quinticParameters[0, i].ToString() + ": " + _quinticParameters[1, i].ToString() + ": " + _quinticParameters[2, i].ToString() + ": " + _quinticParameters[3, i].ToString() + ": " + _quinticParameters[4, i].ToString() + ": " + _quinticParameters[5, i].ToString());
+                }
                 IsActive = true;
             }
         }
@@ -136,7 +144,7 @@ namespace LightWeight_Server
         public Matrix getReferencePose()
         {
             Matrix referencePose = Matrix.Identity;
-            if (_elapsedTime.ElapsedMilliseconds > _trajectoryTime.Milliseconds)
+            if (1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond > 1.0 * _trajectoryTime.Ticks / TimeSpan.TicksPerMillisecond)
             {
                 referencePose.M11 = _finalPose.M11;
                 referencePose.M12 = _finalPose.M12;
@@ -156,14 +164,14 @@ namespace LightWeight_Server
                 referencePose.M44 = _finalPose.M44;
                 return referencePose;
             }
-            referencePose = Matrix.CreateFromQuaternion(Quaternion.CreateFromAxisAngle(_axis, 1.0f * _elapsedTime.ElapsedMilliseconds / _trajectoryTime.Milliseconds));
+            referencePose = Matrix.CreateFromQuaternion(Quaternion.CreateFromAxisAngle(_axis, (float)RefPosition(3)));
             referencePose.Translation = RefPos();
             return referencePose;
         }
 
         public Vector3 RefPos()
         {
-            return new Vector3((float)RefPosition(0), (float)RefPosition(1), (float)RefPosition(1));
+            return new Vector3((float)RefPosition(0), (float)RefPosition(1), (float)RefPosition(2));
         }
 
         /// <summary>
