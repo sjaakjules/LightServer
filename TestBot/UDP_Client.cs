@@ -52,22 +52,23 @@ namespace TestBot
 
         object positionLock = new object();
 
-
         int _BufferSize = 1024;
         byte[] _buffer;
         byte[] _PacketOut;
         Socket _UdpSocket;
-        EndPoint _kukaServerIPEP;
+        IPEndPoint _kukaServerIPEP;
         IPEndPoint _localEP;
         int _Port = 6009;
         XmlDocument _SendXML;
-        long _IPOC;
 
-        double[] KukaPosition;
+        double[] _kukaPosition;
 
-        Stopwatch IPOCTimer = new Stopwatch();
+        Stopwatch IPOCTimer = new Stopwatch(); 
+        public Stopwatch _loopTimer = new Stopwatch();
 
         string[] CardinalKey = new string[] { "X", "Y", "Z", "A", "B", "C" };
+
+        bool isConnected = false;
 
         #region Constructor:
         /// <summary>
@@ -75,16 +76,12 @@ namespace TestBot
         /// </summary>
         /// <param name="port"></param> The port which communication occurs on
         /// <param name="robot"></param> The robot information to be updated and read from
-        public UDP_Client(int port)
+        public UDP_Client()
         {
-            _Port = port;
-            _IPOC = 0;
-            KukaPosition = new double[] { 540.5, -18.1, 833.3, 0, 0, 0 };
-
+            _kukaPosition = new double[] { 540.5, -18.1, 833.3, 0, 0, 0 };
             _kukaServerIPEP = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 6008);
 
             SetupXML();
-
 
             // Create Socket
             string catchStatement = "while trying to create new socket:";
@@ -200,14 +197,16 @@ namespace TestBot
             }
         }
 
-
         public void ConstantReceive()
         {
             while (true)
             {
-
                 // resets the event to nonsignaled state.
                 haveReceived.Reset();
+                if (!isConnected)
+                {
+                    IPOCTimer.Restart();
+                }
                 // Resets buffer and other variables loosing any unsaved data
                 _buffer = new byte[_BufferSize];
 
@@ -220,7 +219,6 @@ namespace TestBot
                 {
                     newState.clientEP = (EndPoint)new IPEndPoint(IPAddress.Any, _Port); ;
                     _UdpSocket.BeginReceiveFrom(_buffer, 0, _BufferSize, SocketFlags.None, ref newState.clientEP, new AsyncCallback(FinishReceiveFrom), newState);
-                    //      Console.WriteLine("Listening for data on port: " + _Port);
                 }
                 catch (SocketException se)
                 {
@@ -237,7 +235,6 @@ namespace TestBot
                     Console.WriteLine(e.Message);
                 }
                 // pause This thread until a packet has been returned.
-
                 haveReceived.WaitOne();
             }
 
@@ -248,9 +245,9 @@ namespace TestBot
             string catchStatement = "while receive data is active, reading data:";
             try
             {
+                isConnected = true;
                 // get the object passed into the asyc function
                 StateObject connectedState = (StateObject)ar.AsyncState;
-
                 // end the receive and storing size of data in state
                 connectedState.PacketInSize = connectedState.Socket.EndReceiveFrom(ar, ref connectedState.clientEP);
                 // Initialize the state buffer with the received data size and copy buffer to state
@@ -258,14 +255,12 @@ namespace TestBot
                 Array.Copy(_buffer, connectedState.PacketIn, connectedState.PacketInSize);
                 // Retrieve EP information and store in state
                 connectedState.clientIpEP = (IPEndPoint)connectedState.clientEP;
-
                 // Reset the global buffer to null ready to be initialised in next receive loop once packet as been sent.
                 _buffer = null;
-
                 // Process byte information on state object
                 processData(connectedState);
-                // _Robot.addMsg(connectedState.MessageIn);
-
+                //Console.WriteLine("Loud and clear");
+                haveReceived.Set();
             }
             catch (SocketException se)
             {
@@ -297,15 +292,6 @@ namespace TestBot
                 // create xml document from state message in.
                 XmlDocument xmlIn = new XmlDocument();
                 xmlIn.LoadXml(State.MessageIn);
-                XmlNode IpocNode = xmlIn.SelectSingleNode("//Sen/IPOC");
-                if (long.TryParse(IpocNode.InnerText, out _IPOC))
-                {
-                    State.IPOC = _IPOC;
-                }
-                else
-                {
-                    Console.WriteLine("Error not reading IPOC: ");
-                }
 
                 XmlNodeList parentNode = xmlIn.ChildNodes;
                 XmlNodeList KukaInfoNodes = parentNode.Item(0).ChildNodes;
@@ -314,32 +300,29 @@ namespace TestBot
                     switch (Node.Name)
                     {
                         case "RKorr":
-                            double[] newComand = new double[7];
+                            double[] newCommand = new double[7];
                             for (int i = 0; i < 6; i++)
                             {
                                 double result;
                                 if (double.TryParse(Node.Attributes[CardinalKey[i]].Value, out result))
                                 {
-                                    newComand[i] = result;
-                                    newComand[7] += 1;
+                                    newCommand[i] = result;
+                                    newCommand[6] += 1;
                                 }
                                 else
                                 {
                                     break;
                                 }
                             }
-                            if (newComand[6] == 6)
+                            if (newCommand[6] == 6)
                             {
-                                updateRobotPosition(newComand);
+                                updateRobotPosition(newCommand);
                             }
                             break;
                         default:
                             break;
                     }
                 }
-
-                haveReceived.Set();
-
             }
             catch (SocketException se)
             {
@@ -364,13 +347,13 @@ namespace TestBot
             // TODO: update robot position when data has come in.
             lock (positionLock)
             {
+                //Console.WriteLine("In in the lock in update robot");
                 for (int i = 0; i < 6; i++)
                 {
-                    KukaPosition[i] += newCommand[i];
+                    _kukaPosition[i] += newCommand[i];
                 }
             }
         }
-
 
         public void ConstantSend()
         {
@@ -379,6 +362,7 @@ namespace TestBot
                 isReadyToSend.Reset();
                 lock (positionLock)
                 {
+                    //Console.WriteLine("in the lock in the sender");
                     UpdateXML();
                     SendData();
                 }
@@ -415,14 +399,11 @@ namespace TestBot
             XmlNode IpocNode = _SendXML.SelectSingleNode("//Rob/IPOC");
             IpocNode.InnerText = IPOCTimer.ElapsedTicks.ToString();
 
-
             XmlNode comPosNode = _SendXML.SelectSingleNode("//Rob/RIst");
             for (int i = 0; i < 6; i++)
             {
-                comPosNode.Attributes[CardinalKey[i]].Value = String.Format("{0:0.0000}", KukaPosition[i]);
+                comPosNode.Attributes[CardinalKey[i]].Value = String.Format("{0:0.0000}", _kukaPosition[i]);
             }
-
-
             _PacketOut = Encoding.UTF8.GetBytes(Beautify(_SendXML));
 
         }
@@ -464,22 +445,22 @@ namespace TestBot
 
             XmlNode comPosNode = _SendXML.CreateElement("RIst");
             attribute = _SendXML.CreateAttribute("X");
-            attribute.Value = KukaPosition[0].ToString();
+            attribute.Value = _kukaPosition[0].ToString();
             comPosNode.Attributes.Append(attribute);
             attribute = _SendXML.CreateAttribute("Y");
-            attribute.Value = KukaPosition[1].ToString();
+            attribute.Value = _kukaPosition[1].ToString();
             comPosNode.Attributes.Append(attribute);
             attribute = _SendXML.CreateAttribute("Z");
-            attribute.Value = KukaPosition[2].ToString();
+            attribute.Value = _kukaPosition[2].ToString();
             comPosNode.Attributes.Append(attribute);
             attribute = _SendXML.CreateAttribute("A");
-            attribute.Value = KukaPosition[3].ToString();
+            attribute.Value = _kukaPosition[3].ToString();
             comPosNode.Attributes.Append(attribute);
             attribute = _SendXML.CreateAttribute("B");
-            attribute.Value = KukaPosition[4].ToString();
+            attribute.Value = _kukaPosition[4].ToString();
             comPosNode.Attributes.Append(attribute);
             attribute = _SendXML.CreateAttribute("C");
-            attribute.Value = KukaPosition[5].ToString();
+            attribute.Value = _kukaPosition[5].ToString();
             comPosNode.Attributes.Append(attribute);
             rootNode.AppendChild(comPosNode);
 
@@ -508,6 +489,17 @@ namespace TestBot
         }
 
 
+        public void timer()
+        {
+            while (true)
+            {
+                if (_loopTimer.ElapsedTicks / TimeSpan.TicksPerMillisecond > 13)
+                {
+                    _loopTimer.Restart();
+                    isReadyToSend.Set();
+                }
+            }
+        }
         #endregion
     }
 

@@ -22,6 +22,8 @@ namespace LightWeight_Server
         IPEndPoint _localEP;
         int _Port;
         XmlDocument _SendXML;
+        bool _loadedPosition = false;
+        bool _loadedRotation = false;
 
         RobotInfo _Robot;
 
@@ -341,6 +343,7 @@ namespace LightWeight_Server
                             if (newPosition[3] == 3)
                             {
                                 _Robot.newPosition(newPosition[0], newPosition[1], newPosition[2]);
+                                _loadedPosition = true;
                             }
                             break;
 
@@ -364,6 +367,7 @@ namespace LightWeight_Server
                                 _Robot.newRotation((float)newRotation[0], (float)newRotation[1], (float)newRotation[2],
                                                    (float)newRotation[3], (float)newRotation[4], (float)newRotation[5],
                                                    (float)newRotation[6], (float)newRotation[7], (float)newRotation[8]);
+                                _loadedRotation = true;
                             }
                             break;
 
@@ -383,6 +387,10 @@ namespace LightWeight_Server
                         default:
                             break;
                     }
+                }
+                if (_loadedPosition || _loadedRotation)
+                {
+                    _Robot.LoadedCommand();
                 }
                 UpdateXML(State);
 

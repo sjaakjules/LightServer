@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -182,6 +183,8 @@ namespace LightWeight_Server
             _processDataTimer = 0;
             _maxProcessDataTimer = 0;
             _isConnected = false;
+            _text["Error"].Clear();
+            _text["Error"].Append("---------------------------------\n             Errors:\n");
         }
 
         /*
@@ -227,7 +230,11 @@ namespace LightWeight_Server
                     {
                         hasMsg = _text.TryGetValue("Error", out _PrintMsg);
                     }
-                    Console.WriteLine(_PrintMsg.ToString());
+                    StreamWriter file = new StreamWriter("ErrorMsg.txt");
+                    file.WriteLine(_PrintMsg);
+                    file.Flush();
+                    file.Close();
+                    //Console.WriteLine(_PrintMsg.ToString());
                     if (_isConnected)
                     {
                         updateMsg();
@@ -243,7 +250,7 @@ namespace LightWeight_Server
                         Console.WriteLine("---------------------------------\n   Not Connected to Kuka Robot");
                         Console.WriteLine("{0} : {1} : {2} : {3} : {4} : {5}", _ReadPosition["X"], _ReadPosition["Y"], _ReadPosition["Z"], _ReadPosition["A"], _ReadPosition["B"], _ReadPosition["C"]);
                     }
-                    if (_KukaCycleTime.ElapsedMilliseconds > 10000)
+                    if (_KukaCycleTime.ElapsedMilliseconds > 1000)
                     {
                         Disconnect();
                     }
@@ -361,6 +368,14 @@ namespace LightWeight_Server
             _Torque["A6"] = a6;
         }
 
+        public void LoadedCommand()
+        {
+            lock (trajectoryLock)
+            {
+                _newCommandLoaded = true;
+            }
+        }
+
         public void LoadTrajectory()
         {
             lock (trajectoryLock)
@@ -466,7 +481,7 @@ namespace LightWeight_Server
 
             // Are we within 0.05mm of goal stop motion
             // NOTE TODO: angular coordinate end condition
-            if (Math.Abs(sumDisplacement) < 0.05)
+            if (_isCommanded && Math.Abs(sumDisplacement) < 0.05)
             {
                 _isCommanded = false;
                 _CurrentTrajectory.Stop();
