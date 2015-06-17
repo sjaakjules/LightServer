@@ -11,7 +11,6 @@ using Microsoft.Xna.Framework.GamerServices;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
-using Microsoft.Xna.Framework;
 using MathNet.Numerics.LinearAlgebra;
  
 namespace LightWeight_Server
@@ -36,6 +35,7 @@ namespace LightWeight_Server
         }
 
 
+        public double ElapsedMilliseconds { get { return 1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond; } }
         /// <summary>
         /// Controls when the trajectory begins moving
         /// </summary>
@@ -99,7 +99,7 @@ namespace LightWeight_Server
                 _startPose = startPose;
                 Vector3 distance = _finalPose.Translation - _startPose.Translation;
                 //double totalDistance = Math.Sqrt(Math.Pow(_finalPose.Translation.X - _robot.CurrentPosition(0), 2) + Math.Pow(_finalPose.Translation.Y - _robot.CurrentPosition(1), 2) + Math.Pow(_finalPose.Translation.Z - _robot.CurrentPosition(2), 2));
-                _trajectoryTime = new TimeSpan(0, 0, 0, 0, Convert.ToInt32(1000 * (distance.Length() / _robot.MaxSpeed)));
+                _trajectoryTime = new TimeSpan(Convert.ToInt32(TimeSpan.TicksPerSecond * distance.Length() / _robot.MaxSpeed));
                 FindQuintic();
                 _robot.updateError("Start Position: " + _startPose.Translation.ToString());
                 _robot.updateError("Final Position: " + _finalPose.Translation.ToString());
@@ -116,8 +116,24 @@ namespace LightWeight_Server
         {
             IsActive = false;
         }
-                
 
+        public bool hasFinished(Matrix currentPose)
+        {
+            bool isEqual = false;
+            Matrix tempDisplacementPose = Matrix.Invert(currentPose) * _finalPose;
+            if (Math.Abs(tempDisplacementPose.M11 - 1) < 0.01 && Math.Abs(tempDisplacementPose.M22 - 1) < 0.01 && Math.Abs(tempDisplacementPose.M33 - 1) < 0.01)
+            {
+                isEqual = true;
+            }
+            else isEqual = false;
+            if (Math.Abs(tempDisplacementPose.Translation.X) < 1 && Math.Abs(tempDisplacementPose.Translation.Y) < 1 && Math.Abs(tempDisplacementPose.Translation.Z) < 1)
+            {
+                _robot.updateError("Position Finished");
+                isEqual = true;
+            }
+            else isEqual = false;
+            return isEqual;
+        }
         /*
         public void updateSpeed()
         {
@@ -144,7 +160,7 @@ namespace LightWeight_Server
         public Matrix getReferencePose()
         {
             Matrix referencePose = Matrix.Identity;
-            if (1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond > 1.0 * _trajectoryTime.Ticks / TimeSpan.TicksPerMillisecond)
+            if (1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond > _trajectoryTime.TotalMilliseconds)
             {
                 referencePose.M11 = _finalPose.M11;
                 referencePose.M12 = _finalPose.M12;
@@ -180,11 +196,11 @@ namespace LightWeight_Server
         public double RefPosition(int Axis)
         {
                 return _quinticParameters[0, Axis] +
-                    _quinticParameters[1, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 1) +
-                    _quinticParameters[2, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 2) +
-                    _quinticParameters[3, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 3) +
-                    _quinticParameters[4, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 4) +
-                    _quinticParameters[5, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 5);
+                    _quinticParameters[1, Axis] * Math.Pow(1.0*_elapsedTime.ElapsedTicks/TimeSpan.TicksPerMillisecond, 1) +
+                    _quinticParameters[2, Axis] * Math.Pow(1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond, 2) +
+                    _quinticParameters[3, Axis] * Math.Pow(1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond, 3) +
+                    _quinticParameters[4, Axis] * Math.Pow(1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond, 4) +
+                    _quinticParameters[5, Axis] * Math.Pow(1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond, 5);
         }
 
         /// <summary>
@@ -192,7 +208,7 @@ namespace LightWeight_Server
         /// </summary>
         public double RefVel(int Axis)
         {
-            if (_elapsedTime.ElapsedMilliseconds > _trajectoryTime.Milliseconds)
+            if (_elapsedTime.ElapsedMilliseconds > _trajectoryTime.TotalMilliseconds)
             {
                 return 0;
             }
@@ -209,7 +225,7 @@ namespace LightWeight_Server
         /// </summary>
         public double RefAcc(int Axis)
         {
-            if (_elapsedTime.ElapsedMilliseconds > _trajectoryTime.Milliseconds)
+            if (_elapsedTime.ElapsedMilliseconds > _trajectoryTime.TotalMilliseconds)
             {
                 return 0;
             }
@@ -224,15 +240,15 @@ namespace LightWeight_Server
         private void FindQuintic()
         {
             Quaternion finalRotation = Quaternion.CreateFromRotationMatrix(_finalPose);
-            Quaternion currentRotation = _robot.currentRotation;
+            Quaternion currentRotation = Quaternion.CreateFromRotationMatrix(_startPose);
             Quaternion toRotation = Quaternion.Conjugate(currentRotation) * finalRotation;
             StaticFunctions.getAxisAngle(toRotation, ref _axis, ref _finalAngle);
             Matrix<double> tempQuinticParam = Matrix<double>.Build.Dense(6, 4);
             // magic numbers are zero start time and zero final velocity
-            tempQuinticParam.SetColumn(0, FindCurve(0, 1.0 * _trajectoryTime.Milliseconds, _startPose.Translation.X, _finalPose.Translation.X, _robot.CurrentVelocity(0), 0));
-            tempQuinticParam.SetColumn(1, FindCurve(0, 1.0 * _trajectoryTime.Milliseconds, _startPose.Translation.Y, _finalPose.Translation.Y, _robot.CurrentVelocity(1), 0));
-            tempQuinticParam.SetColumn(2, FindCurve(0, 1.0 * _trajectoryTime.Milliseconds, _startPose.Translation.Z, _finalPose.Translation.Z, _robot.CurrentVelocity(2), 0));
-            tempQuinticParam.SetColumn(3, FindCurve(0, 1.0 * _trajectoryTime.Milliseconds, 0, _finalAngle, 0, 0));
+            tempQuinticParam.SetColumn(0, FindCurve(0, _trajectoryTime.TotalMilliseconds, _startPose.Translation.X, _finalPose.Translation.X, _robot.CurrentVelocity(0), 0));
+            tempQuinticParam.SetColumn(1, FindCurve(0, _trajectoryTime.TotalMilliseconds, _startPose.Translation.Y, _finalPose.Translation.Y, _robot.CurrentVelocity(1), 0));
+            tempQuinticParam.SetColumn(2, FindCurve(0, _trajectoryTime.TotalMilliseconds, _startPose.Translation.Z, _finalPose.Translation.Z, _robot.CurrentVelocity(2), 0));
+            tempQuinticParam.SetColumn(3, FindCurve(0, _trajectoryTime.TotalMilliseconds, 0, _finalAngle, 0, 0));
             _quinticParameters = tempQuinticParam.ToArray();
         }
 
@@ -246,7 +262,7 @@ namespace LightWeight_Server
             Matrix<double> tempQuinticParam = Matrix<double>.Build.Dense(6, 3);
             for (int i = 0; i < 3; i++)
             {
-                tempQuinticParam.SetColumn(i, FindCurve(0, 1.0 * _trajectoryTime.Milliseconds, _robot.CurrentPosition(i), poses[i], _robot.CurrentVelocity(i), 0)); // magic numbers are zero start time and zero final velocity
+                tempQuinticParam.SetColumn(i, FindCurve(0, _trajectoryTime.TotalMilliseconds, _robot.CurrentPosition(i), poses[i], _robot.CurrentVelocity(i), 0)); // magic numbers are zero start time and zero final velocity
 
             }
             _quinticParameters = tempQuinticParam.ToArray();
@@ -265,7 +281,10 @@ namespace LightWeight_Server
         /// <returns></returns>
         private Vector<double> FindCurve(double t0, double tf, double x0, double xf, double v0, double vf)
         {
+            tf += 1e-12;
             double tm = (tf - t0) / 2;
+            double xm = x0 + 1.0 * (xf - x0) / 2.0;
+            _robot.updateError("T0: " + t0.ToString() + "| Tf: " + tf.ToString() + "| Tm: " + tm.ToString() + "| x0: " + x0.ToString() + "| xf: " + xf.ToString() + "| v0: " + v0.ToString() + "| vf: " + vf.ToString());
             Matrix<Double> A = Matrix<Double>.Build.DenseOfArray(new double[,] {{1,  t0  ,Math.Pow(t0,2),Math.Pow(t0,3)  , Math.Pow(t0,4)  , Math.Pow(t0,5)  },  // start position
                                                                                 {0,  1   , 2*t0         ,3*Math.Pow(t0,2), 4*Math.Pow(t0,3), 5*Math.Pow(t0,4)},  // start velocity 
                                                                                 {1,  tm  ,Math.Pow(tm,2),Math.Pow(tm,3)  ,  Math.Pow(tm,4) , Math.Pow(tm,5)  },  // mid position 
@@ -274,11 +293,18 @@ namespace LightWeight_Server
                                                                                 {0,  0   ,    2         ,6*Math.Pow(tm,1), 12*Math.Pow(tm,2), 20*Math.Pow(tm,3)}}); // mid acceleration 
             Matrix<Double> Y = Matrix<Double>.Build.DenseOfArray(new double[,] {{x0},                           // start position
                                                                                 {v0},                           // start velocity 
-                                                                                {x0+(xf-x0)/2},                 // mid position (half way)
+                                                                                {xm},                 // mid position (half way)
                                                                                 {xf},                           // final position
                                                                                 {vf},                           // final velocity
                                                                                 {0}});                   // mid acceleration 
             Matrix<Double> X = A.Solve(Y);
+            double[] solution = X.Column(0).ToArray();
+            StringBuilder solutionstring = new StringBuilder();
+            for (int i = 0; i < solution.Length; i++)
+            {
+                solutionstring.Append("[" + i + "] : " + solution[i].ToString());
+            }
+            _robot.updateError(solutionstring.ToString());
             return X.Column(0);
         }
         /*

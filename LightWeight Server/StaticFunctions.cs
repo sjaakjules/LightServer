@@ -15,6 +15,13 @@ namespace LightWeight_Server
         static String[] axisKeys = new String[] { "A1", "A2", "A3", "A4", "A5", "A6" };
         static String[] rotationKeys = new String[] { "X1", "X2", "X3", "Y1", "Y2", "Y3", "Z1", "Z2", "Z3" };
 
+
+        public static Matrix CreateFromQuaternionPosition(Quaternion Q, Vector3 Position)
+        {
+            Matrix matout = Matrix.CreateFromQuaternion(Q);
+            matout.Translation = Position;
+            return matout;
+        }
         /// <summary>
         /// Returns the double array which represents [X, Y, Z, A, B, C] using Carinal dictionary keys.
         /// </summary>

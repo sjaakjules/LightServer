@@ -556,7 +556,6 @@ namespace LightWeight_Server
                 gripperNode.InnerText = "1";
             }
 
-            _Robot.flushCommands();
 
             state.XMLout = (XmlDocument)_SendXML.Clone();
 

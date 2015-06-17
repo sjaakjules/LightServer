@@ -41,8 +41,8 @@ namespace LightWeight_Server
         Trajectory _CurrentTrajectory;
 
         bool _gripperIsOpen = true;
-        double _maxSpeed = 3;
-        double _maxDisplacement = 0.5;
+        double _maxSpeed = 20;
+        double _maxDisplacement = 10;
 
         bool _isConnected = false;
         bool _isCommanded = false;
@@ -64,6 +64,10 @@ namespace LightWeight_Server
                 if (_maxProcessDataTimer <= value)
                 {
                     _maxProcessDataTimer = value;
+                }
+                if (value > 13)
+                {
+                    updateError("Took too long!!! :(");
                 }
                 _processDataTimer = value;
             }
@@ -157,7 +161,7 @@ namespace LightWeight_Server
         {
             _text.TryAdd("msg", new StringBuilder());
             _text.TryAdd("Error", new StringBuilder());
-
+            _text.TryAdd("Controller", new StringBuilder());
             setupCardinalDictionaries(_ReadPosition, homePosition);
             setupCardinalDictionaries(_DesiredPosition, homePosition);
             setupCardinalDictionaries(_LastPosition);
@@ -217,6 +221,8 @@ namespace LightWeight_Server
             _text["Error"].AppendLine(newError);
         }
 
+
+
         // Dedicated loop thread
         public void writeMsgs()
         {
@@ -234,6 +240,17 @@ namespace LightWeight_Server
                     file.WriteLine(_PrintMsg);
                     file.Flush();
                     file.Close();
+
+                    hasMsg = false;
+                    while (!hasMsg)
+                    {
+                        hasMsg = _text.TryGetValue("Controller", out _PrintMsg);
+                    }
+                    file = new StreamWriter("Control.csv");
+                    file.WriteLine(_PrintMsg);
+                    file.Flush();
+                    file.Close();
+
                     //Console.WriteLine(_PrintMsg.ToString());
                     if (_isConnected)
                     {
@@ -275,9 +292,9 @@ namespace LightWeight_Server
             _text["msg"].AppendLine("Desired Position:     (" + String.Format("{0:0.00}", _DesiredPosition["X"]) + " , " +
                                                                     String.Format("{0:0.00}", _DesiredPosition["Y"]) + " , " +
                                                                     String.Format("{0:0.00}", _DesiredPosition["Z"]) + ")");
-            _text["msg"].AppendLine("Command Position:     (" + String.Format("{0:0.000}", _CommandedPosition["X"]) + " , " +
-                                                                    String.Format("{0:0.000}", _CommandedPosition["Y"]) + " , " +
-                                                                    String.Format("{0:0.000}", _CommandedPosition["Z"]) + ")");
+            _text["msg"].AppendLine("Command Position:     (" + String.Format("{0:0.0000}", _CommandedPosition["X"]) + " , " +
+                                                                    String.Format("{0:0.0000}", _CommandedPosition["Y"]) + " , " +
+                                                                    String.Format("{0:0.0000}", _CommandedPosition["Z"]) + ")");
 
             _text["msg"].AppendLine("Max Speed: " + MaxSpeed.ToString() + "mm per cycle");
             if (gripperIsOpen)
@@ -464,25 +481,27 @@ namespace LightWeight_Server
         double[] getKukaDisplacement()
         {
             Matrix tempRefPose = _CurrentTrajectory.getReferencePose();
-            Matrix tempDisplacementPose = Matrix.Invert(currentPose) * tempRefPose;
+            Matrix _currentPose = currentPose;
+            Matrix tempDisplacementPose = Matrix.Invert(_currentPose) * tempRefPose;
             double[] KukaUpdate = new double[6];
             StaticFunctions.getKukaAngles(tempDisplacementPose, ref KukaUpdate);
-            double sumDisplacement = 0;
-
+            _text["Controller"].AppendLine(_CurrentTrajectory.ElapsedMilliseconds + "," + tempRefPose.Translation.X + "," + tempRefPose.Translation.Y + "," + tempRefPose.Translation.Z + "," +
+                _currentPose.Translation.X + "," + _currentPose.Translation.Y + "," + _currentPose.Translation.Z + "," +
+                tempDisplacementPose.Translation.X + "," + tempDisplacementPose.Translation.Y + "," + tempDisplacementPose.Translation.Z);
             // For each axis of movement get displacement of current position and trajectory position
             for (int i = 0; i < 6; i++)
             {
                 if (Math.Abs(KukaUpdate[i]) > MaxDisplacement)
                 {
-                    updateError("Error, " + StaticFunctions.getCardinalKey(i) + " Axis sent a huge distance, at " + KukaUpdate[i].ToString() + "mm");
+                    updateError("At " + _CurrentTrajectory.ElapsedMilliseconds.ToString() + "ms, Error, " + StaticFunctions.getCardinalKey(i) + " Axis sent a huge distance, at " + KukaUpdate[i].ToString() + "mm");
                     KukaUpdate[i] = MaxDisplacement * Math.Sign(KukaUpdate[i]);
                 }
-                sumDisplacement += KukaUpdate[i];
             }
+
 
             // Are we within 0.05mm of goal stop motion
             // NOTE TODO: angular coordinate end condition
-            if (_isCommanded && Math.Abs(sumDisplacement) < 0.05)
+            if (_isCommanded && _CurrentTrajectory.hasFinished(_currentPose))
             {
                 _isCommanded = false;
                 _CurrentTrajectory.Stop();
