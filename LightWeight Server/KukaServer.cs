@@ -167,7 +167,7 @@ namespace LightWeight_Server
                 IPHostEntry ipHostInfo = Dns.Resolve(Dns.GetHostName());
                 Console.WriteLine(Dns.GetHostName().ToString());
 
-                for (int i = 0; i<ipHostInfo.AddressList.Length;i++)
+                for (int i = 0; i < ipHostInfo.AddressList.Length; i++)
                 {
                     Console.WriteLine("[{0}] : {1}", i, ipHostInfo.AddressList[i]);
                 }
@@ -274,7 +274,7 @@ namespace LightWeight_Server
 
                 // Process byte information on state object
                 processData(connectedState);
-               // _Robot.addMsg(connectedState.MessageIn);
+                // _Robot.addMsg(connectedState.MessageIn);
 
                 // Send return message to same connection that the data was received.
                 SendData(connectedState);
@@ -356,7 +356,7 @@ namespace LightWeight_Server
                 UpdateXML(State);
 
                 processDataTimer.Stop();
-                _Robot.ProcessDataTimer = 1.0*processDataTimer.ElapsedTicks/TimeSpan.TicksPerMillisecond;
+                _Robot.ProcessDataTimer = 1.0 * processDataTimer.ElapsedTicks / TimeSpan.TicksPerMillisecond;
 
             }
             catch (SocketException se)
@@ -515,7 +515,7 @@ namespace LightWeight_Server
             XmlNode gripperB = _SendXML.CreateElement("GRIPPER_B");
             gripperB.InnerText = "0";
             rootNode.AppendChild(gripperB);
-           
+
             XmlNode IpocNode = _SendXML.CreateElement("IPOC");
             IpocNode.InnerText = "0";
             rootNode.AppendChild(IpocNode);
@@ -527,14 +527,14 @@ namespace LightWeight_Server
             XmlNode IpocNode = _SendXML.SelectSingleNode("//Sen/IPOC");
             IpocNode.InnerText = state.IPOC.ToString();
 
-            
+
             XmlNode comPosNode = _SendXML.SelectSingleNode("//Sen/RKorr");
             for (int i = 0; i < 6; i++)
             {
-            comPosNode.Attributes[StaticFunctions.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CommandedPosition(i));
-                
+                comPosNode.Attributes[StaticFunctions.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CommandedPosition(i));
+
             }
-                       
+
             XmlNode gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER_A");
             if (_Robot.gripperIsOpen)
             {

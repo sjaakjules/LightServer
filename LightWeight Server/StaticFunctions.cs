@@ -236,7 +236,7 @@ namespace LightWeight_Server
                 kukaOut[3] = Math.Atan2(pose.M21, pose.M11);
                 kukaOut[2] = (double)translation.Z;
                 kukaOut[1] = (double)translation.Y;
-                kukaOut[0] = (double)translation.Z;
+                kukaOut[0] = (double)translation.X;
             }
             else { kukaOut = new double[] { 0, 0, 0, 0, 0, 0 }; }
         }
