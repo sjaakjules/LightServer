@@ -356,13 +356,14 @@ namespace LightWeight_Server
             _robot.updateError("T0: " + t0.ToString() + "| Tf: " + tf.ToString() + "| Tm: " + tm.ToString() + "| x0: " + x0.ToString() + "| xf: " + xf.ToString() + "| v0: " + v0.ToString() + "| vf: " + vf.ToString());
             Matrix<Double> A = Matrix<Double>.Build.DenseOfArray(new double[,] {{1,  t0  ,Math.Pow(t0,2),Math.Pow(t0,3)  , Math.Pow(t0,4)  , Math.Pow(t0,5)  },  // start position
                                                                                 {0,  1   , 2*t0         ,3*Math.Pow(t0,2), 4*Math.Pow(t0,3), 5*Math.Pow(t0,4)},  // start velocity 
-                                                                                {1,  tm  ,Math.Pow(tm,2),Math.Pow(tm,3)  ,  Math.Pow(tm,4) , Math.Pow(tm,5)  },  // mid position 
+                                                                                {0,  0   ,    2         ,6*Math.Pow(tf,1), 12*Math.Pow(tf,2), 20*Math.Pow(tf,3)},
+                                                                              //  {1,  tm  ,Math.Pow(tm,2),Math.Pow(tm,3)  ,  Math.Pow(tm,4) , Math.Pow(tm,5)  },  // mid position 
                                                                                 {1,  tf  ,Math.Pow(tf,2),Math.Pow(tf,3)  ,  Math.Pow(tf,4) , Math.Pow(tf,5)  },  // final position
                                                                                 {0,  1   , 2*tf         ,3*Math.Pow(tf,2), 4*Math.Pow(tf,3), 5*Math.Pow(tf,4)},  // final velocity
                                                                                 {0,  0   ,    2         ,6*Math.Pow(t0,1), 12*Math.Pow(t0,2), 20*Math.Pow(t0,3)}}); // start acceleration 
             Matrix<Double> Y = Matrix<Double>.Build.DenseOfArray(new double[,] {{x0},                           // start position
                                                                                 {v0},                           // start velocity 
-                                                                                {xm},                 // mid position (half way)
+                                                                                {0},                 // mid position (half way)
                                                                                 {xf},                           // final position
                                                                                 {vf},                           // final velocity
                                                                                 {a0}});                   // start acceleration 
