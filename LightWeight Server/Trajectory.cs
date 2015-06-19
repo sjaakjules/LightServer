@@ -12,7 +12,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
 using MathNet.Numerics.LinearAlgebra;
- 
+
 namespace LightWeight_Server
 {
     class Trajectory
@@ -27,7 +27,7 @@ namespace LightWeight_Server
 
         //double[] normalVector, displacemnet;
 
-        RobotInfo _robot; 
+        RobotInfo _robot;
 
         public Trajectory(RobotInfo robot)
         {
@@ -68,22 +68,25 @@ namespace LightWeight_Server
         /// Set up variables, quaternion for slerp and time from cardinal distance
         /// Populate quintinParameters with x y z quintic curves where each entry in the list is the next point
         /// </summary>
-        public Trajectory(double finalX, double finalY, double finalZ, RobotInfo robot) : this(robot)
+        public Trajectory(double finalX, double finalY, double finalZ, RobotInfo robot)
+            : this(robot)
         {
             _finalPose = Matrix.Identity;
             _finalPose.Translation = new Vector3((float)finalX, (float)finalY, (float)finalZ);
         }
 
-        public Trajectory(double[] finalPosition, Vector3[] finalRotation, RobotInfo robot) : this(robot)
+        public Trajectory(double[] finalPosition, Vector3[] finalRotation, RobotInfo robot)
+            : this(robot)
         {
-            _finalPose = new Matrix(finalRotation[0].X,     finalRotation[0].Y,         finalRotation[0].Z,     0f, 
-                                    finalRotation[1].X,     finalRotation[1].Y,         finalRotation[1].Z,     0f, 
-                                    finalRotation[2].X,     finalRotation[2].Y,         finalRotation[2].Z,     0f, 
-                                    (float)finalPosition[0], (float)finalPosition[1],   (float)finalPosition[2], 1f);
+            _finalPose = new Matrix(finalRotation[0].X, finalRotation[0].Y, finalRotation[0].Z, 0f,
+                                    finalRotation[1].X, finalRotation[1].Y, finalRotation[1].Z, 0f,
+                                    finalRotation[2].X, finalRotation[2].Y, finalRotation[2].Z, 0f,
+                                    (float)finalPosition[0], (float)finalPosition[1], (float)finalPosition[2], 1f);
 
         }
 
-        public Trajectory(Matrix finalPose, RobotInfo robot) : this(robot) 
+        public Trajectory(Matrix finalPose, RobotInfo robot)
+            : this(robot)
         {
             _finalPose = finalPose;
             _isActive = false;
@@ -137,7 +140,7 @@ namespace LightWeight_Server
 
         public bool hasFinished(Matrix currentPose)
         {
-            if (1.0*_elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond > _trajectoryTime.TotalMilliseconds)
+            if (1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond > _trajectoryTime.TotalMilliseconds)
             {
                 return true;
             } return false;
@@ -219,12 +222,12 @@ namespace LightWeight_Server
         /// </summary>
         public double RefPosition(int Axis)
         {
-                return _quinticParameters[0, Axis] +
-                    _quinticParameters[1, Axis] * Math.Pow(1.0*_elapsedTime.ElapsedTicks/TimeSpan.TicksPerMillisecond, 1) +
-                    _quinticParameters[2, Axis] * Math.Pow(1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond, 2) +
-                    _quinticParameters[3, Axis] * Math.Pow(1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond, 3) +
-                    _quinticParameters[4, Axis] * Math.Pow(1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond, 4) +
-                    _quinticParameters[5, Axis] * Math.Pow(1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond, 5);
+            return _quinticParameters[0, Axis] +
+                _quinticParameters[1, Axis] * Math.Pow(1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond, 1) +
+                _quinticParameters[2, Axis] * Math.Pow(1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond, 2) +
+                _quinticParameters[3, Axis] * Math.Pow(1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond, 3) +
+                _quinticParameters[4, Axis] * Math.Pow(1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond, 4) +
+                _quinticParameters[5, Axis] * Math.Pow(1.0 * _elapsedTime.ElapsedTicks / TimeSpan.TicksPerMillisecond, 5);
         }
 
         /// <summary>
@@ -260,6 +263,14 @@ namespace LightWeight_Server
                     20 * _quinticParameters[5, Axis] * Math.Pow(_elapsedTime.ElapsedMilliseconds, 3);
         }
 
+        Vector3[] getTrajectoryVector(TimeSpan totalTime, TimeSpan startTime, TimeSpan viaTime, TimeSpan finishTime, Matrix startPose, Matrix finalPose, Matrix viaPose)
+        {
+            Vector3[] vectorOut = new Vector3[3];
+            vectorOut[1] = Vector3.Multiply((startPose.Translation + (viaPose.Translation - startPose.Translation)), (float)(totalTime.TotalMilliseconds + viaTime.TotalMilliseconds - startTime.TotalMilliseconds));
+
+            return vectorOut;
+        }
+
 
         private void FindQuintic()
         {
@@ -269,9 +280,9 @@ namespace LightWeight_Server
             StaticFunctions.getAxisAngle(toRotation, ref _axis, ref _finalAngle);
             Matrix<double> tempQuinticParam = Matrix<double>.Build.Dense(6, 4);
             // magic numbers are zero start time and zero final velocity
-            tempQuinticParam.SetColumn(0, FindCurve(0, _trajectoryTime.TotalMilliseconds, _startPose.Translation.X, _finalPose.Translation.X, _robot.CurrentVelocity(0)/1000, 0));
-            tempQuinticParam.SetColumn(1, FindCurve(0, _trajectoryTime.TotalMilliseconds, _startPose.Translation.Y, _finalPose.Translation.Y, _robot.CurrentVelocity(1)/1000, 0));
-            tempQuinticParam.SetColumn(2, FindCurve(0, _trajectoryTime.TotalMilliseconds, _startPose.Translation.Z, _finalPose.Translation.Z, _robot.CurrentVelocity(2)/1000, 0));
+            tempQuinticParam.SetColumn(0, FindCurve(0, _trajectoryTime.TotalMilliseconds, _startPose.Translation.X, _finalPose.Translation.X, _robot.CurrentVelocity(0) / 1000, 0));
+            tempQuinticParam.SetColumn(1, FindCurve(0, _trajectoryTime.TotalMilliseconds, _startPose.Translation.Y, _finalPose.Translation.Y, _robot.CurrentVelocity(1) / 1000, 0));
+            tempQuinticParam.SetColumn(2, FindCurve(0, _trajectoryTime.TotalMilliseconds, _startPose.Translation.Z, _finalPose.Translation.Z, _robot.CurrentVelocity(2) / 1000, 0));
             tempQuinticParam.SetColumn(3, FindCurve(0, _trajectoryTime.TotalMilliseconds, 0, _finalAngle, 0, 0));
             _quinticParameters = tempQuinticParam.ToArray();
         }

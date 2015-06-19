@@ -360,7 +360,15 @@ namespace LightWeight_Server
             }
             else
             {
-                _loopTime = 1.0 * _KukaCycleTime.ElapsedTicks / TimeSpan.TicksPerSecond;
+                if (Math.Abs(_loopTime - 1.0 * _KukaCycleTime.ElapsedTicks / TimeSpan.TicksPerSecond) > 5.0/1000)
+                {
+                    _loopTime = 1.0 / 73;
+                }
+                else
+                {
+                    _loopTime = 1.0 * _KukaCycleTime.ElapsedTicks / TimeSpan.TicksPerSecond;
+                }
+
             }
             _KukaCycleTime.Restart();
 
