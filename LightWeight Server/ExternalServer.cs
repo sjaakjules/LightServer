@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Xna.Framework;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -506,6 +507,22 @@ namespace LightWeight_Server
             return sb.ToString();
         }
 
+        Quaternion setupController(Vector3 lastEEvector, Vector3 EEvector)
+        {
+            Vector3 xAxis = Vector3.Zero;
+            Vector3 yAxis = Vector3.Zero;
+            Vector3 zAxis = Vector3.Zero;
+            zAxis = EEvector;
+            zAxis.Z = -1.0f * zAxis.Z;
+            if (Vector3.Dot(EEvector.X > EEvector.Y)
+            {
+                
+            }
+            return Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0,
+                                                                                       yAxis.X, yAxis.Y, yAxis.Z, 0,
+                                                                                       zAxis.X, zAxis.Y, zAxis.Z, 0,
+                                                                                       0, 0, 0, 1));
+        }
 
         /// <summary>
         /// updates the _sendXML XDocument object with position, velocity and acceleration then copies the updated xml document to the state object.
