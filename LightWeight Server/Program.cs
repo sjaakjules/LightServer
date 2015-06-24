@@ -42,10 +42,16 @@ namespace LightWeight_Server
                             ConnectedKuka.gripperIsOpen = true;
                             break;
                         case ConsoleKey.OemPlus:
-                            ConnectedKuka.MaxSpeed += 0.1;
+                            ConnectedKuka.MaxOrientationDisplacement += 0.1;
                             break;
                         case ConsoleKey.OemMinus:
-                            ConnectedKuka.MaxSpeed -= 0.1;
+                            ConnectedKuka.MaxOrientationDisplacement -= 0.1;
+                            break;
+                        case ConsoleKey.D0:
+                            ConnectedKuka.MaxDisplacement += 0.1;
+                            break;
+                        case ConsoleKey.D9:
+                            ConnectedKuka.MaxDisplacement -= 0.1;
                             break;
 
                     }

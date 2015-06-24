@@ -16,6 +16,7 @@ namespace LightWeight_Server
         object gripperLock = new object();
         object maxSpeedLock = new object();
         object maxDisplacementLock = new object();
+        object desiredAxisLock = new object();
 
         Stopwatch _KukaCycleTime = new Stopwatch();
 
@@ -33,20 +34,24 @@ namespace LightWeight_Server
         ConcurrentDictionary<String, double> _DesiredPosition = new ConcurrentDictionary<string, double>();
         ConcurrentDictionary<String, double> _CommandedPosition = new ConcurrentDictionary<string, double>();
         Quaternion _DesiredRotation = Quaternion.Identity;
+        Vector3 desiredZaxis = new Vector3();
         // Thread safe lists for updating and storing of robot information.
         // public ConcurrentStack<StateObject> DataHistory;
 
         ConcurrentDictionary<String, StringBuilder> _text = new ConcurrentDictionary<string, StringBuilder>();
 
         Trajectory _CurrentTrajectory;
+        Controller _CurrrentController;
 
         bool _gripperIsOpen = true;
-        double _maxSpeed = 20;
-        double _maxDisplacement = 10;
+        double _maxSpeed = 0.2;
+        double _maxDisplacement = 0.5;
 
         bool _isConnected = false;
         bool _isCommanded = false;
         bool _newCommandLoaded = false;
+        bool _newOrientationLoaded = false;
+        bool _newPositionLoaded = false;
 
 
         StringBuilder _PrintMsg = new StringBuilder();
@@ -106,7 +111,7 @@ namespace LightWeight_Server
 
         public Quaternion currentRotation { get { return StaticFunctions.MakeQuaternionFromKuka(currentDoublePose); } }
 
-        public double MaxSpeed
+        public double MaxOrientationDisplacement
         {
             get
             {
@@ -164,6 +169,7 @@ namespace LightWeight_Server
 
         public RobotInfo()
         {
+            _CurrrentController = new Controller(this);
             _text.TryAdd("msg", new StringBuilder());
             _text.TryAdd("Error", new StringBuilder());
             _text.TryAdd("Controller", new StringBuilder());
@@ -178,7 +184,6 @@ namespace LightWeight_Server
             setupAxisDictionaries(_Torque);
 
             _text["Error"].Append("---------------------------------\n             Errors:\n");
-
         }
 
         public void Connect()
@@ -320,9 +325,22 @@ namespace LightWeight_Server
                                                                     String.Format("{0:0.00}", _DesiredPosition["Z"]) + ")");
             _text["msg"].AppendLine("Command Position:     (" + String.Format("{0:0.0000}", _CommandedPosition["X"]) + " , " +
                                                                     String.Format("{0:0.0000}", _CommandedPosition["Y"]) + " , " +
-                                                                    String.Format("{0:0.0000}", _CommandedPosition["Z"]) + ")");
+                                                                    String.Format("{0:0.0000}", _CommandedPosition["Z"]) + "," +
+                                                                     String.Format("{0:0.0000}", _CommandedPosition["A"]) + " , " +
+                                                                    String.Format("{0:0.0000}", _CommandedPosition["B"]) + " , " +
+                                                                    String.Format("{0:0.0000}", _CommandedPosition["C"]) + ")");
+            lock (desiredAxisLock)
+            {
+            _text["msg"].AppendLine("Z Axis Position:     (" + String.Format("{0:0.00}", desiredZaxis.X) + " , " +
+                                                                    String.Format("{0:0.00}", desiredZaxis.Y) + " , " +
+                                                                    String.Format("{0:0.00}", desiredZaxis.Z) + ")");
+                
+            }
+            _text["msg"].AppendLine("Z Axis Position:     (" + String.Format("{0:0.00}", currentPose.Down.X) + " , " +
+                                                                    String.Format("{0:0.00}", currentPose.Down.Y) + " , " +
+                                                                    String.Format("{0:0.00}", currentPose.Down.Z) + ")");
 
-            _text["msg"].AppendLine("Max Speed: " + MaxSpeed.ToString() + "mm per cycle");
+            _text["msg"].AppendLine("Max Speed: " + MaxOrientationDisplacement.ToString() + "mm per cycle");
             if (gripperIsOpen)
             {
                 _text["msg"].AppendLine("Gripper is OPEN.");
@@ -360,7 +378,7 @@ namespace LightWeight_Server
             }
             else
             {
-                if (Math.Abs(_loopTime - 1.0 * _KukaCycleTime.ElapsedTicks / TimeSpan.TicksPerSecond) > 5.0/1000)
+                if (Math.Abs(_loopTime - 1.0 * _KukaCycleTime.ElapsedTicks / TimeSpan.TicksPerSecond) > 5.0 / 1000)
                 {
                     _loopTime = 1.0 / 73;
                 }
@@ -428,19 +446,47 @@ namespace LightWeight_Server
         }
 
         
-        Quaternion setupController(Vector3 lastEEvector, Vector3 EEvector)
+        public void LoadCommand()
         {
-            Vector3 xAxis = Vector3.Zero;
-            Vector3 yAxis = Vector3.Zero;
-            Vector3 zAxis = Vector3.Zero;
-            zAxis = EEvector;
-            zAxis.Z = -1.0f * zAxis.Z;
-
-            // TODO: this secton
-            return Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0,
-                                                                                       yAxis.X, yAxis.Y, yAxis.Z, 0,
-                                                                                       zAxis.X, zAxis.Y, zAxis.Z, 0,
-                                                                                       0, 0, 0, 1));
+            lock (trajectoryLock)
+            {
+                try
+                {
+                    if (_newCommandLoaded)
+                    {
+                        if (_newPositionLoaded && _newOrientationLoaded)
+                        {
+                            _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]), _DesiredRotation);
+                            _newOrientationLoaded = false;
+                            _newPositionLoaded = false;
+                            _newCommandLoaded = false;
+                            _isCommanded = true;
+                        }
+                        else if (_newPositionLoaded)
+                        {
+                            _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]));
+                            _newPositionLoaded = false;
+                            _newCommandLoaded = false;
+                            _isCommanded = true;
+                        }
+                        else if (_newOrientationLoaded)
+                        {
+                            _CurrrentController.load(_DesiredRotation);
+                            _newOrientationLoaded = false;
+                            _newCommandLoaded = false;
+                            _isCommanded = true;
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    _CurrrentController.load(new Vector3((float)CurrentPosition(0), (float)CurrentPosition(1), (float)CurrentPosition(2)), currentRotation);
+                    _newCommandLoaded = false;
+                    _isCommanded = false;
+                    _newOrientationLoaded = false;
+                    _newPositionLoaded = false;
+                }
+            }
         }
 
         public void LoadTrajectory()
@@ -487,6 +533,7 @@ namespace LightWeight_Server
                 _DesiredPosition["X"] = x;
                 _DesiredPosition["Y"] = y;
                 _DesiredPosition["Z"] = z;
+                _newPositionLoaded = true;
             }
             /*
             lock (trajectoryLock)
@@ -505,21 +552,73 @@ namespace LightWeight_Server
             }
         }
 
+        public void newConOrientation(float x, float y, float z)
+        {
+            lock (trajectoryLock)
+            {
+                Vector3 newOrientation = new Vector3(x, y, z);
+                newOrientation = Vector3.Normalize(newOrientation);
+                lock (desiredAxisLock)
+                {
+                    desiredZaxis = newOrientation;
+                }
+                _DesiredRotation = setupController(newOrientation);
+                _newOrientationLoaded = true;
+            }
+        }
+
+        Quaternion setupController(Vector3 EEvector)
+        {
+            Matrix _currentPose = currentPose;
+            Vector3 xAxis = Vector3.Zero;
+            Vector3 yAxis = Vector3.Zero;
+            Vector3 zAxis = Vector3.Zero;
+            zAxis = EEvector;
+            zAxis.Z = -1.0f * zAxis.Z;
+            if (Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Forward)) > Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Left)))
+            {
+                yAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Down));
+                xAxis = Vector3.Normalize(Vector3.Cross(EEvector, yAxis));
+            }
+            else
+            {
+                xAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Down));
+                yAxis = Vector3.Normalize(Vector3.Cross(EEvector, yAxis));
+            }
+            return Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0,
+                                                                                       yAxis.X, yAxis.Y, yAxis.Z, 0,
+                                                                                       zAxis.X, zAxis.Y, zAxis.Z, 0,
+                                                                                       0, 0, 0, 1));
+        }
+
         public void updateComandPosition()
         {
             lock (trajectoryLock)
             {
-                if (_isConnected && _isCommanded && _CurrentTrajectory.IsActive)
+                if (_isConnected && _isCommanded && _CurrrentController.IsActive)
                 {
+                    Vector3 comandPos = _CurrrentController.getDisplacement(currentPose.Translation, MaxDisplacement);
+                    Vector3 commandOri = _CurrrentController.getOrientation(currentRotation, (float)MaxOrientationDisplacement);
+                    if (comandPos.Length() < MaxDisplacement/50 && comandPos.Length() < MaxOrientationDisplacement/50)
+                    {
+                        _isCommanded = false;
+                    }
                     // Update the command position all lights green
-                    double[] newComandPos = getKukaDisplacement();
 
-                    _CommandedPosition["X"] = newComandPos[0];
-                    _CommandedPosition["Y"] = newComandPos[1];
-                    _CommandedPosition["Z"] = newComandPos[2];
-                    _CommandedPosition["A"] = newComandPos[3];
-                    _CommandedPosition["B"] = newComandPos[4];
-                    _CommandedPosition["C"] = newComandPos[5];
+                    _CommandedPosition["X"] = comandPos.X;
+                    _CommandedPosition["Y"] = comandPos.Y;
+                    _CommandedPosition["Z"] = comandPos.Z;
+                    _CommandedPosition["A"] = commandOri.X;
+                    _CommandedPosition["B"] = commandOri.Y;
+                    _CommandedPosition["C"] = commandOri.Z;
+                    //double[] newComandPos = getKukaDisplacement();
+
+                    //_CommandedPosition["X"] = newComandPos[0];
+                   // _CommandedPosition["Y"] = newComandPos[1];
+                    //_CommandedPosition["Z"] = newComandPos[2];
+                   // _CommandedPosition["A"] = newComandPos[3];
+                   // _CommandedPosition["B"] = newComandPos[4];
+                   // _CommandedPosition["C"] = newComandPos[5];
                 }
                 else
                 {

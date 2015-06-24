@@ -347,7 +347,8 @@ namespace LightWeight_Server
                             break;
                     }
                 }
-                _Robot.LoadTrajectory();
+                _Robot.LoadCommand();
+                //_Robot.LoadTrajectory();
 
                 // As the robot positions have been updated, calculate change in position and update command dictionary
                 _Robot.updateComandPosition();

@@ -374,6 +374,30 @@ namespace LightWeight_Server
                             }
                             break;
 
+                        case "Pose":
+                            int dataPoints = 3;
+                            double[] newOrientation = new double[dataPoints+1];
+                            for (int i = 0; i < dataPoints; i++)
+                            {
+                                double result;
+                                if (double.TryParse(Node.Attributes[StaticFunctions.getCardinalKey(i)].Value, out result))
+                                {
+                                    newOrientation[i] = result;
+                                    newOrientation[dataPoints] += 1;
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+                            if (newOrientation[dataPoints] == dataPoints)
+                            {
+                                _Robot.newConOrientation((float)newOrientation[0], (float)newOrientation[1], (float)newOrientation[2]);
+                                _loadedRotation = true;
+                                _Robot.updateError("Rotation loaded");
+                            }
+                            break;
+
                         case "Velocity":
                             //updateVelocity(double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value), double.Parse(Node.Attributes["Z"].Value));
                             break;
@@ -507,23 +531,7 @@ namespace LightWeight_Server
             return sb.ToString();
         }
 
-        Quaternion setupController(Vector3 lastEEvector, Vector3 EEvector)
-        {
-            Vector3 xAxis = Vector3.Zero;
-            Vector3 yAxis = Vector3.Zero;
-            Vector3 zAxis = Vector3.Zero;
-            zAxis = EEvector;
-            zAxis.Z = -1.0f * zAxis.Z;
-            if (Vector3.Dot(EEvector.X > EEvector.Y)
-            {
-                
-            }
-            return Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0,
-                                                                                       yAxis.X, yAxis.Y, yAxis.Z, 0,
-                                                                                       zAxis.X, zAxis.Y, zAxis.Z, 0,
-                                                                                       0, 0, 0, 1));
-        }
-
+        
         /// <summary>
         /// updates the _sendXML XDocument object with position, velocity and acceleration then copies the updated xml document to the state object.
         /// </summary>

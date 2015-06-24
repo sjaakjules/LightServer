@@ -103,7 +103,7 @@ namespace LightWeight_Server
                 _startPose = startPose;
                 Vector3 distance = _finalPose.Translation - _startPose.Translation;
                 //double totalDistance = Math.Sqrt(Math.Pow(_finalPose.Translation.X - _robot.CurrentPosition(0), 2) + Math.Pow(_finalPose.Translation.Y - _robot.CurrentPosition(1), 2) + Math.Pow(_finalPose.Translation.Z - _robot.CurrentPosition(2), 2));
-                _trajectoryTime = new TimeSpan(Convert.ToInt32(TimeSpan.TicksPerSecond * distance.Length() / _robot.MaxSpeed));
+                _trajectoryTime = new TimeSpan(Convert.ToInt32(TimeSpan.TicksPerSecond * distance.Length() / _robot.MaxOrientationDisplacement));
                 FindQuintic();
                 _robot.updateError("Start Position: " + _startPose.Translation.ToString());
                 _robot.updateError("Final Position: " + _finalPose.Translation.ToString());
@@ -121,7 +121,7 @@ namespace LightWeight_Server
             _startPose = startPose;
             Vector3 distance = _finalPose.Translation - _startPose.Translation;
             //double totalDistance = Math.Sqrt(Math.Pow(_finalPose.Translation.X - _robot.CurrentPosition(0), 2) + Math.Pow(_finalPose.Translation.Y - _robot.CurrentPosition(1), 2) + Math.Pow(_finalPose.Translation.Z - _robot.CurrentPosition(2), 2));
-            _trajectoryTime = new TimeSpan(Convert.ToInt32(TimeSpan.TicksPerSecond * distance.Length() / _robot.MaxSpeed));
+            _trajectoryTime = new TimeSpan(Convert.ToInt32(TimeSpan.TicksPerSecond * distance.Length() / _robot.MaxOrientationDisplacement));
             FindQuintic(startAcceleration);
             _robot.updateError("Start Position: " + _startPose.Translation.ToString());
             _robot.updateError("Final Position: " + _finalPose.Translation.ToString());
