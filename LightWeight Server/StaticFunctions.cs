@@ -59,18 +59,18 @@ namespace LightWeight_Server
         /// <returns></returns>
         public static Quaternion MakeQuaternionFromKuka(double[] pose)
         {
-            Matrix Rz = Matrix.CreateRotationZ((float)pose[3]);
-            Matrix Ry = Matrix.CreateRotationY((float)pose[4]);
-            Matrix Rx = Matrix.CreateRotationX((float)pose[5]);
+            Matrix Rz = Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180));
+            Matrix Ry = Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180));
+            Matrix Rx = Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180));
             Matrix Rotation = Matrix.Multiply(Matrix.Multiply(Rz, Ry), Rx);
             return Quaternion.CreateFromRotationMatrix(Rotation);
         }
 
         public static Matrix MakeMatrixFromKuka(double[] pose)
         {
-            Matrix Rz = Matrix.CreateRotationZ((float)pose[3]);
-            Matrix Ry = Matrix.CreateRotationY((float)pose[4]);
-            Matrix Rx = Matrix.CreateRotationX((float)pose[5]);
+            Matrix Rz = Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180));
+            Matrix Ry = Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180));
+            Matrix Rx = Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180));
             Matrix poseout = Matrix.Multiply(Matrix.Multiply(Rz, Ry), Rx);
             poseout.Translation = new Vector3((float)pose[0], (float)pose[1], (float)pose[2]);
             return poseout;

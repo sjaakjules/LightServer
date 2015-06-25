@@ -400,7 +400,7 @@ namespace LightWeight_Server
 
                         case "Speed":
                             double newSpeed = 0;
-                            if (double.TryParse(Node.Value, out newSpeed))
+                            if (double.TryParse(Node.InnerText, out newSpeed))
                                 {
                                     _Robot.MaxDisplacement = newSpeed;
                                 }
