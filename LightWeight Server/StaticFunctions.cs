@@ -279,6 +279,8 @@ namespace LightWeight_Server
 
     }
 
-
-
+    // CONVENTIONS:
+    // Identity matrix. Forwards =   0, 0,-1
+    //                  Down     =   0,-1, 0
+    //                  Left     =  -1, 0, 0
 }

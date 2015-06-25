@@ -44,7 +44,7 @@ namespace LightWeight_Server
         Controller _CurrrentController;
 
         bool _gripperIsOpen = true;
-        double _maxSpeed = 0.2;
+        double _maxSpeed = 0.3;
         double _maxDisplacement = 0.5;
 
         bool _isConnected = false;
@@ -456,7 +456,10 @@ namespace LightWeight_Server
                     {
                         if (_newPositionLoaded && _newOrientationLoaded)
                         {
-                            _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]), _DesiredRotation);
+                            Vector3 axis = Vector3.Zero;
+                            float angle = 0;
+                            StaticFunctions.getAxisAngle(_DesiredRotation, ref axis, ref angle);
+                            _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]), _DesiredRotation * currentRotation, TimeSpan.TicksPerSecond * (long)(angle / 0.3));
                             _newOrientationLoaded = false;
                             _newPositionLoaded = false;
                             _newCommandLoaded = false;
@@ -471,7 +474,10 @@ namespace LightWeight_Server
                         }
                         else if (_newOrientationLoaded)
                         {
-                            _CurrrentController.load(_DesiredRotation);
+                            Vector3 axis = Vector3.Zero;
+                            float angle = 0;
+                            StaticFunctions.getAxisAngle(_DesiredRotation, ref axis, ref angle);
+                            _CurrrentController.load(_DesiredRotation*currentRotation,TimeSpan.TicksPerSecond * (long)(angle / 0.3));
                             _newOrientationLoaded = false;
                             _newCommandLoaded = false;
                             _isCommanded = true;
@@ -480,7 +486,7 @@ namespace LightWeight_Server
                 }
                 catch (Exception)
                 {
-                    _CurrrentController.load(new Vector3((float)CurrentPosition(0), (float)CurrentPosition(1), (float)CurrentPosition(2)), currentRotation);
+                    _CurrrentController.load(new Vector3((float)CurrentPosition(0), (float)CurrentPosition(1), (float)CurrentPosition(2)), currentRotation, 100);
                     _newCommandLoaded = false;
                     _isCommanded = false;
                     _newOrientationLoaded = false;
@@ -563,6 +569,10 @@ namespace LightWeight_Server
                     desiredZaxis = newOrientation;
                 }
                 _DesiredRotation = setupController(newOrientation);
+                Vector3 axis = Vector3.Zero;
+                float angle = 0;
+                StaticFunctions.getAxisAngle(_DesiredRotation, ref axis, ref angle);
+                updateError("axis:  " + axis.ToString() + "\nangle: " + angle.ToString());
                 _newOrientationLoaded = true;
             }
         }
@@ -573,18 +583,20 @@ namespace LightWeight_Server
             Vector3 xAxis = Vector3.Zero;
             Vector3 yAxis = Vector3.Zero;
             Vector3 zAxis = Vector3.Zero;
-            zAxis = EEvector;
-            zAxis.Z = -1.0f * zAxis.Z;
-            if (Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Forward)) > Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Left)))
+            zAxis = Vector3.Negate(EEvector);
+            updateError("current Pose: " + _currentPose.ToString());
+            updateError("Forwards: " + _currentPose.Forward.ToString() + "Down: " + _currentPose.Down.ToString() + "Left: " + _currentPose.Left.ToString() );
+            if (Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right)) > Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Up)))
             {
-                yAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Down));
-                xAxis = Vector3.Normalize(Vector3.Cross(EEvector, yAxis));
+                yAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Forward));
+                xAxis = Vector3.Normalize(Vector3.Cross(yAxis, zAxis));
             }
             else
             {
-                xAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Down));
-                yAxis = Vector3.Normalize(Vector3.Cross(EEvector, yAxis));
+                xAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Forward));
+                yAxis = Vector3.Normalize(Vector3.Cross(xAxis, zAxis));
             }
+            updateError("xAxis: " + xAxis.ToString() + "yAxis: " + yAxis.ToString() + "zAxis: " + zAxis.ToString());
             return Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0,
                                                                                        yAxis.X, yAxis.Y, yAxis.Z, 0,
                                                                                        zAxis.X, zAxis.Y, zAxis.Z, 0,
