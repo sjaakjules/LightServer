@@ -45,7 +45,7 @@ namespace LightWeight_Server
 
         bool _gripperIsOpen = true;
         double _maxSpeed = 0.3;
-        double _maxDisplacement = 0.5;
+        double _maxDisplacement = .7;
 
         bool _isConnected = false;
         bool _isCommanded = false;
@@ -267,11 +267,14 @@ namespace LightWeight_Server
                     {
                         hasMsg = _text.TryGetValue("Error", out _PrintMsg);
                     }
-                    StreamWriter file = new StreamWriter("ErrorMsg.txt");
+                    
+                    StreamWriter file = new StreamWriter("ErrorMsg" + _errorMsgs.ToString() + ".txt");
+                    _errorMsgs++;
                     file.WriteLine(_PrintMsg);
                     file.Flush();
                     file.Close();
-
+                    /*
+                    
                     hasMsg = false;
                     while (!hasMsg)
                     {
@@ -281,7 +284,7 @@ namespace LightWeight_Server
                     file.WriteLine(_PrintMsg);
                     file.Flush();
                     file.Close();
-
+                    */
                     //Console.WriteLine(_PrintMsg.ToString());
                     if (_isConnected)
                     {
@@ -298,7 +301,7 @@ namespace LightWeight_Server
                         Console.WriteLine("---------------------------------\n   Not Connected to Kuka Robot");
                         Console.WriteLine("{0} : {1} : {2} : {3} : {4} : {5}", _ReadPosition["X"], _ReadPosition["Y"], _ReadPosition["Z"], _ReadPosition["A"], _ReadPosition["B"], _ReadPosition["C"]);
                     }
-                    if (_KukaCycleTime.ElapsedMilliseconds > 1000)
+                    if (_KukaCycleTime.ElapsedMilliseconds > 10000)
                     {
                         Disconnect();
                     }
@@ -308,6 +311,7 @@ namespace LightWeight_Server
                 {
                     Console.WriteLine("Error printing to Screen");
                     Console.WriteLine(e.Message);
+                    _errorMsgs++;
                 }
 
             }
@@ -319,7 +323,10 @@ namespace LightWeight_Server
             _text["msg"].AppendLine("---------------------------------\n              Info:\n");
             _text["msg"].AppendLine("Current Position:     (" + String.Format("{0:0.00}", _ReadPosition["X"]) + " , " +
                                                                     String.Format("{0:0.00}", _ReadPosition["Y"]) + " , " +
-                                                                    String.Format("{0:0.00}", _ReadPosition["Z"]) + ")");
+                                                                    String.Format("{0:0.00}", _ReadPosition["Z"]) + " , " + 
+                                                                    String.Format("{0:0.00}", _ReadPosition["A"]) + " , " +
+                                                                    String.Format("{0:0.00}", _ReadPosition["B"]) + " , " +
+                                                                    String.Format("{0:0.00}", _ReadPosition["C"]) + ")");
             _text["msg"].AppendLine("Desired Position:     (" + String.Format("{0:0.00}", _DesiredPosition["X"]) + " , " +
                                                                     String.Format("{0:0.00}", _DesiredPosition["Y"]) + " , " +
                                                                     String.Format("{0:0.00}", _DesiredPosition["Z"]) + ")");
@@ -331,16 +338,16 @@ namespace LightWeight_Server
                                                                     String.Format("{0:0.0000}", _CommandedPosition["C"]) + ")");
             lock (desiredAxisLock)
             {
-            _text["msg"].AppendLine("Z Axis Position:     (" + String.Format("{0:0.00}", desiredZaxis.X) + " , " +
+            _text["msg"].AppendLine("Desired Tip Vector:     (" + String.Format("{0:0.00}", desiredZaxis.X) + " , " +
                                                                     String.Format("{0:0.00}", desiredZaxis.Y) + " , " +
                                                                     String.Format("{0:0.00}", desiredZaxis.Z) + ")");
                 
             }
-            _text["msg"].AppendLine("Z Axis Position:     (" + String.Format("{0:0.00}", currentPose.Down.X) + " , " +
+            _text["msg"].AppendLine("Current Tip vector:     (" + String.Format("{0:0.00}", currentPose.Down.X) + " , " +
                                                                     String.Format("{0:0.00}", currentPose.Down.Y) + " , " +
                                                                     String.Format("{0:0.00}", currentPose.Down.Z) + ")");
 
-            _text["msg"].AppendLine("Max Speed: " + MaxOrientationDisplacement.ToString() + "mm per cycle");
+            _text["msg"].AppendLine("Max Speed: " + MaxDisplacement.ToString() + "mm per cycle");
             if (gripperIsOpen)
             {
                 _text["msg"].AppendLine("Gripper is OPEN.");
@@ -572,7 +579,7 @@ namespace LightWeight_Server
                 Vector3 axis = Vector3.Zero;
                 float angle = 0;
                 StaticFunctions.getAxisAngle(_DesiredRotation, ref axis, ref angle);
-                updateError("axis:  " + axis.ToString() + "\nangle: " + angle.ToString());
+                updateError("Load desired... axis:  " + axis.ToString() + "\nangle: " + angle.ToString());
                 _newOrientationLoaded = true;
             }
         }
@@ -586,6 +593,10 @@ namespace LightWeight_Server
             zAxis = Vector3.Negate(EEvector);
             updateError("current Pose: " + _currentPose.ToString());
             updateError("Forwards: " + _currentPose.Forward.ToString() + "Down: " + _currentPose.Down.ToString() + "Left: " + _currentPose.Left.ToString() );
+
+            yAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Forward));
+            xAxis = Vector3.Normalize(Vector3.Cross(yAxis, zAxis));
+            /*
             if (Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right)) > Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Up)))
             {
                 yAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Forward));
@@ -596,10 +607,11 @@ namespace LightWeight_Server
                 xAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Forward));
                 yAxis = Vector3.Normalize(Vector3.Cross(xAxis, zAxis));
             }
+             */
             updateError("xAxis: " + xAxis.ToString() + "yAxis: " + yAxis.ToString() + "zAxis: " + zAxis.ToString());
-            return Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0,
-                                                                                       yAxis.X, yAxis.Y, yAxis.Z, 0,
-                                                                                       zAxis.X, zAxis.Y, zAxis.Z, 0,
+            return Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, yAxis.X, zAxis.X, 0,
+                                                                                       xAxis.Y, yAxis.Y, zAxis.Y, 0,
+                                                                                       xAxis.Z, yAxis.Z, zAxis.Z, 0,
                                                                                        0, 0, 0, 1));
         }
 

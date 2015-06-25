@@ -232,7 +232,9 @@ namespace LightWeight_Server
                 }
                 catch (SocketException se)
                 {
-                    _Robot.Disconnect();
+                    _Robot.updateError("Socket Exception " + catchStatement);
+                    _Robot.updateError(se.Message);
+                    //_Robot.Disconnect();
                     haveReceived.Set();
                 }
                 catch (ObjectDisposedException ob)
