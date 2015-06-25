@@ -45,7 +45,7 @@ namespace LightWeight_Server
 
         bool _gripperIsOpen = true;
         double _maxSpeed = 0.3;
-        double _maxDisplacement = .7;
+        double _maxDisplacement = .5;
 
         bool _isConnected = false;
         bool _isCommanded = false;
@@ -269,7 +269,7 @@ namespace LightWeight_Server
                     }
                     
                     StreamWriter file = new StreamWriter("ErrorMsg" + _errorMsgs.ToString() + ".txt");
-                    _errorMsgs++;
+                    
                     file.WriteLine(_PrintMsg);
                     file.Flush();
                     file.Close();
@@ -327,6 +327,12 @@ namespace LightWeight_Server
                                                                     String.Format("{0:0.00}", _ReadPosition["A"]) + " , " +
                                                                     String.Format("{0:0.00}", _ReadPosition["B"]) + " , " +
                                                                     String.Format("{0:0.00}", _ReadPosition["C"]) + ")");
+            _text["msg"].AppendLine("Current Velocity:     (" + String.Format("{0:0.00}", _Velocity["X"]) + " , " +
+                                                                    String.Format("{0:0.00}", _Velocity["Y"]) + " , " +
+                                                                    String.Format("{0:0.00}", _Velocity["Z"]) + " , " +
+                                                                    String.Format("{0:0.00}", _Velocity["A"]) + " , " +
+                                                                    String.Format("{0:0.00}", _Velocity["B"]) + " , " +
+                                                                    String.Format("{0:0.00}", _Velocity["C"]) + ")");
             _text["msg"].AppendLine("Desired Position:     (" + String.Format("{0:0.00}", _DesiredPosition["X"]) + " , " +
                                                                     String.Format("{0:0.00}", _DesiredPosition["Y"]) + " , " +
                                                                     String.Format("{0:0.00}", _DesiredPosition["Z"]) + ")");
@@ -343,9 +349,9 @@ namespace LightWeight_Server
                                                                     String.Format("{0:0.00}", desiredZaxis.Z) + ")");
                 
             }
-            _text["msg"].AppendLine("Current Tip vector:     (" + String.Format("{0:0.00}", currentPose.Down.X) + " , " +
-                                                                    String.Format("{0:0.00}", currentPose.Down.Y) + " , " +
-                                                                    String.Format("{0:0.00}", currentPose.Down.Z) + ")");
+            _text["msg"].AppendLine("Current Tip vector:     (" + String.Format("{0:0.00}", currentPose.Backward.X) + " , " +
+                                                                    String.Format("{0:0.00}", currentPose.Backward.Y) + " , " +
+                                                                    String.Format("{0:0.00}", currentPose.Backward.Z) + ")");
 
             _text["msg"].AppendLine("Max Speed: " + MaxDisplacement.ToString() + "mm per cycle");
             if (gripperIsOpen)
@@ -466,7 +472,7 @@ namespace LightWeight_Server
                             Vector3 axis = Vector3.Zero;
                             float angle = 0;
                             StaticFunctions.getAxisAngle(_DesiredRotation, ref axis, ref angle);
-                            _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]), _DesiredRotation * currentRotation, TimeSpan.TicksPerSecond * (long)(angle / 0.3));
+                            _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]), _DesiredRotation * currentRotation, TimeSpan.TicksPerSecond * (long)(angle / 0.1));
                             _newOrientationLoaded = false;
                             _newPositionLoaded = false;
                             _newCommandLoaded = false;
@@ -609,9 +615,9 @@ namespace LightWeight_Server
             }
              */
             updateError("xAxis: " + xAxis.ToString() + "yAxis: " + yAxis.ToString() + "zAxis: " + zAxis.ToString());
-            return Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, yAxis.X, zAxis.X, 0,
-                                                                                       xAxis.Y, yAxis.Y, zAxis.Y, 0,
-                                                                                       xAxis.Z, yAxis.Z, zAxis.Z, 0,
+            return Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0,
+                                                                                       yAxis.X, yAxis.Y, yAxis.Z, 0,
+                                                                                       zAxis.X, zAxis.Y, zAxis.Z, 0,
                                                                                        0, 0, 0, 1));
         }
 
@@ -621,9 +627,9 @@ namespace LightWeight_Server
             {
                 if (_isConnected && _isCommanded && _CurrrentController.IsActive)
                 {
-                    Vector3 comandPos = _CurrrentController.getDisplacement(currentPose.Translation, MaxDisplacement);
+                    Vector3 comandPos = _CurrrentController.getDisplacement(currentPose.Translation, new Vector3((float)_LastPosition["X"], (float)_LastPosition["Y"], (float)_LastPosition["Z"]), MaxDisplacement);
                     Vector3 commandOri = _CurrrentController.getOrientation(currentRotation, (float)MaxOrientationDisplacement);
-                    if (comandPos.Length() < MaxDisplacement/50 && comandPos.Length() < MaxOrientationDisplacement/50)
+                    if (comandPos.Length() < MaxDisplacement/50 && comandPos.Length() < MaxOrientationDisplacement/0)
                     {
                         _isCommanded = false;
                     }
