@@ -59,7 +59,7 @@ namespace LightWeight_Server
         StringBuilder _PrintMsg = new StringBuilder();
         int _errorMsgs = 0;
 
-        public readonly double[] homePosition = new double[] { 540.5, -18.1, 833.3, 0.0, 0.0, 0.0 };
+        public readonly double[] homePosition = new double[] { 540.5, -18.1, 833.3, 180.0, 0.0, 180.0 };
 
 
         #region Properties
@@ -101,6 +101,7 @@ namespace LightWeight_Server
             return StaticFunctions.Getvalue(_acceleration, StaticFunctions.getCardinalKey(index));
         }
 
+        // inb degrees
         public double[] currentDoublePose { get { return StaticFunctions.getCardinalDoubleArray(_ReadPosition); } }
 
         Matrix currentPose
@@ -491,8 +492,10 @@ namespace LightWeight_Server
                         {
                             Vector3 axis = Vector3.Zero;
                             float angle = 0;
-                            StaticFunctions.getAxisAngle(_DesiredRotation, ref axis, ref angle);
-                            _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]), _DesiredRotation * currentRotation, TimeSpan.TicksPerSecond * (long)(angle / 0.1));
+                            Quaternion currentToFinalQ = _DesiredRotation * Quaternion.Inverse(currentRotation);
+                            updateError("getTo matrix: " + Matrix.CreateFromQuaternion(currentToFinalQ).ToString());
+                            StaticFunctions.getAxisAngle(currentToFinalQ, ref axis, ref angle);
+                            _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]), currentToFinalQ, TimeSpan.TicksPerSecond * (long)(angle / 0.1));
                             _newOrientationLoaded = false;
                             _newPositionLoaded = false;
                             _newCommandLoaded = false;
@@ -509,8 +512,10 @@ namespace LightWeight_Server
                         {
                             Vector3 axis = Vector3.Zero;
                             float angle = 0;
-                            StaticFunctions.getAxisAngle(_DesiredRotation, ref axis, ref angle);
-                            _CurrrentController.load(_DesiredRotation*currentRotation,TimeSpan.TicksPerSecond * (long)(angle / 0.3));
+                            Quaternion currentToFinalQ = _DesiredRotation * Quaternion.Inverse(currentRotation);
+                            updateError("getTo matrix: " + Matrix.CreateFromQuaternion(currentToFinalQ).ToString());
+                            StaticFunctions.getAxisAngle(currentToFinalQ, ref axis, ref angle);
+                            _CurrrentController.load(currentToFinalQ, TimeSpan.TicksPerSecond * (long)(angle / 0.1));
                             _newOrientationLoaded = false;
                             _newCommandLoaded = false;
                             _isCommanded = true;
@@ -615,14 +620,11 @@ namespace LightWeight_Server
             Matrix _currentPose = currentPose;
             Vector3 xAxis = Vector3.Zero;
             Vector3 yAxis = Vector3.Zero;
-            Vector3 zAxis = Vector3.Zero;
-            zAxis = Vector3.Negate(EEvector);
+            Vector3 zAxis = EEvector;
             updateError("current Pose: " + _currentPose.ToString());
             updateError("Forwards: " + _currentPose.Forward.ToString() + "Down: " + _currentPose.Down.ToString() + "Left: " + _currentPose.Left.ToString() );
 
-            yAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Forward));
-            xAxis = Vector3.Normalize(Vector3.Cross(yAxis, zAxis));
-            /*
+            
             if (Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right)) > Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Up)))
             {
                 yAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Forward));
@@ -631,14 +633,15 @@ namespace LightWeight_Server
             else
             {
                 xAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Forward));
-                yAxis = Vector3.Normalize(Vector3.Cross(xAxis, zAxis));
+                yAxis = Vector3.Normalize(Vector3.Cross(zAxis, xAxis));
             }
-             */
+             
             updateError("xAxis: " + xAxis.ToString() + "yAxis: " + yAxis.ToString() + "zAxis: " + zAxis.ToString());
             return Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0,
                                                                                        yAxis.X, yAxis.Y, yAxis.Z, 0,
                                                                                        zAxis.X, zAxis.Y, zAxis.Z, 0,
                                                                                        0, 0, 0, 1));
+            // The output is the transform from origin to final.
         }
 
         public void updateComandPosition()

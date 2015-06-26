@@ -124,7 +124,7 @@ namespace LightWeight_Server
             }
             if (_isRotating && IsActive)
             {
-                Quaternion changeQ =  Quaternion.CreateFromAxisAngle(_axis, _finalAngle * Duration)* Quaternion.Inverse(currentOrientation);
+                Quaternion changeQ =  Quaternion.CreateFromAxisAngle(_axis, (_finalAngle * Duration)) * Quaternion.Inverse(currentOrientation);
                 Vector3 axis = Vector3.Zero;
                 float angle = 0;
                 StaticFunctions.getAxisAngle(changeQ, ref axis, ref angle);

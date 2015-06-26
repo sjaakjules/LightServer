@@ -78,7 +78,7 @@ namespace TestBot
         /// <param name="robot"></param> The robot information to be updated and read from
         public UDP_Client()
         {
-            _kukaPosition = new double[] { 540.5, -18.1, 833.3, 0, 0, 0 };
+            _kukaPosition = new double[] { 540.5, -18.1, 833.3, 180, 0, 180 };
             _kukaServerIPEP = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 6008);
 
             SetupXML();

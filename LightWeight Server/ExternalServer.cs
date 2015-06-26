@@ -405,14 +405,15 @@ namespace LightWeight_Server
                                     _Robot.MaxDisplacement = newSpeed;
                                 }
                             break;
+
                         case "Velocity":
-                            double newSpeed = 0;
-                            if (double.TryParse(Node.InnerText, out newSpeed))
+                            double newVelocity = 0;
+                            if (double.TryParse(Node.InnerText, out newVelocity))
                             {
-                                _Robot.CurrentSpeed = newSpeed;
+                                _Robot.CurrentSpeed = newVelocity;
                             }
                             break;
-                            break;
+
                         case "Gripper":
                             if (int.Parse(Node.InnerText) == 0)
                             {
