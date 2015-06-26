@@ -623,20 +623,21 @@ namespace LightWeight_Server
             Vector3 zAxis = EEvector;
             updateError("current Pose: " + _currentPose.ToString());
             updateError("Forwards: " + _currentPose.Forward.ToString() + "Down: " + _currentPose.Down.ToString() + "Left: " + _currentPose.Left.ToString() );
-
+            updateError("Y comp: " + Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Up)).ToString());
+            updateError("X comp: " + Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right)).ToString()) ;
             
-            if (Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right)) > Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Up)))
+            if (Math.Abs(Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right))) > Math.Abs(Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Up))))
             {
-                yAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Forward));
+                yAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Backward));
                 xAxis = Vector3.Normalize(Vector3.Cross(yAxis, zAxis));
             }
             else
             {
-                xAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Forward));
+                xAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Backward));
                 yAxis = Vector3.Normalize(Vector3.Cross(zAxis, xAxis));
             }
-             
-            updateError("xAxis: " + xAxis.ToString() + "yAxis: " + yAxis.ToString() + "zAxis: " + zAxis.ToString());
+
+            updateError("Setup xAxis: " + xAxis.ToString() + "\nSetup yAxis: " + yAxis.ToString() + "\nSetup zAxis: " + zAxis.ToString());
             return Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0,
                                                                                        yAxis.X, yAxis.Y, yAxis.Z, 0,
                                                                                        zAxis.X, zAxis.Y, zAxis.Z, 0,
