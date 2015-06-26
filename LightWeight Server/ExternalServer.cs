@@ -406,7 +406,12 @@ namespace LightWeight_Server
                                 }
                             break;
                         case "Velocity":
-                            //updateVelocity(double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value), double.Parse(Node.Attributes["Z"].Value));
+                            double newSpeed = 0;
+                            if (double.TryParse(Node.InnerText, out newSpeed))
+                            {
+                                _Robot.CurrentSpeed = newSpeed;
+                            }
+                            break;
                             break;
                         case "Gripper":
                             if (int.Parse(Node.InnerText) == 0)

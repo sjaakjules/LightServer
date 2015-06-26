@@ -15,6 +15,7 @@ namespace LightWeight_Server
         object trajectoryLock = new object();
         object gripperLock = new object();
         object maxSpeedLock = new object();
+        object maxOrientationSpeedLock = new object();
         object maxDisplacementLock = new object();
         object desiredAxisLock = new object();
 
@@ -44,8 +45,9 @@ namespace LightWeight_Server
         Controller _CurrrentController;
 
         bool _gripperIsOpen = true;
-        double _maxSpeed = 0.3;
+        double _maxSpeed = 30;
         double _maxDisplacement = .5;
+        double _maxOrientationSpeed = .3;
 
         bool _isConnected = false;
         bool _isCommanded = false;
@@ -112,6 +114,24 @@ namespace LightWeight_Server
         public Quaternion currentRotation { get { return StaticFunctions.MakeQuaternionFromKuka(currentDoublePose); } }
 
         public double MaxOrientationDisplacement
+        {
+            get
+            {
+                lock (maxOrientationSpeedLock)
+                {
+                    return _maxOrientationSpeed;
+                }
+            }
+            set
+            {
+                lock (maxOrientationSpeedLock)
+                {
+                    _maxOrientationSpeed = value;
+                }
+            }
+        }
+
+        public double CurrentSpeed
         {
             get
             {
