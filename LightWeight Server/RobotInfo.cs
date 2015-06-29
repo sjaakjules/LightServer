@@ -47,10 +47,13 @@ namespace LightWeight_Server
         bool _gripperIsOpen = true;
         double _maxSpeed = 30;
         double _maxDisplacement = .5;
-        double _maxOrientationSpeed = .3;
+        double _maxOrientationSpeed = .005;
 
         bool _isConnected = false;
         bool _isCommanded = false;
+        bool _isCommandedPosition = false;
+        bool _isCommandedOrientation = false;
+
         bool _newCommandLoaded = false;
         bool _newOrientationLoaded = false;
         bool _newPositionLoaded = false;
@@ -288,9 +291,9 @@ namespace LightWeight_Server
                     {
                         hasMsg = _text.TryGetValue("Error", out _PrintMsg);
                     }
-                    
+
                     StreamWriter file = new StreamWriter("ErrorMsg" + _errorMsgs.ToString() + ".txt");
-                    
+
                     file.WriteLine(_PrintMsg);
                     file.Flush();
                     file.Close();
@@ -344,7 +347,7 @@ namespace LightWeight_Server
             _text["msg"].AppendLine("---------------------------------\n              Info:\n");
             _text["msg"].AppendLine("Current Position:     (" + String.Format("{0:0.00}", _ReadPosition["X"]) + " , " +
                                                                     String.Format("{0:0.00}", _ReadPosition["Y"]) + " , " +
-                                                                    String.Format("{0:0.00}", _ReadPosition["Z"]) + " , " + 
+                                                                    String.Format("{0:0.00}", _ReadPosition["Z"]) + " , " +
                                                                     String.Format("{0:0.00}", _ReadPosition["A"]) + " , " +
                                                                     String.Format("{0:0.00}", _ReadPosition["B"]) + " , " +
                                                                     String.Format("{0:0.00}", _ReadPosition["C"]) + ")");
@@ -365,10 +368,10 @@ namespace LightWeight_Server
                                                                     String.Format("{0:0.0000}", _CommandedPosition["C"]) + ")");
             lock (desiredAxisLock)
             {
-            _text["msg"].AppendLine("Desired Tip Vector:     (" + String.Format("{0:0.00}", desiredZaxis.X) + " , " +
-                                                                    String.Format("{0:0.00}", desiredZaxis.Y) + " , " +
-                                                                    String.Format("{0:0.00}", desiredZaxis.Z) + ")");
-                
+                _text["msg"].AppendLine("Desired Tip Vector:     (" + String.Format("{0:0.00}", desiredZaxis.X) + " , " +
+                                                                        String.Format("{0:0.00}", desiredZaxis.Y) + " , " +
+                                                                        String.Format("{0:0.00}", desiredZaxis.Z) + ")");
+
             }
             _text["msg"].AppendLine("Current Tip vector:     (" + String.Format("{0:0.00}", currentPose.Backward.X) + " , " +
                                                                     String.Format("{0:0.00}", currentPose.Backward.Y) + " , " +
@@ -392,6 +395,14 @@ namespace LightWeight_Server
             {
                 _text["msg"].AppendLine("Robot is NOT Commanded");
                 _text["msg"].AppendLine("Trajectory is NOT Active");
+            } 
+            if (_CurrrentController._isRotating)
+            {
+                _text["msg"].AppendLine("You spin me right round baby... right round....");
+            }
+            else
+            {
+                _text["msg"].AppendLine("no rotating");
             }
             _text["msg"].AppendLine("Process data time: " + _processDataTimer.ToString() + "ms.");
             _text["msg"].AppendLine("Max Process data time: " + _maxProcessDataTimer.ToString() + "ms.");
@@ -479,7 +490,9 @@ namespace LightWeight_Server
             }
         }
 
-        
+        /// <summary>
+        /// Loads the _desiredPosition data in Base coordinates and the _desiredRotation in local SartPose coordinates
+        /// </summary>
         public void LoadCommand()
         {
             lock (trajectoryLock)
@@ -488,47 +501,51 @@ namespace LightWeight_Server
                 {
                     if (_newCommandLoaded)
                     {
-                        if (_newPositionLoaded && _newOrientationLoaded)
+                        if (_newOrientationLoaded)
                         {
                             Vector3 axis = Vector3.Zero;
                             float angle = 0;
-                            Quaternion currentToFinalQ = _DesiredRotation * Quaternion.Inverse(currentRotation);
-                            updateError("getTo matrix: " + Matrix.CreateFromQuaternion(currentToFinalQ).ToString());
-                            StaticFunctions.getAxisAngle(currentToFinalQ, ref axis, ref angle);
-                            _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]), currentToFinalQ, TimeSpan.TicksPerSecond * (long)(angle / 0.1));
-                            _newOrientationLoaded = false;
-                            _newPositionLoaded = false;
-                            _newCommandLoaded = false;
-                            _isCommanded = true;
+                            StaticFunctions.getAxisAngle(_DesiredRotation, ref axis, ref angle);
+                            long orientationDuration = (long)(TimeSpan.TicksPerSecond * (angle / (MaxOrientationDisplacement*10)));
+                            updateError("Orientation Time in seconds: " + (1.0f * orientationDuration / TimeSpan.TicksPerSecond).ToString());
+                            updateError("vectot out 2: " + Vector3.Transform(currentPose.Backward, _DesiredRotation));
+                            if (_newPositionLoaded)
+                            {
+                                _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]), _DesiredRotation, currentPose, orientationDuration);
+                                _newOrientationLoaded = false;
+                                _newPositionLoaded = false;
+                                _newCommandLoaded = false;
+                                _isCommanded = true;
+                                _isCommandedPosition = true;
+                            }
+                            else
+                            {
+                                _CurrrentController.load(_DesiredRotation, currentPose, orientationDuration);
+                                _newOrientationLoaded = false;
+                                _newCommandLoaded = false;
+                                _isCommanded = true;
+                            }
+                            _isCommandedOrientation = true;
                         }
                         else if (_newPositionLoaded)
                         {
-                            _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]));
+                            _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]), currentPose);
                             _newPositionLoaded = false;
                             _newCommandLoaded = false;
                             _isCommanded = true;
-                        }
-                        else if (_newOrientationLoaded)
-                        {
-                            Vector3 axis = Vector3.Zero;
-                            float angle = 0;
-                            Quaternion currentToFinalQ = _DesiredRotation * Quaternion.Inverse(currentRotation);
-                            updateError("getTo matrix: " + Matrix.CreateFromQuaternion(currentToFinalQ).ToString());
-                            StaticFunctions.getAxisAngle(currentToFinalQ, ref axis, ref angle);
-                            _CurrrentController.load(currentToFinalQ, TimeSpan.TicksPerSecond * (long)(angle / 0.1));
-                            _newOrientationLoaded = false;
-                            _newCommandLoaded = false;
-                            _isCommanded = true;
+                            _isCommandedPosition = true;
                         }
                     }
                 }
                 catch (Exception)
                 {
-                    _CurrrentController.load(new Vector3((float)CurrentPosition(0), (float)CurrentPosition(1), (float)CurrentPosition(2)), currentRotation, 100);
+                    _CurrrentController.load(new Vector3((float)CurrentPosition(0), (float)CurrentPosition(1), (float)CurrentPosition(2)), Quaternion.Identity, currentPose, 100);
                     _newCommandLoaded = false;
                     _isCommanded = false;
                     _newOrientationLoaded = false;
                     _newPositionLoaded = false;
+                    _isCommandedPosition = false;
+                    _isCommandedOrientation = false;
                 }
             }
         }
@@ -606,26 +623,43 @@ namespace LightWeight_Server
                 {
                     desiredZaxis = newOrientation;
                 }
-                _DesiredRotation = setupController(newOrientation);
-                Vector3 axis = Vector3.Zero;
-                float angle = 0;
-                StaticFunctions.getAxisAngle(_DesiredRotation, ref axis, ref angle);
-                updateError("Load desired... axis:  " + axis.ToString() + "\nangle: " + angle.ToString());
-                _newOrientationLoaded = true;
+                _newOrientationLoaded = setupController(newOrientation, ref _DesiredRotation);
             }
         }
 
-        Quaternion setupController(Vector3 EEvector)
+        /// <summary>
+        /// Updates the desired rotation with a quaternion representing a change from origin to the final orientation, EEVector
+        /// </summary>
+        /// <param name="EEvector"></param>
+        /// <param name="DesiredRotationOut"></param>
+        /// <returns></returns>
+        bool setupController(Vector3 EEvector, ref Quaternion DesiredRotationOut)
         {
+            updateError("Desired vector: " + EEvector.ToString());
             Matrix _currentPose = currentPose;
+            Vector3 axis = Vector3.Cross(Vector3.Normalize(_currentPose.Backward), Vector3.Normalize(EEvector));
+            float angle = (float)Math.Asin((double)axis.Length());
+            if (Math.Abs(angle) < MathHelper.ToRadians(1.0f))
+            {
+                return false;
+            }
+            else
+            {
+                DesiredRotationOut = Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle);
+                updateError("vectot out: " + Vector3.Transform(_currentPose.Backward, DesiredRotationOut));
+                updateError("Angle of rotation: " + angle.ToString());
+                updateError("Axis of rotation: " + Vector3.Normalize(axis).ToString());
+                updateError("Matrix of rotation: " + Matrix.CreateFromQuaternion(DesiredRotationOut).ToString());
+                return true;
+            }
             Vector3 xAxis = Vector3.Zero;
             Vector3 yAxis = Vector3.Zero;
             Vector3 zAxis = EEvector;
             updateError("current Pose: " + _currentPose.ToString());
-            updateError("Forwards: " + _currentPose.Forward.ToString() + "Down: " + _currentPose.Down.ToString() + "Left: " + _currentPose.Left.ToString() );
+            updateError("Forwards: " + _currentPose.Forward.ToString() + "Down: " + _currentPose.Down.ToString() + "Left: " + _currentPose.Left.ToString());
             updateError("Y comp: " + Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Up)).ToString());
-            updateError("X comp: " + Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right)).ToString()) ;
-            
+            updateError("X comp: " + Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right)).ToString());
+
             if (Math.Abs(Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right))) > Math.Abs(Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Up))))
             {
                 yAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Backward));
@@ -638,10 +672,11 @@ namespace LightWeight_Server
             }
 
             updateError("Setup xAxis: " + xAxis.ToString() + "\nSetup yAxis: " + yAxis.ToString() + "\nSetup zAxis: " + zAxis.ToString());
-            return Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0,
+            DesiredRotationOut = Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0,
                                                                                        yAxis.X, yAxis.Y, yAxis.Z, 0,
                                                                                        zAxis.X, zAxis.Y, zAxis.Z, 0,
                                                                                        0, 0, 0, 1));
+            return true;
             // The output is the transform from origin to final.
         }
 
@@ -651,13 +686,13 @@ namespace LightWeight_Server
             {
                 if (_isConnected && _isCommanded && _CurrrentController.IsActive)
                 {
-                    Vector3 comandPos = _CurrrentController.getDisplacement(currentPose.Translation, new Vector3((float)_LastPosition["X"], (float)_LastPosition["Y"], (float)_LastPosition["Z"]), MaxDisplacement);
+                    Vector3 comandPos = _CurrrentController.getDisplacement(currentPose.Translation, MaxDisplacement);
                     Vector3 commandOri = _CurrrentController.getOrientation(currentRotation, (float)MaxOrientationDisplacement);
-                    if (comandPos.Length() < MaxDisplacement/50 && comandPos.Length() < MaxOrientationDisplacement/0)
-                    {
-                        _isCommanded = false;
-                    }
                     // Update the command position all lights green
+                    if (comandPos.Equals(Vector3.Zero))
+                    {
+                        
+                    }
 
                     _CommandedPosition["X"] = comandPos.X;
                     _CommandedPosition["Y"] = comandPos.Y;
@@ -668,11 +703,11 @@ namespace LightWeight_Server
                     //double[] newComandPos = getKukaDisplacement();
 
                     //_CommandedPosition["X"] = newComandPos[0];
-                   // _CommandedPosition["Y"] = newComandPos[1];
+                    // _CommandedPosition["Y"] = newComandPos[1];
                     //_CommandedPosition["Z"] = newComandPos[2];
-                   // _CommandedPosition["A"] = newComandPos[3];
-                   // _CommandedPosition["B"] = newComandPos[4];
-                   // _CommandedPosition["C"] = newComandPos[5];
+                    // _CommandedPosition["A"] = newComandPos[3];
+                    // _CommandedPosition["B"] = newComandPos[4];
+                    // _CommandedPosition["C"] = newComandPos[5];
                 }
                 else
                 {

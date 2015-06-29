@@ -63,7 +63,7 @@ namespace TestBot
 
         double[] _kukaPosition;
 
-        Stopwatch IPOCTimer = new Stopwatch(); 
+        Stopwatch IPOCTimer = new Stopwatch();
         public Stopwatch _loopTimer = new Stopwatch();
 
         string[] CardinalKey = new string[] { "X", "Y", "Z", "A", "B", "C" };
@@ -351,6 +351,11 @@ namespace TestBot
                 for (int i = 0; i < 6; i++)
                 {
                     _kukaPosition[i] += newCommand[i];
+                }
+                for (int i = 3; i < 6; i++)
+                {
+                    _kukaPosition[i] = (_kukaPosition[i] > 180) ? _kukaPosition[i] - 360 : _kukaPosition[i];
+                    _kukaPosition[i] = (_kukaPosition[i] < -180) ? _kukaPosition[i] + 360 : _kukaPosition[i];
                 }
             }
         }

@@ -13,7 +13,7 @@ namespace LightWeight_Server
         object movementLock = new object();
         Stopwatch _elapsedTime = new Stopwatch();
         bool _isActive = false;
-        bool _isRotating, _isMoving;
+        public bool _isRotating, _isMoving;
         Matrix _finalPose, _startPose;
         TimeSpan _trajectoryTime;
         Vector3 _axis;
@@ -32,12 +32,12 @@ namespace LightWeight_Server
             {
                 if (!_isActive & value)
                 {
-                    _elapsedTime.Restart();
+                   // _elapsedTime.Restart();
                     _isActive = value;
                 }
                 else if (_isActive & !value)
                 {
-                    _elapsedTime.Reset();
+                   // _elapsedTime.Reset();
                     _isActive = value;
                 }
 
@@ -54,30 +54,35 @@ namespace LightWeight_Server
             _finalPose = Matrix.Identity;
         }
 
-        public void load(Vector3 position)
+        public void load(Vector3 position, Matrix startPose)
         {
             _finalPose.Translation = position;
+            _startPose.Translation = startPose.Translation;
             _isMoving = true;
             _isActive = true;
         }
 
-        public void load(Quaternion orientation, long timespan)
+        public void load(Quaternion FinalOrientation, Matrix startPose, long timespan)
         {
-            StaticFunctions.getAxisAngle(orientation, ref _axis, ref _finalAngle);
+            StaticFunctions.getAxisAngle(FinalOrientation, ref _axis, ref _finalAngle);
             _trajectoryTime = new TimeSpan(timespan);
-            Vector3 translation = _finalPose.Translation;
-            _finalPose = Matrix.CreateFromQuaternion(orientation);
+            Vector3 translation = _startPose.Translation;
+            _startPose = startPose;
+            startPose.Translation = translation;
+            translation = _finalPose.Translation;
+            _finalPose = Matrix.CreateFromQuaternion(FinalOrientation);
             _finalPose.Translation = translation;
             _elapsedTime.Restart();
             _isRotating = true;
             _isActive = true;
         }
 
-        public void load(Vector3 position, Quaternion orientation, long timespan)
+        public void load(Vector3 position, Quaternion FinalOrientation, Matrix startPose, long timespan)
         {
-            StaticFunctions.getAxisAngle(orientation, ref _axis, ref _finalAngle);
+            StaticFunctions.getAxisAngle(FinalOrientation, ref _axis, ref _finalAngle);
             _trajectoryTime = new TimeSpan(timespan);
-            _finalPose = Matrix.CreateFromQuaternion(orientation);
+            _startPose = startPose;
+            _finalPose = Matrix.CreateFromQuaternion(FinalOrientation);
             _finalPose.Translation = position;
             _elapsedTime.Restart();
             _isRotating = true;
@@ -87,7 +92,7 @@ namespace LightWeight_Server
 
 
 
-        public Vector3 getDisplacement(Vector3 currentPosition, Vector3 lastPosition, double maxChange)
+        public Vector3 getDisplacement(Vector3 currentPosition, double maxChange)
         {
             if (!_isMoving && !_isRotating)
             {
@@ -95,21 +100,20 @@ namespace LightWeight_Server
             }
             if (_isMoving && IsActive)
             {
-                if (Math.Abs(Vector3.Distance(lastPosition,currentPosition)) < 0.0001)
-                {
-                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition),0.1f);
-                    
-                }
-                if (Vector3.Distance(_finalPose.Translation, currentPosition) > maxChange/100)
+                if (Math.Abs(Vector3.Distance(_startPose.Translation,currentPosition)) < 1)
                 {
                     return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition),
-                          (Vector3.Distance(_finalPose.Translation, currentPosition) > 20) ? (float)maxChange : (float)maxChange*Vector3.Distance(_finalPose.Translation, currentPosition) / 20);
+                        (Math.Abs(Vector3.Distance(_startPose.Translation, currentPosition)) < 0.01 / maxChange) ? 0.01f : (float)maxChange * Math.Abs(Vector3.Distance(_startPose.Translation, currentPosition)));
+                    
                 }
-                else
+                if (Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition)) < 0.05 / maxChange)
                 {
                     _isMoving = false;
+                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition)));
                 }
-                return _finalPose.Translation - currentPosition;
+                return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition),
+                          (Vector3.Distance(_finalPose.Translation, currentPosition) > 5) ? (float)maxChange : (float)maxChange * Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition)) / 5);
+                
             }
             return Vector3.Zero;
         }
@@ -124,24 +128,29 @@ namespace LightWeight_Server
             }
             if (_isRotating && IsActive)
             {
-                Quaternion changeQ =  Quaternion.CreateFromAxisAngle(_axis, (_finalAngle * Duration));
+                Quaternion refChange = Quaternion.CreateFromAxisAngle(_axis, _finalAngle*Duration);
+                Quaternion referenceQ = refChange * Quaternion.CreateFromRotationMatrix(_startPose);
+                Quaternion changeQ = referenceQ * Quaternion.Inverse(currentOrientation);
+                /*
                 Vector3 axis = Vector3.Zero;
                 float angle = 0;
                 StaticFunctions.getAxisAngle(changeQ, ref axis, ref angle);
-                _robot.updateError("axis:  " + axis.ToString() + "\nangle: " + angle.ToString());
+                _robot.updateError(Duration.ToString() + " Angle: " + angle.ToString());
                 if (Math.Abs(angle) > maxChange)
                 {
                     _robot.updateError("large angle: " + angle.ToString());
                     angle = Math.Sign(angle) * maxChange;
                 }
-                _robot.updateError("angle: " + angle.ToString());
+                */
+                //_robot.updateError("angle: " + angle.ToString());
                 float[] kukaAngles = new float[6];
-                StaticFunctions.getKukaAngles(Quaternion.CreateFromAxisAngle(axis, angle), ref kukaAngles);
-                _robot.updateError("kukaAngles: " + kukaAngles[0].ToString() + " : " + kukaAngles[1].ToString() + " : " + kukaAngles[2].ToString() + " : " + kukaAngles[3].ToString() + " : " + kukaAngles[4].ToString() + " : " + kukaAngles[5].ToString() );
+                StaticFunctions.getKukaAngles(changeQ, ref kukaAngles);
+                //_robot.updateError("kukaAngles: " + kukaAngles[0].ToString() + " : " + kukaAngles[1].ToString() + " : " + kukaAngles[2].ToString() + " : " + kukaAngles[3].ToString() + " : " + kukaAngles[4].ToString() + " : " + kukaAngles[5].ToString() );
                 if (Duration >= 1.0f)
                 {
                     _isRotating = false;
                 }
+                _robot.updateError(Duration.ToString() + " Angles: {" + kukaAngles[3].ToString() + " , " + kukaAngles[4].ToString() + " , " + kukaAngles[5].ToString() + ") ");
                 return new Vector3(kukaAngles[3], kukaAngles[4], kukaAngles[5]);
             }
             return Vector3.Zero;

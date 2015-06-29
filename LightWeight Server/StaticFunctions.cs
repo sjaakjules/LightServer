@@ -146,13 +146,13 @@ namespace LightWeight_Server
             Vector3 axis = new Vector3();
             float angle = 0;
             getAxisAngle(rotation, ref axis, ref angle);
-            if (angle < Math.PI / 2)
+            if (Math.Abs(angle) < Math.PI / 2)
             {
                 Matrix rotationMat = Matrix.CreateFromQuaternion(rotation);
                 float[] angles = new float[3];
-                angles[2] = MathHelper.ToDegrees((float)Math.Atan2(rotationMat.M32, rotationMat.M33));
-                angles[1] = MathHelper.ToDegrees((float)Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33)));
-                angles[0] = MathHelper.ToDegrees((float)Math.Atan2(rotationMat.M21, rotationMat.M11));
+                angles[2] = (float)(180.0f * Math.Atan2(rotationMat.M32, rotationMat.M33) / Math.PI);
+                angles[1] = (float)(180.0f * Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33)) / Math.PI);
+                angles[0] = (float)(180.0f * Math.Atan2(rotationMat.M21, rotationMat.M11) / Math.PI);
                 return angles;                
             }
             return new float[] { 0, 0, 0 };
@@ -169,12 +169,12 @@ namespace LightWeight_Server
             Vector3 axis = new Vector3();
             float angle = 0;
             getAxisAngle(rotation, ref axis, ref angle);
-            if (angle < Math.PI / 2)
+            if (Math.Abs(angle) < Math.PI / 2)
             {
                 Matrix rotationMat = Matrix.CreateFromQuaternion(rotation);
-                KukaAngleOut[5] = MathHelper.ToDegrees((float)Math.Atan2(rotationMat.M32, rotationMat.M33));
-                KukaAngleOut[4] = MathHelper.ToDegrees((float)Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33)));
-                KukaAngleOut[3] = MathHelper.ToDegrees((float)Math.Atan2(rotationMat.M21, rotationMat.M11));
+                KukaAngleOut[5] = (float)(180.0f * Math.Atan2(rotationMat.M32, rotationMat.M33) / Math.PI);
+                KukaAngleOut[4] = (float)(180.0f * Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33)) / Math.PI);
+                KukaAngleOut[3] = (float)(180.0f * Math.Atan2(rotationMat.M21, rotationMat.M11) / Math.PI);
             }
             else
             {
@@ -202,9 +202,9 @@ namespace LightWeight_Server
             if (angle < Math.PI / 2)
             {
                 float[] kukaOut = new float[6];
-                kukaOut[5] = MathHelper.ToDegrees((float)Math.Atan2(pose.M32, pose.M33));
-                kukaOut[4] = MathHelper.ToDegrees((float)Math.Atan2(-pose.M31, Math.Sqrt(pose.M32 * pose.M32 + pose.M33 * pose.M33)));
-                kukaOut[3] = MathHelper.ToDegrees((float)Math.Atan2(pose.M21, pose.M11));
+                kukaOut[5] = ((float)Math.Atan2(pose.M32, pose.M33));
+                kukaOut[4] = ((float)Math.Atan2(-pose.M31, Math.Sqrt(pose.M32 * pose.M32 + pose.M33 * pose.M33)));
+                kukaOut[3] = ((float)Math.Atan2(pose.M21, pose.M11));
                 kukaOut[2] = translation.Z;
                 kukaOut[1] = translation.Y;
                 kukaOut[0] = translation.Z;
