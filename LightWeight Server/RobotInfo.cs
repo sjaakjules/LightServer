@@ -47,7 +47,7 @@ namespace LightWeight_Server
         bool _gripperIsOpen = true;
         double _maxSpeed = 30;
         double _maxDisplacement = .5;
-        double _maxOrientationSpeed = .005;
+        double _maxOrientationSpeed = .0005;
 
         bool _isConnected = false;
         bool _isCommanded = false;
