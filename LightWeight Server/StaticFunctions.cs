@@ -8,13 +8,17 @@ using System.Threading.Tasks;
 
 namespace LightWeight_Server
 {
-    public static class StaticFunctions
+    public static class SF
     {
 
         static String[] cardinalKeys = new String[] { "X", "Y", "Z", "A", "B", "C" };
         static String[] axisKeys = new String[] { "A1", "A2", "A3", "A4", "A5", "A6" };
         static String[] rotationKeys = new String[] { "X1", "X2", "X3", "Y1", "Y2", "Y3", "Z1", "Z2", "Z3" };
 
+        static Matrix M(Matrix mat1, Matrix mat2)
+        {
+            return Matrix.Transpose(Matrix.Transpose(mat1) * Matrix.Transpose(mat2));
+        }
 
         public static Matrix CreateFromQuaternionPosition(Quaternion Q, Vector3 Position)
         {
@@ -59,11 +63,10 @@ namespace LightWeight_Server
         /// <returns></returns>
         public static Quaternion MakeQuaternionFromKuka(double[] pose)
         {
-            Matrix Rz = Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180));
-            Matrix Ry = Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180));
-            Matrix Rx = Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180));
-            Matrix Rotation = Matrix.Multiply(Matrix.Multiply(Rz, Ry), Rx);
-            return Quaternion.CreateFromRotationMatrix(Rotation);
+            Quaternion Rz = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180)));
+            Quaternion Ry = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180)));
+            Quaternion Rx = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180)));
+            return (Rx * Ry * Rz);
         }
 
         public static Matrix MakeMatrixFromKuka(double[] pose)
@@ -71,7 +74,7 @@ namespace LightWeight_Server
             Matrix Rz = Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180));
             Matrix Ry = Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180));
             Matrix Rx = Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180));
-            Matrix poseout = Matrix.Multiply(Matrix.Multiply(Rz, Ry), Rx);
+            Matrix poseout = M(M(Rx, Ry), Rz);
             poseout.Translation = new Vector3((float)pose[0], (float)pose[1], (float)pose[2]);
             return poseout;
         }
@@ -116,11 +119,11 @@ namespace LightWeight_Server
             }
             outAngle = 2 * (float)Math.Acos(quaternion.W);
             float s = (float)Math.Sqrt(1 - quaternion.W * quaternion.W);
-            if (s < 0.001)
+            if (s < 0.00001)
             {
-                outAxis.X = quaternion.X;
-                outAxis.Y = quaternion.Y;
-                outAxis.Z = quaternion.Z;
+                outAxis.X = 1;// quaternion.X;
+                outAxis.Y = 0;// quaternion.Y;
+                outAxis.Z = 0;// quaternion.Z;
             }
             else
             {
@@ -132,7 +135,10 @@ namespace LightWeight_Server
         
         public static Quaternion MakeQuaternionFromKuka(float A, float B, float C)
         {
-            return Quaternion.CreateFromRotationMatrix((Matrix.CreateRotationZ(MathHelper.ToRadians(A)) * Matrix.CreateRotationY(MathHelper.ToRadians(B))) * Matrix.CreateRotationX(MathHelper.ToRadians(C)));
+            Matrix Rz = Matrix.CreateRotationZ(MathHelper.ToRadians(A));
+            Matrix Ry = Matrix.CreateRotationY(MathHelper.ToRadians(B));
+            Matrix Rx = Matrix.CreateRotationX(MathHelper.ToRadians(C));
+            return Quaternion.CreateFromRotationMatrix(M(M(Rx, Ry), Rz));
         }
 
         /// <summary>
@@ -283,4 +289,7 @@ namespace LightWeight_Server
     // Identity matrix. Forwards =   0, 0,-1
     //                  Down     =   0,-1, 0
     //                  Left     =  -1, 0, 0
+    ///
+    // Matrix are row basis, where litrature is column basis!
+    // This requires transpose before and after any multiplication
 }

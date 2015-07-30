@@ -349,6 +349,7 @@ namespace LightWeight_Server
                             break;
                     }
                 }
+                _Robot.SaveInfo();
                 _Robot.LoadCommand();
                 //_Robot.LoadTrajectory();
 
@@ -534,7 +535,7 @@ namespace LightWeight_Server
             XmlNode comPosNode = _SendXML.SelectSingleNode("//Sen/RKorr");
             for (int i = 0; i < 6; i++)
             {
-                comPosNode.Attributes[StaticFunctions.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CommandedPosition(i));
+                comPosNode.Attributes[SF.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CommandedPosition(i));
 
             }
 

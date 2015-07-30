@@ -277,7 +277,7 @@ namespace LightWeight_Server
             Quaternion finalRotation = Quaternion.CreateFromRotationMatrix(_finalPose);
             Quaternion currentRotation = Quaternion.CreateFromRotationMatrix(_startPose);
             Quaternion toRotation = Quaternion.Conjugate(currentRotation) * finalRotation;
-            StaticFunctions.getAxisAngle(toRotation, ref _axis, ref _finalAngle);
+            SF.getAxisAngle(toRotation, ref _axis, ref _finalAngle);
             Matrix<double> tempQuinticParam = Matrix<double>.Build.Dense(6, 4);
             // magic numbers are zero start time and zero final velocity
             tempQuinticParam.SetColumn(0, FindCurve(0, _trajectoryTime.TotalMilliseconds, _startPose.Translation.X, _finalPose.Translation.X, _robot.CurrentVelocity(0) / 1000, 0));
@@ -292,7 +292,7 @@ namespace LightWeight_Server
             Quaternion finalRotation = Quaternion.CreateFromRotationMatrix(_finalPose);
             Quaternion currentRotation = Quaternion.CreateFromRotationMatrix(_startPose);
             Quaternion toRotation = Quaternion.Conjugate(currentRotation) * finalRotation;
-            StaticFunctions.getAxisAngle(toRotation, ref _axis, ref _finalAngle);
+            SF.getAxisAngle(toRotation, ref _axis, ref _finalAngle);
             Matrix<double> tempQuinticParam = Matrix<double>.Build.Dense(6, 4);
             // magic numbers are zero start time and zero final velocity
             tempQuinticParam.SetColumn(0, FindCurve(0, _trajectoryTime.TotalMilliseconds, _startPose.Translation.X, _finalPose.Translation.X, _robot.CurrentVelocity(0) / 1000, 0, startAcceleration.X / 1000000));

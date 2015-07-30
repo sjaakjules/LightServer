@@ -41,6 +41,15 @@ namespace LightWeight_Server
                         case ConsoleKey.O:
                             ConnectedKuka.gripperIsOpen = true;
                             break;
+                        case ConsoleKey.X:
+                            ConnectedKuka.rotateX = true;
+                            break;
+                        case ConsoleKey.Y:
+                            ConnectedKuka.rotateY = true;
+                            break;
+                        case ConsoleKey.Z:
+                            ConnectedKuka.rotateZ = true;
+                            break;
                         case ConsoleKey.OemPlus:
                             ConnectedKuka.MaxDisplacement += 0.1;
                             break;

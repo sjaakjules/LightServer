@@ -331,7 +331,7 @@ namespace LightWeight_Server
                             for (int i = 0; i < 3; i++)
                             {
                                 double result;
-                                if (double.TryParse(Node.Attributes[StaticFunctions.getCardinalKey(i)].Value, out result))
+                                if (double.TryParse(Node.Attributes[SF.getCardinalKey(i)].Value, out result))
                                 {
                                     newPosition[i] = result;
                                     newPosition[3] += 1;
@@ -354,7 +354,7 @@ namespace LightWeight_Server
                             for (int i = 0; i < 9; i++)
                             {
                                 double result;
-                                if (double.TryParse(Node.Attributes[StaticFunctions.getrotationKeys(i)].Value, out result))
+                                if (double.TryParse(Node.Attributes[SF.getrotationKeys(i)].Value, out result))
                                 {
                                     newRotation[i] = result;
                                     newRotation[9] += 1;
@@ -380,7 +380,7 @@ namespace LightWeight_Server
                             for (int i = 0; i < dataPoints; i++)
                             {
                                 double result;
-                                if (double.TryParse(Node.Attributes[StaticFunctions.getCardinalKey(i)].Value, out result))
+                                if (double.TryParse(Node.Attributes[SF.getCardinalKey(i)].Value, out result))
                                 {
                                     newOrientation[i] = result;
                                     newOrientation[dataPoints] += 1;
@@ -556,7 +556,7 @@ namespace LightWeight_Server
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    currentPosition.Attributes[StaticFunctions.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CurrentPosition(i));
+                    currentPosition.Attributes[SF.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CurrentPosition(i));
                 }
             }
 
@@ -565,7 +565,7 @@ namespace LightWeight_Server
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    currentVelocity.Attributes[StaticFunctions.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CurrentVelocity(i));
+                    currentVelocity.Attributes[SF.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CurrentVelocity(i));
                 }
             }
 
@@ -574,7 +574,7 @@ namespace LightWeight_Server
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    currentAcceleration.Attributes[StaticFunctions.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CurrentAcceleration(i));
+                    currentAcceleration.Attributes[SF.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CurrentAcceleration(i));
                 }
             }
 

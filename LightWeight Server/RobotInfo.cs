@@ -47,7 +47,7 @@ namespace LightWeight_Server
         bool _gripperIsOpen = true;
         double _maxSpeed = 30;
         double _maxDisplacement = .5;
-        double _maxOrientationSpeed = .0005;
+        double _maxOrientationSpeed = .005;
 
         bool _isConnected = false;
         bool _isCommanded = false;
@@ -57,6 +57,18 @@ namespace LightWeight_Server
         bool _newCommandLoaded = false;
         bool _newOrientationLoaded = false;
         bool _newPositionLoaded = false;
+
+
+        // Test variables
+        bool _isRotatingX = false;
+        bool _isRotatingY = false;
+        bool _isRotatingZ = false;
+        bool _isRotating = false;
+        Stopwatch _rotatingTimer = new Stopwatch();
+        Stopwatch _ConnectionTimer = new Stopwatch();
+        StringBuilder _data = new StringBuilder();
+
+        float _degreePerSec = 5;
 
 
         StringBuilder _PrintMsg = new StringBuilder();
@@ -88,34 +100,34 @@ namespace LightWeight_Server
         {
             lock (trajectoryLock)
             {
-                return StaticFunctions.Getvalue(_CommandedPosition, StaticFunctions.getCardinalKey(index));
+                return SF.Getvalue(_CommandedPosition, SF.getCardinalKey(index));
             }
         }
         public double CurrentPosition(int index)
         {
-            return StaticFunctions.Getvalue(_ReadPosition, StaticFunctions.getCardinalKey(index));
+            return SF.Getvalue(_ReadPosition, SF.getCardinalKey(index));
         }
         public double CurrentVelocity(int index)
         {
-            return StaticFunctions.Getvalue(_Velocity, StaticFunctions.getCardinalKey(index));
+            return SF.Getvalue(_Velocity, SF.getCardinalKey(index));
         }
         public double CurrentAcceleration(int index)
         {
-            return StaticFunctions.Getvalue(_acceleration, StaticFunctions.getCardinalKey(index));
+            return SF.Getvalue(_acceleration, SF.getCardinalKey(index));
         }
 
         // inb degrees
-        public double[] currentDoublePose { get { return StaticFunctions.getCardinalDoubleArray(_ReadPosition); } }
+        public double[] currentDoublePose { get { return SF.getCardinalDoubleArray(_ReadPosition); } }
 
         Matrix currentPose
         {
             get
             {
-                return StaticFunctions.MakeMatrixFromKuka(currentDoublePose);
+                return SF.MakeMatrixFromKuka(currentDoublePose);
             }
         }
 
-        public Quaternion currentRotation { get { return StaticFunctions.MakeQuaternionFromKuka(currentDoublePose); } }
+        public Quaternion currentRotation { get { return SF.MakeQuaternionFromKuka(currentDoublePose); } }
 
         public double MaxOrientationDisplacement
         {
@@ -134,6 +146,59 @@ namespace LightWeight_Server
                 }
             }
         }
+
+        public bool rotateX
+        {
+            get
+            {
+                return _isRotatingX;
+            }
+            set
+            {
+                _isRotatingX = value;
+            }
+        }
+        public bool rotateY
+        {
+            get
+            {
+                return _isRotatingY;
+            }
+            set
+            {
+                _isRotatingY = value;
+            }
+        }
+        public bool rotateZ
+        {
+            get
+            {
+                return _isRotatingZ;
+            }
+            set
+            {
+                _isRotatingZ = value;
+            }
+        }
+        public float rotateSpeed
+        {
+            get
+            {
+                lock (maxOrientationSpeedLock)
+                {
+                    return _degreePerSec;
+                }
+            }
+            set
+            {
+                lock (maxOrientationSpeedLock)
+                {
+                    _degreePerSec = value;
+                }
+            }
+        }
+
+
 
         public double CurrentSpeed
         {
@@ -212,6 +277,10 @@ namespace LightWeight_Server
 
         public void Connect()
         {
+            if (!_isConnected)
+            {
+                _ConnectionTimer.Restart();
+            }
             _isConnected = true;
         }
 
@@ -395,7 +464,7 @@ namespace LightWeight_Server
             {
                 _text["msg"].AppendLine("Robot is NOT Commanded");
                 _text["msg"].AppendLine("Trajectory is NOT Active");
-            } 
+            }
             if (_CurrrentController._isRotating)
             {
                 _text["msg"].AppendLine("You spin me right round baby... right round....");
@@ -491,7 +560,8 @@ namespace LightWeight_Server
         }
 
         /// <summary>
-        /// Loads the _desiredPosition data in Base coordinates and the _desiredRotation in local SartPose coordinates
+        /// Loads the _desiredPosition data in Base coordinates and the _desiredRotation in local SartPose coordinates. 
+        /// The _desiredRotation is a rotation, which when applied, will rotate the current pose to desired final pose.
         /// </summary>
         public void LoadCommand()
         {
@@ -505,8 +575,8 @@ namespace LightWeight_Server
                         {
                             Vector3 axis = Vector3.Zero;
                             float angle = 0;
-                            StaticFunctions.getAxisAngle(_DesiredRotation, ref axis, ref angle);
-                            long orientationDuration = (long)(TimeSpan.TicksPerSecond * (angle / (MaxOrientationDisplacement*10)));
+                            SF.getAxisAngle(_DesiredRotation, ref axis, ref angle);
+                            long orientationDuration = (long)(TimeSpan.TicksPerSecond * (angle / (MaxOrientationDisplacement * 10)));
                             updateError("Orientation Time in seconds: " + (1.0f * orientationDuration / TimeSpan.TicksPerSecond).ToString());
                             updateError("vectot out 2: " + Vector3.Transform(currentPose.Backward, _DesiredRotation));
                             if (_newPositionLoaded)
@@ -535,6 +605,13 @@ namespace LightWeight_Server
                             _isCommanded = true;
                             _isCommandedPosition = true;
                         }
+
+                    }
+                    // New test code:
+                    if (!_isRotating && (_isRotatingX || _isRotatingY || _isRotatingZ))
+                    {
+                        _rotatingTimer.Restart();
+                        _isRotating = true;
                     }
                 }
                 catch (Exception)
@@ -628,7 +705,8 @@ namespace LightWeight_Server
         }
 
         /// <summary>
-        /// Updates the desired rotation with a quaternion representing a change from origin to the final orientation, EEVector
+        /// Updates the desired rotation with a quaternion representing a change from current pose to the final orientation, EEVector
+        /// The quiternion updated is in the local reference frame NOT from base
         /// </summary>
         /// <param name="EEvector"></param>
         /// <param name="DesiredRotationOut"></param>
@@ -691,7 +769,7 @@ namespace LightWeight_Server
                     // Update the command position all lights green
                     if (comandPos.Equals(Vector3.Zero))
                     {
-                        
+
                     }
 
                     _CommandedPosition["X"] = comandPos.X;
@@ -708,6 +786,30 @@ namespace LightWeight_Server
                     // _CommandedPosition["A"] = newComandPos[3];
                     // _CommandedPosition["B"] = newComandPos[4];
                     // _CommandedPosition["C"] = newComandPos[5];
+                }
+                else if (_isRotating)
+                {
+                    Vector3 commandOri = Vector3.Zero;
+                    if (_rotatingTimer.Elapsed.TotalMilliseconds > 6000.0)
+                    {
+                        resetRotation();
+                    }
+                    if (_isRotatingX)
+                    {
+                        commandOri.X = _degreePerSec * 4 / 1000;
+                    }
+                    if (_isRotatingY)
+                    {
+                        commandOri.Y = _degreePerSec * 4 / 1000;
+                    }
+                    if (_isRotatingZ)
+                    {
+                        commandOri.Z = _degreePerSec * 4 / 1000;
+                    }
+
+                    _CommandedPosition["A"] = commandOri.X;
+                    _CommandedPosition["B"] = commandOri.Y;
+                    _CommandedPosition["C"] = commandOri.Z;
                 }
                 else
                 {
@@ -741,7 +843,7 @@ namespace LightWeight_Server
             Matrix _currentPose = currentPose;
             Matrix tempDisplacementPose = Matrix.Invert(_currentPose) * tempRefPose;
             double[] KukaUpdate = new double[6];
-            StaticFunctions.getKukaAngles(tempDisplacementPose, ref KukaUpdate);
+            SF.getKukaAngles(tempDisplacementPose, ref KukaUpdate);
             _text["Controller"].AppendLine(_CurrentTrajectory.ElapsedMilliseconds + "," + tempRefPose.Translation.X + "," + tempRefPose.Translation.Y + "," + tempRefPose.Translation.Z + "," +
                 _currentPose.Translation.X + "," + _currentPose.Translation.Y + "," + _currentPose.Translation.Z + "," +
                 tempDisplacementPose.Translation.X + "," + tempDisplacementPose.Translation.Y + "," + tempDisplacementPose.Translation.Z + "," +
@@ -752,7 +854,7 @@ namespace LightWeight_Server
             {
                 if (Math.Abs(KukaUpdate[i]) > MaxDisplacement)
                 {
-                    updateError("At " + _CurrentTrajectory.ElapsedMilliseconds.ToString() + "ms, Error, " + StaticFunctions.getCardinalKey(i) + " Axis sent a huge distance, at " + KukaUpdate[i].ToString() + "mm");
+                    updateError("At " + _CurrentTrajectory.ElapsedMilliseconds.ToString() + "ms, Error, " + SF.getCardinalKey(i) + " Axis sent a huge distance, at " + KukaUpdate[i].ToString() + "mm");
                     KukaUpdate[i] = MaxDisplacement * Math.Sign(KukaUpdate[i]);
                 }
             }
@@ -768,11 +870,46 @@ namespace LightWeight_Server
             return KukaUpdate;
         }
 
+        private void resetRotation()
+        {
+            flushCommands();
+            _rotatingTimer.Reset();
+            _isRotating = false;
+            _isRotatingX = false;
+            _isRotatingY = false;
+            _isRotatingZ = false;
+        }
+
+        public void SaveInfo()
+        {
+            if (_isCommanded || _isRotating)
+            {
+                try
+                {
+                    _data.AppendLine(_ConnectionTimer.Elapsed.TotalMilliseconds + "," +
+                        _CommandedPosition["X"] + "," + _CommandedPosition["Y"] + "," + _CommandedPosition["Z"] + "," + _CommandedPosition["A"] + "," + _CommandedPosition["B"] + "," + _CommandedPosition["C"] + "," +
+                        _ReadPosition["X"] + "," + _ReadPosition["Y"] + "," + _ReadPosition["Z"] + "," + _ReadPosition["A"] + "," + _ReadPosition["B"] + "," + _ReadPosition["C"]);
+
+                    StreamWriter datafile = new StreamWriter("data.csv");
+                    datafile.Write(_data);
+                    datafile.Flush();
+                    datafile.Close();
+
+                }
+                catch (Exception)
+                {
+
+                    StreamWriter datafile = new StreamWriter("Ohshit.txt");
+                }
+
+            }
+        }
+
         public void flushCommands()
         {
             for (int i = 0; i < 6; i++)
             {
-                _CommandedPosition[StaticFunctions.getCardinalKey(i)] = 0.0;
+                _CommandedPosition[SF.getCardinalKey(i)] = 0.0;
             }
         }
 
@@ -784,9 +921,9 @@ namespace LightWeight_Server
         {
             for (int i = 0; i < 6; i++)
             {
-                if (!dic.TryAdd(StaticFunctions.getCardinalKey(i), 0))
+                if (!dic.TryAdd(SF.getCardinalKey(i), 0))
                 {
-                    dic[StaticFunctions.getCardinalKey(i)] = 0;
+                    dic[SF.getCardinalKey(i)] = 0;
                 }
             }
         }
@@ -794,9 +931,9 @@ namespace LightWeight_Server
         {
             for (int i = 0; i < Values.Length; i++)
             {
-                if (!dic.TryAdd(StaticFunctions.getCardinalKey(i), Values[i]))
+                if (!dic.TryAdd(SF.getCardinalKey(i), Values[i]))
                 {
-                    dic[StaticFunctions.getCardinalKey(i)] = Values[i];
+                    dic[SF.getCardinalKey(i)] = Values[i];
                 }
             }
         }
@@ -805,9 +942,9 @@ namespace LightWeight_Server
         {
             for (int i = 0; i < 6; i++)
             {
-                if (!dic.TryAdd(StaticFunctions.getAxisKey(i), 0))
+                if (!dic.TryAdd(SF.getAxisKey(i), 0))
                 {
-                    dic[StaticFunctions.getAxisKey(i)] = 0;
+                    dic[SF.getAxisKey(i)] = 0;
                 }
             }
         }

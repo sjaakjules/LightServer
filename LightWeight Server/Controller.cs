@@ -64,7 +64,7 @@ namespace LightWeight_Server
 
         public void load(Quaternion FinalOrientation, Matrix startPose, long timespan)
         {
-            StaticFunctions.getAxisAngle(FinalOrientation, ref _axis, ref _finalAngle);
+            SF.getAxisAngle(FinalOrientation, ref _axis, ref _finalAngle);
             _trajectoryTime = new TimeSpan(timespan);
             Vector3 translation = _startPose.Translation;
             _startPose = startPose;
@@ -79,7 +79,7 @@ namespace LightWeight_Server
 
         public void load(Vector3 position, Quaternion FinalOrientation, Matrix startPose, long timespan)
         {
-            StaticFunctions.getAxisAngle(FinalOrientation, ref _axis, ref _finalAngle);
+            SF.getAxisAngle(FinalOrientation, ref _axis, ref _finalAngle);
             _trajectoryTime = new TimeSpan(timespan);
             _startPose = startPose;
             _finalPose = Matrix.CreateFromQuaternion(FinalOrientation);
@@ -129,22 +129,26 @@ namespace LightWeight_Server
             if (_isRotating && IsActive)
             {
                 Quaternion refChange = Quaternion.CreateFromAxisAngle(_axis, _finalAngle*Duration);
-                Quaternion referenceQ = refChange * Quaternion.CreateFromRotationMatrix(_startPose);
-                Quaternion changeQ = referenceQ * Quaternion.Inverse(currentOrientation);
-                /*
+                Quaternion referenceQ = Quaternion.CreateFromRotationMatrix(_startPose) * refChange;
+                Quaternion changeQ = Quaternion.Inverse(currentOrientation) * referenceQ;
+
+
+                _robot.updateError(Duration.ToString() + " Current Z: " + Matrix.CreateFromQuaternion(currentOrientation).Backward.ToString());
+                
                 Vector3 axis = Vector3.Zero;
                 float angle = 0;
-                StaticFunctions.getAxisAngle(changeQ, ref axis, ref angle);
+                SF.getAxisAngle(changeQ, ref axis, ref angle);
                 _robot.updateError(Duration.ToString() + " Angle: " + angle.ToString());
+                /*
                 if (Math.Abs(angle) > maxChange)
                 {
                     _robot.updateError("large angle: " + angle.ToString());
                     angle = Math.Sign(angle) * maxChange;
                 }
+                _robot.updateError("angle: " + angle.ToString());
                 */
-                //_robot.updateError("angle: " + angle.ToString());
                 float[] kukaAngles = new float[6];
-                StaticFunctions.getKukaAngles(changeQ, ref kukaAngles);
+                SF.getKukaAngles(changeQ, ref kukaAngles);
                 //_robot.updateError("kukaAngles: " + kukaAngles[0].ToString() + " : " + kukaAngles[1].ToString() + " : " + kukaAngles[2].ToString() + " : " + kukaAngles[3].ToString() + " : " + kukaAngles[4].ToString() + " : " + kukaAngles[5].ToString() );
                 if (Duration >= 1.0f)
                 {
