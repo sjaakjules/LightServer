@@ -130,10 +130,12 @@ namespace LightWeight_Server
             {
                 Quaternion refChange = Quaternion.CreateFromAxisAngle(_axis, _finalAngle*Duration);
                 Quaternion referenceQ = Quaternion.CreateFromRotationMatrix(_startPose) * refChange;
-                Quaternion changeQ = Quaternion.Inverse(currentOrientation) * referenceQ;
+                Quaternion changeQ = Quaternion.Inverse(currentOrientation) * Quaternion.CreateFromRotationMatrix(_startPose) * refChange;
 
 
-                _robot.updateError(Duration.ToString() + " Current Z: " + Matrix.CreateFromQuaternion(currentOrientation).Backward.ToString());
+                _robot.updateError(Duration.ToString() + " Current Z: " + Matrix.CreateFromQuaternion(Quaternion.Inverse(currentOrientation) * Quaternion.CreateFromRotationMatrix(_startPose)).ToString());
+                _robot.updateError(Duration.ToString() + " changeq: " + Matrix.CreateFromQuaternion(changeQ).ToString());
+                _robot.updateError(Duration.ToString() + " ref change: " + Matrix.CreateFromQuaternion(refChange).ToString());
                 
                 Vector3 axis = Vector3.Zero;
                 float angle = 0;

@@ -113,11 +113,12 @@ namespace LightWeight_Server
         
         public static void getAxisAngle(Quaternion quaternion, ref Vector3 outAxis, ref float outAngle)
         {
-            if (quaternion.W > 1)
-            {
-                quaternion.Normalize();
-            }
+            quaternion.Normalize();
             outAngle = 2 * (float)Math.Acos(quaternion.W);
+            while (Math.Abs(outAngle)>Math.PI/2)
+            {
+                outAngle -= Math.Sign(outAngle) * (float)Math.PI/2 ;
+            }
             float s = (float)Math.Sqrt(1 - quaternion.W * quaternion.W);
             if (s < 0.00001)
             {
