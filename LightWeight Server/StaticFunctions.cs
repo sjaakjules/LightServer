@@ -115,23 +115,20 @@ namespace LightWeight_Server
         {
             quaternion.Normalize();
             outAngle = 2 * (float)Math.Acos(quaternion.W);
-            while (Math.Abs(outAngle)>Math.PI/2)
-            {
-                outAngle -= Math.Sign(outAngle) * (float)Math.PI/2 ;
-            }
             float s = (float)Math.Sqrt(1 - quaternion.W * quaternion.W);
+            float s2 = quaternion.X / (float)Math.Sin(outAngle/2);
+            if (s != s2)
+            {
+                return;
+            }
             if (s < 0.00001)
             {
-                outAxis.X = 1;// quaternion.X;
-                outAxis.Y = 0;// quaternion.Y;
-                outAxis.Z = 0;// quaternion.Z;
+                s = 1;
             }
-            else
-            {
                 outAxis.X = quaternion.X / s;
                 outAxis.Y = quaternion.Y / s;
                 outAxis.Z = quaternion.Z / s;
-            }
+                outAxis.Normalize();
         }
         
         public static Quaternion MakeQuaternionFromKuka(float A, float B, float C)
