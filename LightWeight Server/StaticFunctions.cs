@@ -110,26 +110,107 @@ namespace LightWeight_Server
         {
             return rotationKeys[Index];
         }
-        
+
+
         public static void getAxisAngle(Quaternion quaternion, ref Vector3 outAxis, ref float outAngle)
         {
             quaternion.Normalize();
-            outAngle = 2 * (float)Math.Acos(quaternion.W);
-            float s = (float)Math.Sqrt(1 - quaternion.W * quaternion.W);
-            float s2 = quaternion.X / (float)Math.Sin(outAngle/2);
-            if (s != s2)
+            float angle = 2 * (float)Math.Acos(quaternion.W);
+            float s = (float)Math.Sin(angle / 2);
+            if (Math.Abs(s) < 1e-6)
             {
-                return;
-            }
-            if (s < 0.00001)
-            {
-                s = 1;
-            }
-                outAxis.X = quaternion.X / s;
-                outAxis.Y = quaternion.Y / s;
-                outAxis.Z = quaternion.Z / s;
+                outAxis.X = quaternion.X;
+                outAxis.Y = quaternion.Y;
+                outAxis.Z = quaternion.Z;
                 outAxis.Normalize();
+                if (quaternion.X != 0)
+                {
+                    if (quaternion.X < 0)
+                    {
+                        outAngle = (float)(2 * Math.Atan2(-(double)quaternion.X, (double)quaternion.W * -outAxis.X));
+                    }
+                    else
+                    {
+                        outAngle = (float)(2 * Math.Atan2((double)quaternion.X, (double)quaternion.W * outAxis.X));
+                    }
+                }
+                else if (quaternion.Y != 0)
+                {
+                    if (quaternion.Y < 0)
+                    {
+                        outAngle = (float)(2 * Math.Atan2(-(double)quaternion.Y, (double)quaternion.W * -outAxis.Y));
+                    }
+                    else
+                    {
+                        outAngle = (float)(2 * Math.Atan2((double)quaternion.Y, (double)quaternion.W * outAxis.Y));
+                    }
+                }
+                else if (quaternion.Z != 0)
+                {
+                    if (quaternion.Z < 0)
+                    {
+                        outAngle = (float)(2 * Math.Atan2(-(double)quaternion.Z, (double)quaternion.W * -outAxis.Z));
+                    }
+                    else
+                    {
+                        outAngle = (float)(2 * Math.Atan2((double)quaternion.Z, (double)quaternion.W * outAxis.Z));
+                    }
+                }
+                else
+                {
+                    outAngle = 0;
+                }
+
+            }
+            else
+            {
+                Vector3 axis = new Vector3(quaternion.X / s, quaternion.Y / s, quaternion.Z / s);
+                axis.Normalize();
+                s = quaternion.X == 0 ? s : quaternion.X / axis.X;
+                s = quaternion.Y == 0 ? s : quaternion.Y / axis.Y;
+                s = quaternion.Z == 0 ? s : quaternion.Z / axis.Z;
+                outAxis = new Vector3(quaternion.X / s, quaternion.Y / s, quaternion.Z / s);
+                outAxis.Normalize();
+                if (quaternion.X != 0)
+                {
+                    if (quaternion.X < 0)
+                    {
+                        outAngle = (float)(2 * Math.Atan2(-(double)quaternion.X, (double)quaternion.W * -outAxis.X));
+                    }
+                    else
+                    {
+                        outAngle = (float)(2 * Math.Atan2((double)quaternion.X, (double)quaternion.W * outAxis.X));
+                    }
+                }
+                else if (quaternion.Y != 0)
+                {
+                    if (quaternion.Y < 0)
+                    {
+                        outAngle = (float)(2 * Math.Atan2(-(double)quaternion.Y, (double)quaternion.W * -outAxis.Y));
+                    }
+                    else
+                    {
+                        outAngle = (float)(2 * Math.Atan2((double)quaternion.Y, (double)quaternion.W * outAxis.Y));
+                    }
+                }
+                else if (quaternion.Z != 0)
+                {
+                    if (quaternion.Z < 0)
+                    {
+                        outAngle = (float)(2 * Math.Atan2(-(double)quaternion.Z, (double)quaternion.W * -outAxis.Z));
+                    }
+                    else
+                    {
+                        outAngle = (float)(2 * Math.Atan2((double)quaternion.Z, (double)quaternion.W * outAxis.Z));
+                    }
+                }
+                else
+                {
+                    outAngle = 0;
+                }
+            }
         }
+
         
         public static Quaternion MakeQuaternionFromKuka(float A, float B, float C)
         {
