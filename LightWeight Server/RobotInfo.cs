@@ -576,6 +576,8 @@ namespace LightWeight_Server
                             Vector3 axis = Vector3.Zero;
                             float angle = 0;
                             SF.getAxisAngle(_DesiredRotation, ref axis, ref angle);
+                            updateError("Loaded Angle of rotation: " + angle.ToString());
+                            updateError("Loaded Axis of rotation: " + axis.ToString());
                             long orientationDuration = (long)(TimeSpan.TicksPerSecond * (angle / (MaxOrientationDisplacement * 10)));
                             updateError("Orientation Time in seconds: " + (1.0f * orientationDuration / TimeSpan.TicksPerSecond).ToString());
                             updateError("vectot out 2: " + Vector3.Transform(currentPose.Backward, _DesiredRotation));
@@ -725,8 +727,8 @@ namespace LightWeight_Server
             {
                 DesiredRotationOut = Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle);
                 updateError("vectot out: " + Vector3.Transform(_currentPose.Backward, DesiredRotationOut));
-                updateError("Angle of rotation: " + angle.ToString());
-                updateError("Axis of rotation: " + Vector3.Normalize(axis).ToString());
+                updateError("Setup Angle of rotation: " + angle.ToString());
+                updateError("Setup Axis of rotation: " + Vector3.Normalize(axis).ToString());
                 updateError("Matrix of rotation: " + Matrix.CreateFromQuaternion(DesiredRotationOut).ToString());
                 return true;
             }
