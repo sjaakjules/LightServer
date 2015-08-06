@@ -41,6 +41,12 @@ namespace LightWeight_Server
             return outArray;
         }
 
+
+
+        /*
+         * 
+         * 
+         * 
         /// <summary>
         /// Returns the double array which represents [A1, A2, A3, A4, A5, A6] using Axis dictionary keys.
         /// </summary>
@@ -55,6 +61,9 @@ namespace LightWeight_Server
             }
             return outArray;
         }
+         * 
+         * 
+         */
 
         /// <summary>
         /// Creates a quaternion from Kuka coordinates, ABC in degrees
@@ -66,7 +75,7 @@ namespace LightWeight_Server
             Quaternion Rz = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180)));
             Quaternion Ry = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180)));
             Quaternion Rx = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180)));
-            return (Rx * Ry * Rz);
+            return (Rz * Ry * Rx);
         }
 
         public static Matrix MakeMatrixFromKuka(double[] pose)
@@ -74,7 +83,7 @@ namespace LightWeight_Server
             Matrix Rz = Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180));
             Matrix Ry = Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180));
             Matrix Rx = Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180));
-            Matrix poseout = M(M(Rx, Ry), Rz);
+            Matrix poseout = M(M(Rz, Ry), Rx);
             poseout.Translation = new Vector3((float)pose[0], (float)pose[1], (float)pose[2]);
             return poseout;
         }
@@ -215,14 +224,19 @@ namespace LightWeight_Server
             }
         }
 
-        
+
+        /*
+         * 
+         * 
+         * 
         public static Quaternion MakeQuaternionFromKuka(float A, float B, float C)
         {
             Matrix Rz = Matrix.CreateRotationZ(MathHelper.ToRadians(A));
             Matrix Ry = Matrix.CreateRotationY(MathHelper.ToRadians(B));
             Matrix Rx = Matrix.CreateRotationX(MathHelper.ToRadians(C));
-            return Quaternion.CreateFromRotationMatrix(M(M(Rx, Ry), Rz));
+            return Quaternion.CreateFromRotationMatrix(M(M(Rz, Ry), Rx));
         }
+
 
         /// <summary>
         /// Returns a double[3] as there is no position data. This only works when the rotation is less than 90 degrees 
@@ -246,6 +260,8 @@ namespace LightWeight_Server
             }
             return new float[] { 0, 0, 0 };
         }
+         * 
+         */
 
         /// <summary>
         /// Updates the float[6] array with kuka ABC angles in [X,Y,Z,A,B,C]. This only works when the rotation is less than 90 degrees 
@@ -272,7 +288,7 @@ namespace LightWeight_Server
                 KukaAngleOut[3] = 0;
             }
         }
-
+        /*
         /// <summary>
         /// Returns a double[6] array [X,Y,Z,A,B,C]. This only works when the rotation is less than 90 degrees 
         /// and will return iff angle in axis/angle representation is less than 90 degrees.
@@ -302,6 +318,8 @@ namespace LightWeight_Server
             return new float[] { 0, 0, 0, 0, 0, 0 };
         }
 
+         * 
+         */
 
         /// <summary>
         /// Returns a double[6] array [X,Y,Z,A,B,C]. This only works when the rotation is less than 90 degrees 
@@ -329,6 +347,9 @@ namespace LightWeight_Server
             }
             else { kukaOut = new double[] { 0, 0, 0, 0, 0, 0 }; }
         }
+
+
+        /*
 
         /// <summary>
         /// Returns a double[6] array [X,Y,Z,A,B,C]. This only works when the rotation is less than 90 degrees 
@@ -365,6 +386,9 @@ namespace LightWeight_Server
             }
         }
 
+
+         * 
+         */
 
     }
 
