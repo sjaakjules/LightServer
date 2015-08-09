@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Xna.Framework;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -62,6 +63,7 @@ namespace TestBot
         XmlDocument _SendXML;
 
         double[] _kukaPosition;
+        Matrix _kukaPose;
 
         Stopwatch IPOCTimer = new Stopwatch();
         public Stopwatch _loopTimer = new Stopwatch();
@@ -79,6 +81,7 @@ namespace TestBot
         public UDP_Client()
         {
             _kukaPosition = new double[] { 540.5, -18.1, 833.3, -180, 0, -180 };
+            _kukaPose = MakeMatrixFromKuka(_kukaPosition);
             _kukaServerIPEP = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 6008);
 
             SetupXML();
@@ -348,6 +351,14 @@ namespace TestBot
             lock (positionLock)
             {
                 //Console.WriteLine("In in the lock in update robot");
+                Matrix changeTransform = MakeMatrixFromKuka(newCommand);
+                _kukaPose = M(changeTransform,_kukaPose );
+                getKukaAngles(_kukaPose, ref _kukaPosition);
+                
+                /*
+                 * 
+                 * 
+                 * 
                 for (int i = 0; i < 6; i++)
                 {
                     _kukaPosition[i] += newCommand[i];
@@ -357,6 +368,9 @@ namespace TestBot
                     _kukaPosition[i] = (_kukaPosition[i] > 180) ? _kukaPosition[i] - 360 : _kukaPosition[i];
                     _kukaPosition[i] = (_kukaPosition[i] < -180) ? _kukaPosition[i] + 360 : _kukaPosition[i];
                 }
+                 * 
+                 * 
+                 */
             }
         }
 
@@ -498,14 +512,63 @@ namespace TestBot
         {
             while (true)
             {
-                if (_loopTimer.ElapsedTicks / TimeSpan.TicksPerMillisecond > 13)
+                if (_loopTimer.Elapsed.TotalMilliseconds > 4)
                 {
                     _loopTimer.Restart();
                     isReadyToSend.Set();
                 }
             }
         }
+
+
+        public void getKukaAngles(Matrix pose, ref double[] kukaOut)
+        {
+            float A = 0;
+            float B = 0;
+            float C = 0;
+            Matrix rotationMat = Matrix.Transpose(pose);
+
+            B = (float)Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33));
+
+            if (Math.Abs(Math.Abs(B) - Math.PI / 2) < 1e-6)
+            {
+                // Gimbal lock situation! A and C form a line of infinate solutions.
+                C = 0;// (float)Math.PI / 5f;
+                A = (float)Math.Atan2(Math.Sign(B) * rotationMat.M23, Math.Sign(B) * rotationMat.M13) + Math.Sign(B) * C;
+            }
+            else
+            {
+                A = (float)Math.Atan2(rotationMat.M21, rotationMat.M11);
+                C = (float)Math.Atan2(rotationMat.M32, rotationMat.M33);
+            }
+
+            kukaOut[0] = (double)pose.Translation.X;
+            kukaOut[1] = (double)pose.Translation.Y;
+            kukaOut[2] = (double)pose.Translation.Z;
+            kukaOut[3] = MathHelper.ToDegrees(A);
+            kukaOut[4] = MathHelper.ToDegrees(B);
+            kukaOut[5] = MathHelper.ToDegrees(C);
+
+        }
+
+
+        Matrix M(Matrix mat1, Matrix mat2)
+        {
+            return Matrix.Transpose(Matrix.Transpose(mat1) * Matrix.Transpose(mat2));
+        }
+
+        Matrix MakeMatrixFromKuka(double[] pose)
+        {
+            Matrix Rz = Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180));
+            Matrix Ry = Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180));
+            Matrix Rx = Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180));
+            Matrix poseout = M(M(Rz, Ry), Rx);
+            poseout.Translation = new Vector3((float)pose[0], (float)pose[1], (float)pose[2]);
+            return poseout;
+        }
         #endregion
     }
+
+    
 
 }

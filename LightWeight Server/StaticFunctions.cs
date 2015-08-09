@@ -271,22 +271,30 @@ namespace LightWeight_Server
         /// <returns></returns>
         public static void getKukaAngles(Quaternion rotation, ref float[] KukaAngleOut)
         {
-            Vector3 axis = new Vector3();
-            float angle = 0;
-            getAxisAngle(rotation, ref axis, ref angle);
-            if (Math.Abs(angle) < Math.PI / 2)
+            float A = 0;
+            float B = 0;
+            float C = 0;
+
+            Matrix rotationMat = Matrix.CreateFromQuaternion(rotation);
+            rotationMat = Matrix.Transpose(rotationMat);
+
+            B = (float)Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33));
+
+            if (Math.Abs(Math.Abs(B) - Math.PI / 2) < 1e-6)
             {
-                Matrix rotationMat = Matrix.CreateFromQuaternion(rotation);
-                KukaAngleOut[5] = (float)(180.0f * Math.Atan2(rotationMat.M32, rotationMat.M33) / Math.PI);
-                KukaAngleOut[4] = (float)(180.0f * Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33)) / Math.PI);
-                KukaAngleOut[3] = (float)(180.0f * Math.Atan2(rotationMat.M21, rotationMat.M11) / Math.PI);
+                // Gimbal lock situation! A and C form a line of infinate solutions.
+                C = 0;// (float)Math.PI / 5f;
+                A = (float)Math.Atan2(Math.Sign(B) * rotationMat.M23, Math.Sign(B) * rotationMat.M13) + Math.Sign(B) * C;
             }
             else
             {
-                KukaAngleOut[5] = 0;
-                KukaAngleOut[4] = 0;
-                KukaAngleOut[3] = 0;
+                A = (float)Math.Atan2(rotationMat.M21, rotationMat.M11);
+                C = (float)Math.Atan2(rotationMat.M32, rotationMat.M33);
             }
+
+            KukaAngleOut[3] = MathHelper.ToDegrees(A);
+            KukaAngleOut[4] = MathHelper.ToDegrees(B);
+            KukaAngleOut[5] = MathHelper.ToDegrees(C);
         }
         /*
         /// <summary>
@@ -329,23 +337,32 @@ namespace LightWeight_Server
         /// <returns></returns>
         public static void getKukaAngles(Matrix pose, ref double[] kukaOut)
         {
-            Vector3 axis = new Vector3();
-            float angle = 0;
-            Vector3 scale = new Vector3();
-            Quaternion rotation = new Quaternion();
-            Vector3 translation = new Vector3();
-            pose.Decompose(out scale, out rotation, out translation);
-            getAxisAngle(rotation, ref axis, ref angle);
-            if (angle < Math.PI / 2)
+            float A = 0;
+            float B = 0;
+            float C = 0;
+            Matrix rotationMat = Matrix.Transpose(pose);
+
+            B = (float)Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33));
+
+            if (Math.Abs(Math.Abs(B) - Math.PI / 2) < 1e-6)
             {
-                kukaOut[5] = (double)MathHelper.ToDegrees((float)Math.Atan2(pose.M32, pose.M33));
-                kukaOut[4] = (double)MathHelper.ToDegrees((float)Math.Atan2(-pose.M31, Math.Sqrt(pose.M32 * pose.M32 + pose.M33 * pose.M33)));
-                kukaOut[3] = (double)MathHelper.ToDegrees((float)Math.Atan2(pose.M21, pose.M11));
-                kukaOut[2] = (double)translation.Z;
-                kukaOut[1] = (double)translation.Y;
-                kukaOut[0] = (double)translation.X;
+                // Gimbal lock situation! A and C form a line of infinate solutions.
+                C = 0;// (float)Math.PI / 5f;
+                A = (float)Math.Atan2(Math.Sign(B) * rotationMat.M23, Math.Sign(B) * rotationMat.M13) + Math.Sign(B) * C;
             }
-            else { kukaOut = new double[] { 0, 0, 0, 0, 0, 0 }; }
+            else
+            {
+                A = (float)Math.Atan2(rotationMat.M21, rotationMat.M11);
+                C = (float)Math.Atan2(rotationMat.M32, rotationMat.M33);
+            }
+
+            kukaOut[0] = (double)pose.Translation.X;
+            kukaOut[1] = (double)pose.Translation.Y;
+            kukaOut[2] = (double)pose.Translation.Z;
+            kukaOut[3] = MathHelper.ToDegrees(A);
+            kukaOut[4] = MathHelper.ToDegrees(B);
+            kukaOut[5] = MathHelper.ToDegrees(C);
+            
         }
 
 
