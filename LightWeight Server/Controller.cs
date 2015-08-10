@@ -130,7 +130,7 @@ namespace LightWeight_Server
             {
                 Quaternion refChange = Quaternion.CreateFromAxisAngle(_axis, _finalAngle*Duration);
                 Quaternion referenceQ = Quaternion.CreateFromRotationMatrix(_startPose) * refChange;
-                Quaternion changeQ = Quaternion.Inverse(currentOrientation) * referenceQ;
+                Quaternion changeQ = referenceQ * Quaternion.Inverse(currentOrientation);
 
 
                 _robot.updateError(Duration.ToString() + " Current Z: " + Matrix.CreateFromQuaternion(Quaternion.Inverse(currentOrientation) * Quaternion.CreateFromRotationMatrix(_startPose)).ToString());

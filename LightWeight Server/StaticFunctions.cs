@@ -20,6 +20,12 @@ namespace LightWeight_Server
             return Matrix.Transpose(Matrix.Transpose(mat1) * Matrix.Transpose(mat2));
         }
 
+        static Matrix R(Matrix Rz, Matrix Ry, Matrix Rx)
+        {
+            return M(M(Rz,Ry),Rx);
+        }
+
+
         public static Matrix CreateFromQuaternionPosition(Quaternion Q, Vector3 Position)
         {
             Matrix matout = Matrix.CreateFromQuaternion(Q);
@@ -83,7 +89,7 @@ namespace LightWeight_Server
             Matrix Rz = Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180));
             Matrix Ry = Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180));
             Matrix Rx = Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180));
-            Matrix poseout = M(M(Rz, Ry), Rx);
+            Matrix poseout = R(Rz, Ry, Rx);
             poseout.Translation = new Vector3((float)pose[0], (float)pose[1], (float)pose[2]);
             return poseout;
         }
@@ -262,6 +268,8 @@ namespace LightWeight_Server
         }
          * 
          */
+
+
 
         /// <summary>
         /// Updates the float[6] array with kuka ABC angles in [X,Y,Z,A,B,C]. This only works when the rotation is less than 90 degrees 
