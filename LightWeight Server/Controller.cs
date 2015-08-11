@@ -15,7 +15,7 @@ namespace LightWeight_Server
         bool _isActive = false;
         public bool _isRotating, _isMoving;
         Matrix _finalPose, _startPose;
-        Quaternion _startOrientation;
+        Quaternion _startOrientation, _lastOrientation;
         TimeSpan _trajectoryTime;
         Vector3 _axis;
         float _finalAngle;
@@ -72,6 +72,7 @@ namespace LightWeight_Server
             _startPose = startPose;
             _startPose.Translation = translation;
             _startOrientation = Quaternion.CreateFromRotationMatrix(startPose);
+            _lastOrientation = new Quaternion(_startOrientation.X, _startOrientation.Y, _startOrientation.Z, _startOrientation.W);
             translation = _finalPose.Translation;
             _finalPose = Matrix.CreateFromQuaternion(FinalOrientation);
             _finalPose.Translation = translation;
@@ -86,6 +87,7 @@ namespace LightWeight_Server
             _trajectoryTime = new TimeSpan(timespan);
             _startPose = startPose;
             _startOrientation = Quaternion.CreateFromRotationMatrix(startPose);
+            _lastOrientation = new Quaternion(_startOrientation.X, _startOrientation.Y, _startOrientation.Z, _startOrientation.W);
             _finalPose = Matrix.CreateFromQuaternion(FinalOrientation);
             _finalPose.Translation = position;
             _elapsedTime.Restart();
@@ -136,7 +138,8 @@ namespace LightWeight_Server
                 timer.Start();
                 Quaternion refChange = Quaternion.CreateFromAxisAngle(_axis, _finalAngle*Duration);
                 Quaternion referenceQ = _startOrientation * refChange;
-                Quaternion changeQ = Quaternion.Inverse(currentOrientation)*referenceQ ;
+                Quaternion changeQ =Quaternion.Inverse(_lastOrientation)* referenceQ  ;
+                _lastOrientation = new Quaternion(referenceQ.X,referenceQ.Y,referenceQ.Z,referenceQ.W);
 
                 /*
                 _robot.updateError(Duration.ToString() + " Current Z: " + Matrix.CreateFromQuaternion(Quaternion.Inverse(currentOrientation) * Quaternion.CreateFromRotationMatrix(_startPose)).ToString());
