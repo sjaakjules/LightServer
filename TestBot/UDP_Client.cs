@@ -352,7 +352,7 @@ namespace TestBot
             {
                 //Console.WriteLine("In in the lock in update robot");
                 Matrix changeTransform = MakeMatrixFromKuka(newCommand);
-                _kukaPose = M(changeTransform,_kukaPose );
+                _kukaPose = M(_kukaPose,changeTransform);
                 getKukaAngles(_kukaPose, ref _kukaPosition);
                 
                 /*
@@ -512,7 +512,7 @@ namespace TestBot
         {
             while (true)
             {
-                if (_loopTimer.Elapsed.TotalMilliseconds > 4)
+                if (_loopTimer.Elapsed.TotalMilliseconds > 15)
                 {
                     _loopTimer.Restart();
                     isReadyToSend.Set();
