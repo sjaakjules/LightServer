@@ -8,8 +8,156 @@ using System.Threading.Tasks;
 
 namespace LightWeight_Server
 {
+    public struct TimeCoordinate
+    {
+        public readonly long Ipoc;
+        public readonly int LocalIpoc;
+        public double x, y, z, a, b, c;
+        public float angle;
+        public Quaternion Orientation;
+        public Vector3 axis;
+
+        public TimeCoordinate(double x, double y, double z, double a, double b, double c, long ipoc)
+        {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.a = a;
+            this.b = b;
+            this.c = c;
+            this.Ipoc = ipoc;
+            this.LocalIpoc = Environment.TickCount;
+            Orientation = SF.MakeQuaternionFromKuka(a, b, c);
+            SF.getAxisAngle(Orientation, out axis, out angle);
+        }
+
+
+        public TimeCoordinate(double x, double y, double z, Vector3 axis, float angle, long ipoc)
+        {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.a = 0;
+            this.b = 0;
+            this.c = 0;
+            this.axis = axis;
+            this.angle = angle;
+            this.Ipoc = ipoc;
+            this.LocalIpoc = Environment.TickCount;
+
+            Orientation = Quaternion.CreateFromAxisAngle(axis,angle);
+
+        }
+
+        public static TimeCoordinate operator +(TimeCoordinate Pose1, TimeCoordinate Pose2)
+        {
+            return new TimeCoordinate(Pose1.x + Pose2.x, Pose1.y + Pose2.y, Pose1.z + Pose2.z, Pose1.axis + Pose2.axis, Pose1.angle + Pose2.angle,Pose2.Ipoc);
+        }
+
+        public static TimeCoordinate operator /(TimeCoordinate Pose1, float Value)
+        {
+            return new TimeCoordinate(Pose1.x / Value, Pose1.y / Value, Pose1.z / Value, Vector3.Divide(Pose1.axis, Value), Pose1.angle / Value, Pose1.Ipoc);
+        }
+
+        public TimeCoordinate getRateOfChange(TimeCoordinate pose1)
+        {
+            Vector3 changeAxis;
+            float changeAngle;
+            if (this.Ipoc < pose1.Ipoc)
+            {
+                double delTime = (pose1.Ipoc - this.Ipoc) / TimeSpan.TicksPerMillisecond;
+                Quaternion changeOrientation = Quaternion.Inverse(this.Orientation) * pose1.Orientation;
+                SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
+                return new TimeCoordinate(  (pose1.x - this.x) / delTime,
+                                            (pose1.y - this.y) / delTime,
+                                            (pose1.z - this.z) / delTime,
+                                            changeAxis,
+                                            changeAngle / (float)delTime,
+                                            pose1.Ipoc);
+            }
+            else
+            {
+                double delTime = (this.Ipoc - pose1.Ipoc) / TimeSpan.TicksPerMillisecond;
+                Quaternion changeOrientation = Quaternion.Inverse(pose1.Orientation) * this.Orientation;
+                SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
+                return new TimeCoordinate(  (pose1.x - this.x) / delTime,
+                                            (this.y - pose1.y) / delTime,
+                                            (this.z - pose1.z) / delTime,
+                                            changeAxis,
+                                            changeAngle / (float)delTime,
+                                            this.Ipoc);
+            }
+        }
+
+
+    }
+
+
+    public class FixedSizedQueue<T> : ConcurrentQueue<T>
+    {
+        private readonly object syncObject = new object();
+
+        public int Size { get; private set; }
+
+        public FixedSizedQueue(int size)
+        {
+            Size = size;
+        }
+
+        public new void Enqueue(T obj)
+        {
+            base.Enqueue(obj);
+            lock (syncObject)
+            {
+                while (base.Count > Size)
+                {
+                    T outObj;
+                    base.TryDequeue(out outObj);
+                }
+            }
+        }
+
+        public T LastElement
+        {
+
+            get
+            {
+                lock (syncObject)
+                {
+                    T[] list = base.ToArray();
+                    return list[list.Length - 1];
+                }
+            }
+        }
+
+    }
+
+    
+    
+
     public static class SF
     {
+
+        public static TimeCoordinate AverageRateOfChange(TimeCoordinate[] list)
+        {
+            double x = 0, y = 0, z = 0, a = 0, b = 0, c = 0;
+            TimeCoordinate averageRate = new TimeCoordinate(0, 0, 0, Vector3.Zero, 0, list[list.Length - 1].Ipoc);
+
+            for (int i = 1; i < list.Length; i++)
+            {
+                averageRate += list[i - 1].getRateOfChange(list[i]);
+            }
+            return averageRate/(float)(list.Length-1);
+        }
+
+        public static TimeCoordinate GetVelocity(TimeCoordinate pose1, TimeCoordinate Pose2)
+        {
+            if (pose1.Ipoc < Pose2.Ipoc)
+            {
+                
+            }
+            return new TimeCoordinate();
+        }
 
         static String[] cardinalKeys = new String[] { "X", "Y", "Z", "A", "B", "C" };
         static String[] axisKeys = new String[] { "A1", "A2", "A3", "A4", "A5", "A6" };
@@ -48,29 +196,6 @@ namespace LightWeight_Server
         }
 
 
-
-        /*
-         * 
-         * 
-         * 
-        /// <summary>
-        /// Returns the double array which represents [A1, A2, A3, A4, A5, A6] using Axis dictionary keys.
-        /// </summary>
-        /// <param name="dictionary"></param> The Dictionary with axis keys
-        /// <returns></returns>
-        public static double[] getAxisDoubleArray(ConcurrentDictionary<string, double> dictionary)
-        {
-            double[] outArray = new double[6];
-            for (int i = 0; i < 6; i++)
-            {
-                outArray[i] = Getvalue(dictionary, getAxisKey(i));
-            }
-            return outArray;
-        }
-         * 
-         * 
-         */
-
         /// <summary>
         /// Creates a quaternion from Kuka coordinates, ABC in degrees
         /// </summary>
@@ -81,6 +206,14 @@ namespace LightWeight_Server
             Quaternion Rz = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180)));
             Quaternion Ry = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180)));
             Quaternion Rx = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180)));
+            return (Rz * Ry * Rx);
+        }
+
+        public static Quaternion MakeQuaternionFromKuka(double A, double B, double C)
+        {
+            Quaternion Rz = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationZ((float)(A * Math.PI / 180)));
+            Quaternion Ry = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationY((float)(B * Math.PI / 180)));
+            Quaternion Rx = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationX((float)(C * Math.PI / 180)));
             return (Rz * Ry * Rx);
         }
 
@@ -127,7 +260,7 @@ namespace LightWeight_Server
         }
 
 
-        public static void getAxisAngle(Quaternion quaternion, ref Vector3 outAxis, ref float outAngle)
+        public static void getAxisAngle(Quaternion quaternion, out Vector3 outAxis, out float outAngle)
         {
             quaternion.Normalize();
             if (quaternion.W < 0)
@@ -231,45 +364,6 @@ namespace LightWeight_Server
         }
 
 
-        /*
-         * 
-         * 
-         * 
-        public static Quaternion MakeQuaternionFromKuka(float A, float B, float C)
-        {
-            Matrix Rz = Matrix.CreateRotationZ(MathHelper.ToRadians(A));
-            Matrix Ry = Matrix.CreateRotationY(MathHelper.ToRadians(B));
-            Matrix Rx = Matrix.CreateRotationX(MathHelper.ToRadians(C));
-            return Quaternion.CreateFromRotationMatrix(M(M(Rz, Ry), Rx));
-        }
-
-
-        /// <summary>
-        /// Returns a double[3] as there is no position data. This only works when the rotation is less than 90 degrees 
-        /// and will return iff angle in axis/angle representation is less than 90 degrees.
-        /// </summary>
-        /// <param name="rotation"></param> quaternion representing the rotation
-        /// <returns></returns>
-        public static float[] getKukaAngles(Quaternion rotation)
-        {
-            Vector3 axis = new Vector3();
-            float angle = 0;
-            getAxisAngle(rotation, ref axis, ref angle);
-            if (Math.Abs(angle) < Math.PI / 2)
-            {
-                Matrix rotationMat = Matrix.CreateFromQuaternion(rotation);
-                float[] angles = new float[3];
-                angles[2] = (float)(180.0f * Math.Atan2(rotationMat.M32, rotationMat.M33) / Math.PI);
-                angles[1] = (float)(180.0f * Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33)) / Math.PI);
-                angles[0] = (float)(180.0f * Math.Atan2(rotationMat.M21, rotationMat.M11) / Math.PI);
-                return angles;                
-            }
-            return new float[] { 0, 0, 0 };
-        }
-         * 
-         */
-
-
 
         /// <summary>
         /// Updates the float[6] array with kuka ABC angles in [X,Y,Z,A,B,C]. This only works when the rotation is less than 90 degrees 
@@ -304,38 +398,6 @@ namespace LightWeight_Server
             KukaAngleOut[4] = MathHelper.ToDegrees(B);
             KukaAngleOut[5] = MathHelper.ToDegrees(C);
         }
-        /*
-        /// <summary>
-        /// Returns a double[6] array [X,Y,Z,A,B,C]. This only works when the rotation is less than 90 degrees 
-        /// and will return iff angle in axis/angle representation is less than 90 degrees.
-        /// </summary>
-        /// <param name="pose"></param>
-        /// <returns></returns>
-        public static float[] getKukaAngles(Matrix pose)
-        {
-            Vector3 axis = new Vector3();
-            float angle = 0;
-            Vector3 scale = new Vector3();
-            Quaternion rotation = new Quaternion();
-            Vector3 translation = new Vector3();
-            pose.Decompose(out scale, out rotation, out translation);
-            getAxisAngle(rotation, ref axis, ref angle);
-            if (angle < Math.PI / 2)
-            {
-                float[] kukaOut = new float[6];
-                kukaOut[5] = ((float)Math.Atan2(pose.M32, pose.M33));
-                kukaOut[4] = ((float)Math.Atan2(-pose.M31, Math.Sqrt(pose.M32 * pose.M32 + pose.M33 * pose.M33)));
-                kukaOut[3] = ((float)Math.Atan2(pose.M21, pose.M11));
-                kukaOut[2] = translation.Z;
-                kukaOut[1] = translation.Y;
-                kukaOut[0] = translation.Z;
-                return kukaOut;
-            }
-            return new float[] { 0, 0, 0, 0, 0, 0 };
-        }
-
-         * 
-         */
 
         /// <summary>
         /// Returns a double[6] array [X,Y,Z,A,B,C]. This only works when the rotation is less than 90 degrees 
@@ -373,47 +435,6 @@ namespace LightWeight_Server
             
         }
 
-
-        /*
-
-        /// <summary>
-        /// Returns a double[6] array [X,Y,Z,A,B,C]. This only works when the rotation is less than 90 degrees 
-        /// and will return iff angle in axis/angle representation is less than 90 degrees.
-        /// </summary>
-        /// <param name="pose"></param>
-        /// <returns></returns>
-        public static void getKukaAngles(Matrix pose, ref float[] KukaAngleOut)
-        {
-            Vector3 axis = new Vector3();
-            float angle = 0;
-            Vector3 scale = new Vector3();
-            Quaternion rotation = new Quaternion();
-            Vector3 translation = new Vector3();
-            pose.Decompose(out scale, out rotation, out translation);
-            getAxisAngle(rotation, ref axis, ref angle);
-            if (angle < Math.PI / 2)
-            {
-                KukaAngleOut[5] = MathHelper.ToDegrees((float)Math.Atan2(pose.M32, pose.M33));
-                KukaAngleOut[4] = MathHelper.ToDegrees((float)Math.Atan2(-pose.M31, Math.Sqrt(pose.M32 * pose.M32 + pose.M33 * pose.M33)));
-                KukaAngleOut[3] = MathHelper.ToDegrees((float)Math.Atan2(pose.M21, pose.M11));
-                KukaAngleOut[2] = translation.Z;
-                KukaAngleOut[1] = translation.Y;
-                KukaAngleOut[0] = translation.Z;
-            }
-            else
-            {
-                KukaAngleOut[5] = 0;
-                KukaAngleOut[4] = 0;
-                KukaAngleOut[3] = 0;
-                KukaAngleOut[2] = translation.Z;
-                KukaAngleOut[1] = translation.Y;
-                KukaAngleOut[0] = translation.Z;
-            }
-        }
-
-
-         * 
-         */
 
     }
 

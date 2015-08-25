@@ -335,7 +335,7 @@ namespace LightWeight_Server
                     switch (Node.Name)
                     {
                         case "RIst":
-                            _Robot.updateRobotPosition(double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value),
+                            _Robot.updateRobotPosition(_LIPOC,_IPOC, double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value),
                                             double.Parse(Node.Attributes["Z"].Value), double.Parse(Node.Attributes["A"].Value),
                                             double.Parse(Node.Attributes["B"].Value), double.Parse(Node.Attributes["C"].Value));
                             break;
@@ -349,7 +349,7 @@ namespace LightWeight_Server
                             break;
                     }
                 }
-                _Robot.SaveInfo();
+                //_Robot.SaveInfo();
                 _Robot.LoadCommand();
                 //_Robot.LoadTrajectory();
 

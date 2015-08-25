@@ -512,7 +512,7 @@ namespace TestBot
         {
             while (true)
             {
-                if (_loopTimer.Elapsed.TotalMilliseconds > 15)
+                if (_loopTimer.Elapsed.TotalMilliseconds > 4)
                 {
                     _loopTimer.Restart();
                     isReadyToSend.Set();

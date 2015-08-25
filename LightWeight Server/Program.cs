@@ -22,7 +22,7 @@ namespace LightWeight_Server
             ExternalServer externalServer = new ExternalServer(5008, ConnectedKuka);
             Thread externalServerThread = new Thread(externalServer.ConstantReceive);
 
-            Thread errorWriter = new Thread(ConnectedKuka.writeMsgs);
+            Thread errorWriter = new Thread(ConnectedKuka.UpdateScreen);
 
             // Start the server listening on its own thread
             KukaServerThread.Start();
