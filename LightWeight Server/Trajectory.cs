@@ -17,6 +17,127 @@ namespace LightWeight_Server
 {
     class Trajectory
     {
+        Stopwatch _elapsedTime = new Stopwatch();
+        bool _isActive = false,_isRotating = false, _isTranslating = false;
+        TimeCoordinate _finalPose, _startPose, _startVelocity, _startAcceleration;
+        TimeSpan _trajectoryTime;
+        float _maxLinearAcceleration = 0.005f, _mexAngularAcceleration; // in mm/ms2
+
+        public Trajectory()
+        {
+            _isActive = false;
+            _isTranslating = false;
+            _isRotating = false;
+        }
+
+        /// <summary>
+        /// Loads the finalPose with the trigger setting changes in tanslation (1), orientation (-1) or both (0).
+        /// A thread lock must be imposed externally as load() and reference() overlap and are accessedd in different threads.
+        /// </summary>
+        /// <param name="trigger"></param>
+        /// <param name="finalPose"></param>
+        /// <param name="startPose"></param>
+        /// <param name="startVelocity"></param>
+        /// <param name="startAcceleration"></param>
+        /// <param name="timespan"></param>
+        public void load(int trigger, TimeCoordinate finalPose, TimeCoordinate startPose, TimeCoordinate startVelocity, TimeCoordinate startAcceleration, long timespan)
+        {
+            if (trigger >= 0)
+            {
+                _finalPose.Translation = finalPose.Translation;
+                _startPose.Translation = startPose.Translation;
+                _startVelocity.Translation = startVelocity.Translation;
+                _startAcceleration.Translation = startAcceleration.Translation;
+                _isTranslating = true;
+            }
+            if (trigger <= 0)
+            {
+                _finalPose.Orientation = finalPose.Orientation;
+                _startPose.Orientation = startPose.Orientation;
+                _startVelocity.Orientation = startVelocity.Orientation;
+                _startAcceleration.Orientation = startAcceleration.Orientation;
+                _trajectoryTime = new TimeSpan(timespan);
+                _elapsedTime.Restart();
+                _isRotating = true;
+            }
+            _isActive = true;
+        }
+
+        /// <summary>
+        /// Gets the Reference TimeCoordinate and handles all termination triggers for tanslation and orientations.
+        /// The velocities used are mm/cycle but acceleration mm/ms!!! (where cycle = 4ms.)
+        /// Hence magic 16 numbers used with acceleration (4ms for del time and 4ms to get to cycle)
+        /// </summary>
+        /// <param name="currentPose"></param>
+        /// <param name="currentVelocity"></param>
+        /// <param name="currentAcceleration"></param>
+        /// <param name="linearVelcoty"></param>
+        /// <param name="maxAngularVelocity"></param>
+        /// <returns></returns>
+        public TimeCoordinate reference(TimeCoordinate currentPose, TimeCoordinate currentVelocity, TimeCoordinate currentAcceleration, double maxLinearVelocity, float maxAngularVelocity)
+        {
+            if (!_isTranslating && !_isRotating)
+            {
+                _isActive = false;
+                return currentPose;
+            }
+            Vector3 translationComponent = Vector3.Zero;
+            Quaternion changeQ = Quaternion.Identity;
+            if (_isTranslating && _isActive)
+            {
+                float d = (float)(maxLinearVelocity*maxLinearVelocity / (2 * _maxLinearAcceleration));
+                if (Vector3.Distance(currentPose.Translation, _finalPose.Translation) > d)
+                {
+                    // In the acceleration face if current velocity is less than maxVelecity otherwise in constant velocity region
+                    translationComponent = Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPose.Translation),
+                        (Math.Abs((float)maxLinearVelocity - currentVelocity.Translation.Length()) < _maxLinearAcceleration * 16) ? (float)maxLinearVelocity : currentVelocity.Translation.Length() + _maxLinearAcceleration * 16);// scale the velocity according to acceleration      //Math.Sign(maxLinearVelocity - currentVelocity.Translation.Length())*currentVelocity.Translation;
+                }
+                else
+                {
+                    // In the deceleration phase
+                    if (Vector3.Distance(_finalPose.Translation, currentPose.Translation) < _maxLinearAcceleration * 10)
+                    {
+                        translationComponent = _finalPose.Translation - currentPose.Translation;
+                        _isTranslating = false;
+                    }
+                    else
+                    {
+                        translationComponent = Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPose.Translation),
+                            (float)maxLinearVelocity * Math.Abs(Vector3.Distance(_finalPose.Translation, currentPose.Translation)) / d);
+                    }
+                }
+            }
+
+            if (_isRotating && _isActive)
+            {
+
+                float Duration = (float)(_elapsedTime.Elapsed.TotalMilliseconds / _trajectoryTime.TotalMilliseconds);
+                Duration = (Duration >= 1.0) ? 1.0f : Duration;
+                if (_isRotating && _isActive)
+                {
+                    Quaternion refChange = Quaternion.CreateFromAxisAngle(_finalPose.axis, _finalPose.angle * Duration);
+                    Quaternion referenceQ = _startPose.Orientation * refChange;
+                    changeQ = Quaternion.Inverse(currentPose.Orientation) * referenceQ;
+
+
+                    float[] kukaAngles = new float[6];
+                    SF.getKukaAngles(changeQ, ref kukaAngles);
+                    //_robot.updateError("kukaAngles: " + kukaAngles[0].ToString() + " : " + kukaAngles[1].ToString() + " : " + kukaAngles[2].ToString() + " : " + kukaAngles[3].ToString() + " : " + kukaAngles[4].ToString() + " : " + kukaAngles[5].ToString() );
+                    if (Duration >= 1.0f)
+                    {
+                        _isRotating = false;
+                    }
+
+                }
+            }
+
+            return new TimeCoordinate(translationComponent.X, translationComponent.Y, translationComponent.Z, changeQ, currentPose.Ipoc);
+
+        }
+    }
+}
+
+        /*
         double[,] _quinticParameters = new double[4, 6];
         Stopwatch _elapsedTime = new Stopwatch();
         bool _isActive = false;
@@ -158,9 +279,9 @@ namespace LightWeight_Server
                 isEqual = true;
             }
             else isEqual = false;
-            return isEqual;*/
+            return isEqual;
         }
-        /*
+        
         public void updateSpeed()
         {
 
@@ -180,7 +301,7 @@ namespace LightWeight_Server
 
             }
         }
-        */
+        
 
 
         public Matrix getReferencePose()
@@ -388,7 +509,7 @@ namespace LightWeight_Server
             _robot.updateError(solutionstring.ToString());
             return X.Column(0);
         }
-        /*
+        
         // Bool to trigger that the trajectory is in motion
         bool IsActive;
         // Average and max velocities used for trajectory generation when no time is given
@@ -443,5 +564,3 @@ namespace LightWeight_Server
             // TODO: wirte code which triggers the stopwatch 
         }
         */
-    }
-}

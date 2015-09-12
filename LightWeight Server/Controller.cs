@@ -10,7 +10,7 @@ namespace LightWeight_Server
 {
     class Controller
     {
-        object movementLock = new object();
+        //object movementLock = new object();
         Stopwatch _elapsedTime = new Stopwatch();
         bool _isActive = false;
         public bool _isRotating, _isMoving;
@@ -20,7 +20,6 @@ namespace LightWeight_Server
         Vector3 _axis;
         float _finalAngle;
 
-        RobotInfo _robot;
 
         public Boolean IsActive
         {
@@ -48,7 +47,6 @@ namespace LightWeight_Server
 
         public Controller(RobotInfo robot)
         {
-            _robot = robot;
             _isActive = false;
             _isMoving = false;
             _isRotating = false;

@@ -14,8 +14,9 @@ namespace LightWeight_Server
         public readonly int LocalIpoc;
         public double x, y, z, a, b, c;
         public float angle;
-        public Quaternion Orientation;
+        Quaternion _Orientation;
         public Vector3 axis;
+
 
         public TimeCoordinate(double x, double y, double z, double a, double b, double c, long ipoc)
         {
@@ -27,10 +28,23 @@ namespace LightWeight_Server
             this.c = c;
             this.Ipoc = ipoc;
             this.LocalIpoc = Environment.TickCount;
-            Orientation = SF.MakeQuaternionFromKuka(a, b, c);
-            SF.getAxisAngle(Orientation, out axis, out angle);
+            _Orientation = SF.MakeQuaternionFromKuka(a, b, c);
+            SF.getAxisAngle(_Orientation, out axis, out angle);
         }
 
+        public TimeCoordinate(double x, double y, double z, Quaternion Orientation, long ipoc)
+        {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.a = 0;
+            this.b = 0;
+            this.c = 0;
+            _Orientation = new Quaternion(Orientation.X, Orientation.Y, Orientation.Z, Orientation.W);
+            SF.getAxisAngle(Orientation, out axis, out angle);
+            this.Ipoc = ipoc;
+            this.LocalIpoc = Environment.TickCount;
+        }
 
         public TimeCoordinate(double x, double y, double z, Vector3 axis, float angle, long ipoc)
         {
@@ -45,8 +59,23 @@ namespace LightWeight_Server
             this.Ipoc = ipoc;
             this.LocalIpoc = Environment.TickCount;
 
-            Orientation = Quaternion.CreateFromAxisAngle(axis,angle);
+            _Orientation = Quaternion.CreateFromAxisAngle(axis,angle);
 
+        }
+
+        public Vector3 Translation
+        {
+            get { return new Vector3((float)x, (float)y, (float)z); }
+            set { x = value.X; y = value.Y; z = value.Z; }
+        }
+        public Quaternion Orientation
+        {
+            get { return _Orientation; }
+            set
+            {
+                _Orientation = value;
+                SF.getAxisAngle(value, out axis, out angle);
+            }
         }
 
         public static TimeCoordinate operator +(TimeCoordinate Pose1, TimeCoordinate Pose2)
@@ -58,7 +87,7 @@ namespace LightWeight_Server
         {
             return new TimeCoordinate(Pose1.x / Value, Pose1.y / Value, Pose1.z / Value, Vector3.Divide(Pose1.axis, Value), Pose1.angle / Value, Pose1.Ipoc);
         }
-
+        
         public TimeCoordinate getRateOfChange(TimeCoordinate pose1)
         {
             Vector3 changeAxis;
@@ -66,7 +95,7 @@ namespace LightWeight_Server
             if (this.Ipoc < pose1.Ipoc)
             {
                 double delTime = (pose1.Ipoc - this.Ipoc) / TimeSpan.TicksPerMillisecond;
-                Quaternion changeOrientation = Quaternion.Inverse(this.Orientation) * pose1.Orientation;
+                Quaternion changeOrientation = Quaternion.Inverse(this._Orientation) * pose1._Orientation;
                 SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
                 return new TimeCoordinate(  (pose1.x - this.x) / delTime,
                                             (pose1.y - this.y) / delTime,
@@ -78,7 +107,7 @@ namespace LightWeight_Server
             else
             {
                 double delTime = (this.Ipoc - pose1.Ipoc) / TimeSpan.TicksPerMillisecond;
-                Quaternion changeOrientation = Quaternion.Inverse(pose1.Orientation) * this.Orientation;
+                Quaternion changeOrientation = Quaternion.Inverse(pose1._Orientation) * this._Orientation;
                 SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
                 return new TimeCoordinate(  (pose1.x - this.x) / delTime,
                                             (this.y - pose1.y) / delTime,
@@ -89,7 +118,14 @@ namespace LightWeight_Server
             }
         }
 
-
+        public float OrientationDisplacement(TimeCoordinate pose1)
+        {
+            Quaternion tempOrientation = this._Orientation * Quaternion.Inverse(pose1._Orientation);
+            Vector3 axis;
+            float angle;
+            SF.getAxisAngle(tempOrientation, out axis, out angle);
+            return angle;
+        }
     }
 
 
@@ -132,15 +168,11 @@ namespace LightWeight_Server
 
     }
 
-    
-    
-
     public static class SF
     {
 
         public static TimeCoordinate AverageRateOfChange(TimeCoordinate[] list)
         {
-            double x = 0, y = 0, z = 0, a = 0, b = 0, c = 0;
             TimeCoordinate averageRate = new TimeCoordinate(0, 0, 0, Vector3.Zero, 0, list[list.Length - 1].Ipoc);
 
             for (int i = 1; i < list.Length; i++)
@@ -150,14 +182,6 @@ namespace LightWeight_Server
             return averageRate/(float)(list.Length-1);
         }
 
-        public static TimeCoordinate GetVelocity(TimeCoordinate pose1, TimeCoordinate Pose2)
-        {
-            if (pose1.Ipoc < Pose2.Ipoc)
-            {
-                
-            }
-            return new TimeCoordinate();
-        }
 
         static String[] cardinalKeys = new String[] { "X", "Y", "Z", "A", "B", "C" };
         static String[] axisKeys = new String[] { "A1", "A2", "A3", "A4", "A5", "A6" };

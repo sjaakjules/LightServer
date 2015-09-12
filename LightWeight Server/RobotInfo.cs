@@ -620,7 +620,7 @@ namespace LightWeight_Server
                 }
             }
         }
-
+        /*
         public void LoadTrajectory()
         {
             lock (trajectoryLock)
@@ -658,6 +658,8 @@ namespace LightWeight_Server
             }
         }
 
+         * 
+         */
         public void newPosition(double x, double y, double z)
         {
             lock (trajectoryLock)
