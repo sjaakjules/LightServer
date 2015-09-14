@@ -134,7 +134,7 @@ namespace LightWeight_Server
             {
                 Quaternion refChange = Quaternion.CreateFromAxisAngle(_axis, _finalAngle*Duration);
                 Quaternion referenceQ = _startOrientation * refChange;
-                Quaternion changeQ =Quaternion.Inverse(_lastOrientation)* referenceQ  ;
+                Quaternion changeQ = Quaternion.Inverse(_lastOrientation)* referenceQ  ;
                 _lastOrientation = new Quaternion(referenceQ.X,referenceQ.Y,referenceQ.Z,referenceQ.W);
 
              

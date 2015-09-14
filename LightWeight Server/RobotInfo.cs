@@ -31,6 +31,7 @@ namespace LightWeight_Server
         FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<TimeCoordinate> _acceleration = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<TimeCoordinate> _Torque = new FixedSizedQueue<TimeCoordinate>(6);
+        FixedSizedQueue<TimeCoordinate> _Angles = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<TimeCoordinate> _DesiredPosition = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<TimeCoordinate> _CommandPosition = new FixedSizedQueue<TimeCoordinate>(6);
         TimeCoordinate _DisplayPosition, _DisplayVelocity, _DisplayAcceleration, _DisplayTorque, _DisplayDesiredPosition, _DisplayCommandPosition;
@@ -274,7 +275,8 @@ namespace LightWeight_Server
             _Position.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0));
             _velocity.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0,0));
             _acceleration.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0,0));
-            _Torque.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0,0));
+            _Torque.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
+            _Angles.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
             _DesiredPosition.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0));
             _CommandPosition.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
 
@@ -535,6 +537,45 @@ namespace LightWeight_Server
             _velocity.Enqueue(SF.AverageRateOfChange(positions));
             TimeCoordinate[] velocities = _velocity.ToArray();
             _acceleration.Enqueue(SF.AverageRateOfChange(velocities));
+        }
+
+        public TimeCoordinate forwardKinimatics(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
+        {
+            double s1 = Math.Sin(a1 * Math.PI / 180);
+            double c1 = Math.Cos(a1 * Math.PI / 180);
+            double s2 = Math.Sin(a2 * Math.PI / 180);
+            double c2 = Math.Cos(a2 * Math.PI / 180);
+            double s3 = Math.Sin(a3 * Math.PI / 180);
+            double c3 = Math.Cos(a3 * Math.PI / 180);
+            double s4 = Math.Sin(a4 * Math.PI / 180);
+            double c4 = Math.Cos(a4 * Math.PI / 180);
+            double s5 = Math.Sin(Math.PI / 2 + a5 * Math.PI / 180);
+            double c5 = Math.Cos(Math.PI / 2 + a5 * Math.PI / 180);
+            double s6 = Math.Sin(a6 * Math.PI / 180);
+            double c6 = Math.Cos(a6 * Math.PI / 180);
+            double m11 = s6 * (s4 * (s1 * s3 + c1 * c2 * c3) - c1 * c4 * s2) + c6 * (c5 * (c4 * (s1 * s3 + c1 * c2 * c3) + c1 * s2 * s4) - s5 * (c3 * s1 - c1 * c2 * s3));
+            double m12 = c6 * (s4 * (s1 * s3 + c1 * c2 * c3) - c1 * c4 * s2) - s6 * (c5 * (c4 * (s1 * s3 + c1 * c2 * c3) + c1 * s2 * s4) - s5 * (c3 * s1 - c1 * c2 * s3));
+            double m13 = s5 * (c4 * (s1 * s3 + c1 * c2 * c3) + c1 * s2 * s4) + c5 * (c3 * s1 - c1 * c2 * s3);
+            double m14 = 25 * c1 + 560 * c1 * c2 + 515 * c3 * s1 + 35 * s1 * s3 + 35 * c1 * c2 * c3 - 515 * c1 * c2 * s3;
+            double m21 = s6 * (s4 * (c1 * s3 - c2 * c3 * s1) + c4 * s1 * s2) + c6 * (c5 * (c4 * (c1 * s3 - c2 * c3 * s1) - s1 * s2 * s4) - s5 * (c1 * c3 + c2 * s1 * s3));
+            double m22 = c6 * (s4 * (c1 * s3 - c2 * c3 * s1) + c4 * s1 * s2) - s6 * (c5 * (c4 * (c1 * s3 - c2 * c3 * s1) - s1 * s2 * s4) - s5 * (c1 * c3 + c2 * s1 * s3));
+            double m23 = s5 * (c4 * (c1 * s3 - c2 * c3 * s1) - s1 * s2 * s4) + c5 * (c1 * c3 + c2 * s1 * s3);
+            double m24 = 515 * c1 * c3 - 25 * s1 - 560 * c2 * s1 + 35 * c1 * s3 + 515 * c2 * s1 * s3 - 35 * c2 * c3 * s1;
+            double m31 = c6 * (c5 * (c2 * s4 - c3 * c4 * s2) - s2 * s3 * s5) - s6 * (c2 * c4 + c3 * s2 * s4);
+            double m32 = -s6 * (c5 * (c2 * s4 - c3 * c4 * s2) - s2 * s3 * s5) - c6 * (c2 * c4 + c3 * s2 * s4);
+            double m33 = c2 * Math.Cos(a5 * Math.PI / 180) * s4 - s2 * s3 * Math.Sin(a5 * Math.PI / 180) - c3 * c4 * Math.Cos(a5 * Math.PI / 180) * s2;
+            double m34 = 515 * s2 * s3 - 35 * c3 * s2 - 560 * s2 + 400;
+            double m41 = 0;
+            double m42 = 0;
+            double m43 = 0;
+            double m44 = 1;
+            Matrix M = new Matrix((float)m11, (float)m12, (float)m13, (float)m14, (float)m21, (float)m22, (float)m23, (float)m24, (float)m31, (float)m32, (float)m33, (float)m34, (float)m41, (float)m42, (float)m43, (float)m44);
+            return new TimeCoordinate(M.Translation.X, M.Translation.Y, M.Translation.Z, Quaternion.CreateFromRotationMatrix(Matrix.Transpose(M)), Ipoc);
+        }
+
+        public void updateRobotAngles(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
+        {
+            _Angles.Enqueue(forwardKinimatics(a1, a2 - 90, a3 + 90, a4, a5 + 90, a6, Ipoc));
         }
 
         public void updateRobotTorque(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)

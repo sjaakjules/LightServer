@@ -340,10 +340,16 @@ namespace LightWeight_Server
                                             double.Parse(Node.Attributes["B"].Value), double.Parse(Node.Attributes["C"].Value));
                             break;
 
+                        case "AIPos":
+                            _Robot.updateRobotAngles(double.Parse(Node.Attributes["A1"].Value), double.Parse(Node.Attributes["A2"].Value),
+                                                    double.Parse(Node.Attributes["A3"].Value), double.Parse(Node.Attributes["A4"].Value),
+                                                    double.Parse(Node.Attributes["A5"].Value), double.Parse(Node.Attributes["A6"].Value), _IPOC);
+                            break;
+
                         case "Torque":
                             _Robot.updateRobotTorque(double.Parse(Node.Attributes["A1"].Value), double.Parse(Node.Attributes["A2"].Value),
                                                     double.Parse(Node.Attributes["A3"].Value), double.Parse(Node.Attributes["A4"].Value),
-                                                    double.Parse(Node.Attributes["A5"].Value), double.Parse(Node.Attributes["A6"].Value));
+                                                    double.Parse(Node.Attributes["A5"].Value), double.Parse(Node.Attributes["A6"].Value), _IPOC);
                             break;
                         default:
                             break;
