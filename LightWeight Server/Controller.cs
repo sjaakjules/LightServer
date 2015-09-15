@@ -19,6 +19,7 @@ namespace LightWeight_Server
         TimeSpan _trajectoryTime;
         Vector3 _axis;
         float _finalAngle;
+        int positionCounter;
 
         RobotInfo _robot;
 
@@ -60,6 +61,7 @@ namespace LightWeight_Server
             _finalPose.Translation = position;
             _startPose.Translation = startPose.Translation;
             _startOrientation = Quaternion.CreateFromRotationMatrix(startPose);
+            positionCounter = 0;
             _isMoving = true;
             _isActive = true;
         }
@@ -77,6 +79,7 @@ namespace LightWeight_Server
             _finalPose = Matrix.CreateFromQuaternion(FinalOrientation);
             _finalPose.Translation = translation;
             _elapsedTime.Restart();
+            positionCounter = 0;
             _isRotating = true;
             _isActive = true;
         }
@@ -91,6 +94,7 @@ namespace LightWeight_Server
             _finalPose = Matrix.CreateFromQuaternion(FinalOrientation);
             _finalPose.Translation = position;
             _elapsedTime.Restart();
+            positionCounter = 0;
             _isRotating = true;
             _isMoving = true;
             _isActive = true;
@@ -106,20 +110,85 @@ namespace LightWeight_Server
             }
             if (_isMoving && IsActive)
             {
-                if (Math.Abs(Vector3.Distance(_startPose.Translation,currentPosition)) < 1)
+                float accelerationDistance = 5.0f;
+                if ((Math.Abs(Vector3.Distance(_startPose.Translation, _finalPose.Translation)) > accelerationDistance))
+                {
+                    // in the start/final region
+                    // Check for last step occurance
+
+                    if ((Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition))) < 0.01f)
+                    {
+                        _isMoving = false;
+                        return _finalPose.Translation - currentPosition;
+                    }
+                    else if (Math.Abs(Vector3.Distance(_startPose.Translation, currentPosition)) < accelerationDistance / 2 ||
+                        (Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition)) < accelerationDistance / 2))
+                    {
+                        // If its in start of final region find two distances
+                        float disFromStart = Math.Abs(Vector3.Distance(_startPose.Translation, currentPosition)) + .05f;
+                        float disFromFinal = Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition));
+                        return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition),
+                            (float)maxChange * ((disFromStart < disFromFinal) ? disFromStart : disFromFinal) / (accelerationDistance / 2));
+                    }
+                    else
+                    {
+                        return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange);
+                    }
+                }
+                else
+                {
+                    // TODO code when agent is on robot, ie less than 10mm commands
+                }
+
+
+                /*
+                // If you are wihtin 1mm of the start
+                if (Math.Abs(Vector3.Distance(_startPose.Translation,currentPosition)) < 3)
                 {
                     return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition),
                         (Math.Abs(Vector3.Distance(_startPose.Translation, currentPosition)) < 0.01 / maxChange) ? 0.01f : (float)maxChange * Math.Abs(Vector3.Distance(_startPose.Translation, currentPosition)));
                     
                 }
+                // If you are within 0.05mm of the end
                 if (Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition)) < 0.05 / maxChange)
                 {
                     _isMoving = false;
                     return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition)));
                 }
+                 * 
+                // in all other times
                 return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition),
-                          (Vector3.Distance(_finalPose.Translation, currentPosition) > 5) ? (float)maxChange : (float)maxChange * Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition)) / 5);
+                          (Vector3.Distance(_finalPose.Translation, currentPosition) > 5) ? (float)maxChange : (float)maxChange * Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition)) / 5 );
                 
+                 */
+            
+            }
+            return Vector3.Zero;
+        }
+
+
+        public Vector3 getDisplacement(Vector3 currentPosition, Vector3 lastPosition, double maxChange)
+        {
+            if (!_isMoving && !_isRotating)
+            {
+                IsActive = false;
+            }
+            if (_isMoving && IsActive)
+            {
+                if (Math.Abs(Vector3.Distance(lastPosition, currentPosition)) < 0.0001)
+                {
+                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), 0.1f);
+                }
+                if (Vector3.Distance(_finalPose.Translation, currentPosition) > maxChange / 100)
+                {
+                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition),
+                          (Vector3.Distance(_finalPose.Translation, currentPosition) > 20) ? (float)maxChange : (float)maxChange * Vector3.Distance(_finalPose.Translation, currentPosition) / 20);
+                }
+                else
+                {
+                    _isMoving = false;
+                }
+                return _finalPose.Translation - currentPosition;
             }
             return Vector3.Zero;
         }
@@ -168,9 +237,9 @@ namespace LightWeight_Server
                 {
                     _isRotating = false;
                 }
-                _robot.updateError(Duration.ToString() + " Angles: {" + kukaAngles[3].ToString() + " , " + kukaAngles[4].ToString() + " , " + kukaAngles[5].ToString() + ") ");
+                //_robot.updateError(Duration.ToString() + " Angles: {" + kukaAngles[3].ToString() + " , " + kukaAngles[4].ToString() + " , " + kukaAngles[5].ToString() + ") ");
                 timer.Stop();
-                _robot.updateError(Duration.ToString() + "Orientation Timer: " + timer.Elapsed.TotalMilliseconds.ToString());
+               // _robot.updateError(Duration.ToString() + "Orientation Timer: " + timer.Elapsed.TotalMilliseconds.ToString());
 
                 return new Vector3(kukaAngles[3], kukaAngles[4], kukaAngles[5]);
             }

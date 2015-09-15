@@ -46,8 +46,8 @@ namespace LightWeight_Server
 
         bool _gripperIsOpen = true;
         double _maxSpeed = 30;
-        double _maxDisplacement = .5;
-        double _maxOrientationSpeed = .005;
+        double _maxDisplacement = .4;
+        double _maxOrientationSpeed = .01;
 
         bool _isConnected = false;
         bool _isCommanded = false;
@@ -66,7 +66,7 @@ namespace LightWeight_Server
         bool _isRotating = false;
         Stopwatch _rotatingTimer = new Stopwatch();
         Stopwatch _ConnectionTimer = new Stopwatch();
-        StringBuilder _data = new StringBuilder();
+      //  StringBuilder _data = new StringBuilder();
 
         float _degreePerSec = 5;
 
@@ -576,11 +576,11 @@ namespace LightWeight_Server
                             Vector3 axis = Vector3.Zero;
                             float angle = 0;
                             SF.getAxisAngle(_DesiredRotation, ref axis, ref angle);
-                            updateError("Loaded Angle of rotation: " + angle.ToString());
-                            updateError("Loaded Axis of rotation: " + axis.ToString());
+                           // updateError("Loaded Angle of rotation: " + angle.ToString());
+                          //  updateError("Loaded Axis of rotation: " + axis.ToString());
                             long orientationDuration = (long)(TimeSpan.TicksPerSecond * (angle / (MaxOrientationDisplacement * 10)));
-                            updateError("Orientation Time in seconds: " + (1.0f * orientationDuration / TimeSpan.TicksPerSecond).ToString());
-                            updateError("vectot out 2: " + Vector3.Transform(currentPose.Backward, _DesiredRotation));
+                          //  updateError("Orientation Time in seconds: " + (1.0f * orientationDuration / TimeSpan.TicksPerSecond).ToString());
+                          //  updateError("vectot out 2: " + Vector3.Transform(currentPose.Backward, _DesiredRotation));
                             if (_newPositionLoaded)
                             {
                                 _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]), _DesiredRotation, currentPose, orientationDuration);
@@ -670,10 +670,13 @@ namespace LightWeight_Server
         {
             lock (trajectoryLock)
             {
-                _DesiredPosition["X"] = x;
-                _DesiredPosition["Y"] = y;
-                _DesiredPosition["Z"] = z;
-                _newPositionLoaded = true;
+                if ((_DesiredPosition["X"] != x) || (_DesiredPosition["Y"] != y) || (_DesiredPosition["Z"] != z))
+                {
+                    _DesiredPosition["X"] = x;
+                    _DesiredPosition["Y"] = y;
+                    _DesiredPosition["Z"] = z;
+                    _newPositionLoaded = true;
+                }
             }
             /*
             lock (trajectoryLock)
@@ -696,13 +699,22 @@ namespace LightWeight_Server
         {
             lock (trajectoryLock)
             {
+                int newAngle = 0;
                 Vector3 newOrientation = new Vector3(x, y, z);
                 newOrientation = Vector3.Normalize(newOrientation);
                 lock (desiredAxisLock)
                 {
-                    desiredZaxis = newOrientation;
+                    float error = 1e-4f;
+                    if (Math.Abs(desiredZaxis.X - x) > error ||Math.Abs(desiredZaxis.Y - y) > error ||Math.Abs(desiredZaxis.Z - z) > error )
+                    {
+                        desiredZaxis = newOrientation;
+                        newAngle++;
+                    }
                 }
-                _newOrientationLoaded = setupController(newOrientation, ref _DesiredRotation);
+                if (newAngle > 0)
+                {
+                    _newOrientationLoaded = setupController(newOrientation, ref _DesiredRotation);
+                }
             }
         }
 
@@ -715,7 +727,7 @@ namespace LightWeight_Server
         /// <returns></returns>
         bool setupController(Vector3 EEvector, ref Quaternion DesiredRotationOut)
         {
-            updateError("Desired vector: " + EEvector.ToString());
+         //   updateError("Desired vector: " + EEvector.ToString());
             Matrix _currentPose = currentPose;
             Vector3 axis = Vector3.Cross(Vector3.Normalize(_currentPose.Backward), Vector3.Normalize(EEvector));
             float angle = (float)Math.Asin((double)axis.Length());
@@ -726,19 +738,19 @@ namespace LightWeight_Server
             else
             {
                 DesiredRotationOut = Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle);
-                updateError("vectot out: " + Vector3.Transform(_currentPose.Backward, DesiredRotationOut));
-                updateError("Setup Angle of rotation: " + angle.ToString());
-                updateError("Setup Axis of rotation: " + Vector3.Normalize(axis).ToString());
-                updateError("Matrix of rotation: " + Matrix.CreateFromQuaternion(DesiredRotationOut).ToString());
+            //    updateError("vectot out: " + Vector3.Transform(_currentPose.Backward, DesiredRotationOut));
+           //     updateError("Setup Angle of rotation: " + angle.ToString());
+            //    updateError("Setup Axis of rotation: " + Vector3.Normalize(axis).ToString());
+            //    updateError("Matrix of rotation: " + Matrix.CreateFromQuaternion(DesiredRotationOut).ToString());
                 return true;
             }
             Vector3 xAxis = Vector3.Zero;
             Vector3 yAxis = Vector3.Zero;
             Vector3 zAxis = EEvector;
-            updateError("current Pose: " + _currentPose.ToString());
-            updateError("Forwards: " + _currentPose.Forward.ToString() + "Down: " + _currentPose.Down.ToString() + "Left: " + _currentPose.Left.ToString());
-            updateError("Y comp: " + Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Up)).ToString());
-            updateError("X comp: " + Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right)).ToString());
+        //    updateError("current Pose: " + _currentPose.ToString());
+       //     updateError("Forwards: " + _currentPose.Forward.ToString() + "Down: " + _currentPose.Down.ToString() + "Left: " + _currentPose.Left.ToString());
+        //    updateError("Y comp: " + Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Up)).ToString());
+        //    updateError("X comp: " + Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right)).ToString());
 
             if (Math.Abs(Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right))) > Math.Abs(Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Up))))
             {
@@ -751,7 +763,7 @@ namespace LightWeight_Server
                 yAxis = Vector3.Normalize(Vector3.Cross(zAxis, xAxis));
             }
 
-            updateError("Setup xAxis: " + xAxis.ToString() + "\nSetup yAxis: " + yAxis.ToString() + "\nSetup zAxis: " + zAxis.ToString());
+       //     updateError("Setup xAxis: " + xAxis.ToString() + "\nSetup yAxis: " + yAxis.ToString() + "\nSetup zAxis: " + zAxis.ToString());
             DesiredRotationOut = Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0,
                                                                                        yAxis.X, yAxis.Y, yAxis.Z, 0,
                                                                                        zAxis.X, zAxis.Y, zAxis.Z, 0,
@@ -882,6 +894,7 @@ namespace LightWeight_Server
             _isRotatingZ = false;
         }
 
+        /*
         public void SaveInfo()
         {
             if (_isCommanded || _isRotating)
@@ -906,7 +919,7 @@ namespace LightWeight_Server
 
             }
         }
-
+        */
         public void flushCommands()
         {
             for (int i = 0; i < 6; i++)

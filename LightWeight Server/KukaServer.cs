@@ -349,7 +349,7 @@ namespace LightWeight_Server
                             break;
                     }
                 }
-                _Robot.SaveInfo();
+             //   _Robot.SaveInfo();
                 _Robot.LoadCommand();
                 //_Robot.LoadTrajectory();
 
