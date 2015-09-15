@@ -578,6 +578,11 @@ namespace LightWeight_Server
             _Angles.Enqueue(forwardKinimatics(a1, a2 - 90, a3 + 90, a4, a5 + 90, a6, Ipoc));
         }
 
+        void checkStall()
+        {
+
+        }
+
         public void updateRobotTorque(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
         {
             _Torque.Enqueue(new TimeCoordinate(a1, a2, a3, a4, a5, a6, Ipoc));

@@ -111,11 +111,11 @@ namespace LightWeight_Server
             if (_isRotating && _isActive)
             {
 
-                float Duration = (float)(_elapsedTime.Elapsed.TotalMilliseconds / _trajectoryTime.TotalMilliseconds);
-                Duration = (Duration >= 1.0) ? 1.0f : Duration;
+                float currentTime = (float)(_elapsedTime.Elapsed.TotalMilliseconds / _trajectoryTime.TotalMilliseconds);
+                currentTime = (currentTime >= 1.0) ? 1.0f : currentTime;
                 if (_isRotating && _isActive)
                 {
-                    Quaternion refChange = Quaternion.CreateFromAxisAngle(_finalPose.axis, _finalPose.angle * Duration);
+                    Quaternion refChange = Quaternion.CreateFromAxisAngle(_finalPose.axis, _finalPose.angle * currentTime);
                     Quaternion referenceQ = _startPose.Orientation * refChange;
                     changeQ = Quaternion.Inverse(currentPose.Orientation) * referenceQ;
 
@@ -123,7 +123,7 @@ namespace LightWeight_Server
                     float[] kukaAngles = new float[6];
                     SF.getKukaAngles(changeQ, ref kukaAngles);
                     //_robot.updateError("kukaAngles: " + kukaAngles[0].ToString() + " : " + kukaAngles[1].ToString() + " : " + kukaAngles[2].ToString() + " : " + kukaAngles[3].ToString() + " : " + kukaAngles[4].ToString() + " : " + kukaAngles[5].ToString() );
-                    if (Duration >= 1.0f)
+                    if (currentTime >= 1.0f)
                     {
                         _isRotating = false;
                     }
