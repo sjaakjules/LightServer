@@ -88,7 +88,7 @@ namespace LightWeight_Server
                 float d = (float)(maxLinearVelocity*maxLinearVelocity / (2 * _maxLinearAcceleration));
                 if (Vector3.Distance(currentPose.Translation, _finalPose.Translation) > d)
                 {
-                    // In the acceleration face if current velocity is less than maxVelecity otherwise in constant velocity region
+                    // In the acceleration phase if current velocity is less than maxVelecity otherwise in constant velocity region
                     translationComponent = Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPose.Translation),
                         (Math.Abs((float)maxLinearVelocity - currentVelocity.Translation.Length()) < _maxLinearAcceleration * 16) ? (float)maxLinearVelocity : currentVelocity.Translation.Length() + _maxLinearAcceleration * 16);// scale the velocity according to acceleration      //Math.Sign(maxLinearVelocity - currentVelocity.Translation.Length())*currentVelocity.Translation;
                 }

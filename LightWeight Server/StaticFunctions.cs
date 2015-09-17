@@ -94,7 +94,7 @@ namespace LightWeight_Server
             float changeAngle;
             if (this.Ipoc < pose1.Ipoc)
             {
-                double delTime = (pose1.Ipoc - this.Ipoc) / TimeSpan.TicksPerMillisecond;
+                double delTime = 1.0 * (pose1.Ipoc - this.Ipoc) / TimeSpan.TicksPerMillisecond;
                 Quaternion changeOrientation = Quaternion.Inverse(this._Orientation) * pose1._Orientation;
                 SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
                 return new TimeCoordinate(  (pose1.x - this.x) / delTime,
@@ -106,7 +106,7 @@ namespace LightWeight_Server
             }
             else
             {
-                double delTime = (this.Ipoc - pose1.Ipoc) / TimeSpan.TicksPerMillisecond;
+                double delTime = 1.0 * (this.Ipoc - pose1.Ipoc) / TimeSpan.TicksPerMillisecond;
                 Quaternion changeOrientation = Quaternion.Inverse(pose1._Orientation) * this._Orientation;
                 SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
                 return new TimeCoordinate(  (pose1.x - this.x) / delTime,
