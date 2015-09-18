@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace LightWeight_Server
 {
+     
     public struct TimeCoordinate
     {
         public readonly long Ipoc;

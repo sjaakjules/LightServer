@@ -19,9 +19,11 @@ namespace LightWeight_Server
     {
         Stopwatch _elapsedTime = new Stopwatch();
         bool _isActive = false,_isRotating = false, _isTranslating = false;
-        TimeCoordinate _finalPose, _startPose, _startVelocity, _startAcceleration;
+        TimeCoordinate _finalPose, _startPose, _startVelocity, _startAcceleration, _changePose;
         TimeSpan _trajectoryTime;
-        float _maxLinearAcceleration = 0.005f, _mexAngularAcceleration; // in mm/ms2
+        float _maxLinearAcceleration = 0.005f;// in mm/ms2
+        float _maxAngularAcceleration = 0.00005f; // in deg/ms2
+        Quaternion _startInverse;
 
         public Trajectory()
         {
@@ -32,7 +34,8 @@ namespace LightWeight_Server
 
         /// <summary>
         /// Loads the finalPose with the trigger setting changes in tanslation (1), orientation (-1) or both (0).
-        /// A thread lock must be imposed externally as load() and reference() overlap and are accessedd in different threads.
+        /// A thread lock must be imposed externally as load() and reference() overlap and are accessed in different threads.
+        /// The finalPose and startPose must be a translation from base coordinates.
         /// </summary>
         /// <param name="trigger"></param>
         /// <param name="finalPose"></param>
@@ -46,6 +49,7 @@ namespace LightWeight_Server
             {
                 _finalPose.Translation = finalPose.Translation;
                 _startPose.Translation = startPose.Translation;
+                _changePose.Translation = finalPose.Translation - startPose.Translation;
                 _startVelocity.Translation = startVelocity.Translation;
                 _startAcceleration.Translation = startAcceleration.Translation;
                 _isTranslating = true;
@@ -54,6 +58,8 @@ namespace LightWeight_Server
             {
                 _finalPose.Orientation = finalPose.Orientation;
                 _startPose.Orientation = startPose.Orientation;
+                _startInverse = Quaternion.Inverse(startPose.Orientation);
+                _changePose.Orientation = _startInverse * finalPose.Orientation;
                 _startVelocity.Orientation = startVelocity.Orientation;
                 _startAcceleration.Orientation = startAcceleration.Orientation;
                 _trajectoryTime = new TimeSpan(timespan);
@@ -64,9 +70,8 @@ namespace LightWeight_Server
         }
 
         /// <summary>
-        /// Gets the Reference TimeCoordinate and handles all termination triggers for tanslation and orientations.
-        /// The velocities used are mm/cycle but acceleration mm/ms!!! (where cycle = 4ms.)
-        /// Hence magic 16 numbers used with acceleration (4ms for del time and 4ms to get to cycle)
+        /// Gets the Reference velocity in TimeCoordinate and handles all termination triggers for tanslation and orientations.
+        /// The velocities and acceleration in mm and ms (where once Kuka cycle = 4ms.)
         /// </summary>
         /// <param name="currentPose"></param>
         /// <param name="currentVelocity"></param>
@@ -79,23 +84,24 @@ namespace LightWeight_Server
             if (!_isTranslating && !_isRotating)
             {
                 _isActive = false;
-                return currentPose;
+                return new TimeCoordinate(0,0,0,Quaternion.Identity, currentPose.Ipoc);
             }
             Vector3 translationComponent = Vector3.Zero;
             Quaternion changeQ = Quaternion.Identity;
             if (_isTranslating && _isActive)
             {
+                // d = distance for acceleration phase
                 float d = (float)(maxLinearVelocity*maxLinearVelocity / (2 * _maxLinearAcceleration));
                 if (Vector3.Distance(currentPose.Translation, _finalPose.Translation) > d)
                 {
                     // In the acceleration phase if current velocity is less than maxVelecity otherwise in constant velocity region
                     translationComponent = Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPose.Translation),
-                        (Math.Abs((float)maxLinearVelocity - currentVelocity.Translation.Length()) < _maxLinearAcceleration * 16) ? (float)maxLinearVelocity : currentVelocity.Translation.Length() + _maxLinearAcceleration * 16);// scale the velocity according to acceleration      //Math.Sign(maxLinearVelocity - currentVelocity.Translation.Length())*currentVelocity.Translation;
+                        (Math.Abs((float)maxLinearVelocity - currentVelocity.Translation.Length()) < _maxLinearAcceleration * 4) ? (float)maxLinearVelocity : currentVelocity.Translation.Length() + Math.Sign((float)maxLinearVelocity - currentVelocity.Translation.Length()) * _maxLinearAcceleration * 4);// scale the velocity according to acceleration      //Math.Sign(maxLinearVelocity - currentVelocity.Translation.Length())*currentVelocity.Translation;
                 }
                 else
                 {
                     // In the deceleration phase
-                    if (Vector3.Distance(_finalPose.Translation, currentPose.Translation) < _maxLinearAcceleration * 10)
+                    if (Vector3.Distance(_finalPose.Translation, currentPose.Translation) < _maxLinearAcceleration * 4)
                     {
                         translationComponent = _finalPose.Translation - currentPose.Translation;
                         _isTranslating = false;
@@ -103,13 +109,46 @@ namespace LightWeight_Server
                     else
                     {
                         translationComponent = Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPose.Translation),
-                            (float)maxLinearVelocity * Math.Abs(Vector3.Distance(_finalPose.Translation, currentPose.Translation)) / d);
+                            (float)maxLinearVelocity * Math.Abs(Vector3.Distance(_finalPose.Translation, currentPose.Translation) / d));
                     }
                 }
             }
 
             if (_isRotating && _isActive)
             {
+
+                // d = distance for acceleration phase
+                float d = (float)(maxAngularVelocity * maxAngularVelocity / (2 * _maxAngularAcceleration));
+                Quaternion CurrentChange = _startInverse * currentPose.Orientation;
+                float angle;
+                Vector3 axis;
+                SF.getAxisAngle(CurrentChange, out axis, out angle);
+
+
+                if (angle < _changePose.angle - d)
+                {
+                    // In the acceleration phase if current velocity is less than maxVelecity otherwise in constant velocity region
+                    changeQ = Quaternion.CreateFromAxisAngle(_changePose.axis,
+                        (Math.Abs((float)maxAngularVelocity - currentVelocity.angle) < _maxAngularAcceleration * 4) ? (float)maxAngularVelocity : currentVelocity.Translation.Length() + Math.Sign((float)maxAngularVelocity - currentVelocity.angle) * _maxAngularAcceleration * 4);// scale the velocity according to acceleration      //Math.Sign(maxLinearVelocity - currentVelocity.Translation.Length())*currentVelocity.Translation;
+                }
+                else
+                {
+                    // In the deceleration phase
+                    Quaternion CurrentChangeEnd = Quaternion.Inverse(currentPose.Orientation) * _finalPose.Orientation;
+                    SF.getAxisAngle(CurrentChangeEnd, out axis, out angle);
+                    if (angle <= _maxAngularAcceleration * 4)
+                    {
+                        changeQ = CurrentChangeEnd;
+                        _isRotating = false;
+                    }
+                    else
+                    {
+                        changeQ = Quaternion.CreateFromAxisAngle(_changePose.axis,
+
+                        translationComponent = Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPose.Translation),
+                            (float)maxLinearVelocity * Math.Abs(Vector3.Distance(_finalPose.Translation, currentPose.Translation) / d));
+                    }
+                }
 
                 float currentTime = (float)(_elapsedTime.Elapsed.TotalMilliseconds / _trajectoryTime.TotalMilliseconds);
                 currentTime = (currentTime >= 1.0) ? 1.0f : currentTime;
