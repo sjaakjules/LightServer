@@ -33,6 +33,20 @@ namespace LightWeight_Server
             SF.getAxisAngle(_Orientation, out axis, out angle);
         }
 
+        public TimeCoordinate(Vector3 Position, Quaternion Orientation, long ipoc)
+        {
+            this.x = Position.X;
+            this.y = Position.Y;
+            this.z = Position.Z;
+            this.a = 0;
+            this.b = 0;
+            this.c = 0;
+            _Orientation = new Quaternion(Orientation.X, Orientation.Y, Orientation.Z, Orientation.W);
+            SF.getAxisAngle(Orientation, out axis, out angle);
+            this.Ipoc = ipoc;
+            this.LocalIpoc = Environment.TickCount;
+        }
+
         public TimeCoordinate(double x, double y, double z, Quaternion Orientation, long ipoc)
         {
             this.x = x;
@@ -117,6 +131,13 @@ namespace LightWeight_Server
                                             changeAngle / (float)delTime,
                                             this.Ipoc);
             }
+        }
+
+        public void AxisAngle(Vector3 newAxis, float newAngle)
+        {
+            this.axis = newAxis;
+            this.angle = newAngle;
+            this._Orientation = Quaternion.CreateFromAxisAngle(axis, angle);
         }
 
         public float OrientationDisplacement(TimeCoordinate pose1)

@@ -17,13 +17,15 @@ namespace LightWeight_Server
 {
     class Trajectory
     {
-        Stopwatch _elapsedTime = new Stopwatch();
+     //   Stopwatch _elapsedTime = new Stopwatch();
         bool _isActive = false,_isRotating = false, _isTranslating = false;
         TimeCoordinate _finalPose, _startPose, _startVelocity, _startAcceleration, _changePose;
-        TimeSpan _trajectoryTime;
+       // TimeSpan _trajectoryTime;
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
         Quaternion _startInverse;
+
+        public bool IsActive { get { return _isActive; } }
 
         public Trajectory()
         {
@@ -43,7 +45,7 @@ namespace LightWeight_Server
         /// <param name="startVelocity"></param>
         /// <param name="startAcceleration"></param>
         /// <param name="timespan"></param>
-        public void load(int trigger, TimeCoordinate finalPose, TimeCoordinate startPose, TimeCoordinate startVelocity, TimeCoordinate startAcceleration, long timespan)
+        public void load(int trigger, TimeCoordinate finalPose, TimeCoordinate startPose, TimeCoordinate startVelocity, TimeCoordinate startAcceleration)
         {
             if (trigger >= 0)
             {
@@ -62,8 +64,8 @@ namespace LightWeight_Server
                 _changePose.Orientation = _startInverse * finalPose.Orientation;
                 _startVelocity.Orientation = startVelocity.Orientation;
                 _startAcceleration.Orientation = startAcceleration.Orientation;
-                _trajectoryTime = new TimeSpan(timespan);
-                _elapsedTime.Restart();
+            //    _trajectoryTime = new TimeSpan(timespan);
+            //    _elapsedTime.Restart();
                 _isRotating = true;
             }
             _isActive = true;
@@ -143,31 +145,11 @@ namespace LightWeight_Server
                     }
                     else
                     {
-                        changeQ = Quaternion.CreateFromAxisAngle(_changePose.axis,
-
-                        translationComponent = Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPose.Translation),
-                            (float)maxLinearVelocity * Math.Abs(Vector3.Distance(_finalPose.Translation, currentPose.Translation) / d));
+                        changeQ = Quaternion.CreateFromAxisAngle(axis,
+                            (float)maxAngularVelocity * (angle / d));
                     }
                 }
 
-                float currentTime = (float)(_elapsedTime.Elapsed.TotalMilliseconds / _trajectoryTime.TotalMilliseconds);
-                currentTime = (currentTime >= 1.0) ? 1.0f : currentTime;
-                if (_isRotating && _isActive)
-                {
-                    Quaternion refChange = Quaternion.CreateFromAxisAngle(_finalPose.axis, _finalPose.angle * currentTime);
-                    Quaternion referenceQ = _startPose.Orientation * refChange;
-                    changeQ = Quaternion.Inverse(currentPose.Orientation) * referenceQ;
-
-
-                    float[] kukaAngles = new float[6];
-                    SF.getKukaAngles(changeQ, ref kukaAngles);
-                    //_robot.updateError("kukaAngles: " + kukaAngles[0].ToString() + " : " + kukaAngles[1].ToString() + " : " + kukaAngles[2].ToString() + " : " + kukaAngles[3].ToString() + " : " + kukaAngles[4].ToString() + " : " + kukaAngles[5].ToString() );
-                    if (currentTime >= 1.0f)
-                    {
-                        _isRotating = false;
-                    }
-
-                }
             }
 
             return new TimeCoordinate(translationComponent.X, translationComponent.Y, translationComponent.Z, changeQ, currentPose.Ipoc);
@@ -177,6 +159,14 @@ namespace LightWeight_Server
 }
 
         /*
+         * 
+         * 
+         * 
+         * ***********   This creates a quintic in position to allow smooth acceleration transitions when creating paths.
+         *                  It has spikes of lagg of 100ms which trigger a disconnection with Kuka
+         *                  
+         * 
+         * 
         double[,] _quinticParameters = new double[4, 6];
         Stopwatch _elapsedTime = new Stopwatch();
         bool _isActive = false;

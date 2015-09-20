@@ -421,7 +421,7 @@ namespace TestBot
             XmlNode comPosNode = _SendXML.SelectSingleNode("//Rob/RIst");
             for (int i = 0; i < 6; i++)
             {
-                comPosNode.Attributes[CardinalKey[i]].Value = String.Format("{0:0.0000}", _kukaPosition[i]);
+                comPosNode.Attributes[CardinalKey[i]].Value = String.Format("{0:0.0}", _kukaPosition[i]);
             }
             _PacketOut = Encoding.UTF8.GetBytes(Beautify(_SendXML));
 
