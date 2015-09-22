@@ -59,8 +59,11 @@ namespace LightWeight_Server
         public void load(Vector3 position, Matrix startPose)
         {
             _finalPose.Translation = position;
-            _startPose.Translation = startPose.Translation;
-            _startOrientation = Quaternion.CreateFromRotationMatrix(startPose);
+            if (!_isMoving)
+            {
+                _startPose.Translation = startPose.Translation;
+                _startOrientation = Quaternion.CreateFromRotationMatrix(startPose);
+            }
             positionCounter = 0;
             _isMoving = true;
             _isActive = true;
@@ -88,8 +91,11 @@ namespace LightWeight_Server
         {
             SF.getAxisAngle(FinalOrientation, ref _axis, ref _finalAngle);
             _trajectoryTime = new TimeSpan(timespan);
-            _startPose = startPose;
-            _startOrientation = Quaternion.CreateFromRotationMatrix(startPose);
+            if (!_isMoving)
+            {
+                _startPose = startPose;
+                _startOrientation = Quaternion.CreateFromRotationMatrix(startPose);
+            }
             _lastOrientation = new Quaternion(_startOrientation.X, _startOrientation.Y, _startOrientation.Z, _startOrientation.W);
             _finalPose = Matrix.CreateFromQuaternion(FinalOrientation);
             _finalPose.Translation = position;
