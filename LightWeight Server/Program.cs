@@ -62,6 +62,12 @@ namespace LightWeight_Server
                         case ConsoleKey.D9:
                             ConnectedKuka.MaxOrientationDisplacement -= 0.1;
                             break;
+                        case ConsoleKey.DownArrow:
+                            ConnectedKuka.moveDown = true;;
+                            break;
+                        case ConsoleKey.UpArrow:
+                            ConnectedKuka.moveUp = true;
+                            break;
 
                     }
             }

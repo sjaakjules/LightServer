@@ -18,6 +18,7 @@ namespace LightWeight_Server
         object maxOrientationSpeedLock = new object();
         object maxDisplacementLock = new object();
         object desiredAxisLock = new object();
+        object outputLock = new object();
 
         Stopwatch _KukaCycleTime = new Stopwatch();
 
@@ -41,13 +42,17 @@ namespace LightWeight_Server
 
         ConcurrentDictionary<String, StringBuilder> _text = new ConcurrentDictionary<string, StringBuilder>();
 
+        StringBuilder outputString = new StringBuilder();
+
         Trajectory _CurrentTrajectory;
         Controller _CurrrentController;
 
         bool _gripperIsOpen = true;
         double _maxSpeed = 30;
         double _maxDisplacement = .4;
-        double _maxOrientationSpeed = .01;
+        double _maxOrientationSpeed = .05;
+
+        long _Ipoc = 0;
 
         bool _isConnected = false;
         bool _isCommanded = false;
@@ -57,6 +62,9 @@ namespace LightWeight_Server
         bool _newCommandLoaded = false;
         bool _newOrientationLoaded = false;
         bool _newPositionLoaded = false;
+
+        bool _moveDown = false;
+        bool _moveUp = false;
 
 
         // Test variables
@@ -94,6 +102,26 @@ namespace LightWeight_Server
                 _processDataTimer = value;
             }
         }
+
+        public long Ipoc
+        {
+            get
+            {
+                lock (desiredAxisLock)
+                {
+                    return _Ipoc;
+                }
+            }
+            set
+            {
+                lock (desiredAxisLock)
+                {
+                    _Ipoc = value;
+                }
+            }
+        }
+
+
 
         // Thread safe getter which blocks till value is given
         public double CommandedPosition(int index)
@@ -143,6 +171,36 @@ namespace LightWeight_Server
                 lock (maxOrientationSpeedLock)
                 {
                     _maxOrientationSpeed = value;
+                }
+            }
+        }
+
+        public bool moveDown
+        {
+            set
+            {
+                try
+                {
+                    _moveDown = value;
+                }
+                catch (Exception)
+                {
+                    
+                }
+            }
+        }
+
+        public bool moveUp
+        {
+            set
+            {
+                try
+                {
+                    _moveUp = value;
+                }
+                catch (Exception)
+                {
+
                 }
             }
         }
@@ -273,6 +331,11 @@ namespace LightWeight_Server
             setupAxisDictionaries(_Torque);
 
             _text["Error"].Append("---------------------------------\n             Errors:\n");
+
+            StreamWriter outputFile = new StreamWriter("Output.txt");
+            outputFile.WriteLine("Output of information: \n");
+            outputFile.Flush();
+            outputFile.Close();
         }
 
         public void Connect()
@@ -314,6 +377,21 @@ namespace LightWeight_Server
 
                 }
 
+            }
+        }
+
+        public void writeToFile()
+        {
+            try
+            {
+                lock (outputLock)
+                {
+                    outputString.AppendLine("IPOC: " + Ipoc.ToString() +  " | Time: "+ _ConnectionTimer.Elapsed.TotalMilliseconds.ToString() + " | A: " + _ReadPosition["A"] + " | B: " + _ReadPosition["B"] + " | C: " + _ReadPosition["C"]);
+                }
+            }
+            catch (Exception)
+            {
+                
             }
         }
 
@@ -366,6 +444,7 @@ namespace LightWeight_Server
                     file.WriteLine(_PrintMsg);
                     file.Flush();
                     file.Close();
+
                     /*
                     
                     hasMsg = false;
@@ -388,6 +467,17 @@ namespace LightWeight_Server
                             hasMsg = _text.TryGetValue("msg", out _PrintMsg);
                         }
                         Console.WriteLine(_PrintMsg.ToString());
+
+                        StreamWriter outputFile = new StreamWriter("Output.txt", true);
+
+                        lock (outputLock)
+                        {
+                            outputFile.WriteLine(outputString);
+                            outputString.Clear();
+                        }
+                        outputFile.Flush();
+                        outputFile.Close();
+
                     }
                     else
                     {
@@ -435,6 +525,13 @@ namespace LightWeight_Server
                                                                      String.Format("{0:0.0000}", _CommandedPosition["A"]) + " , " +
                                                                     String.Format("{0:0.0000}", _CommandedPosition["B"]) + " , " +
                                                                     String.Format("{0:0.0000}", _CommandedPosition["C"]) + ")");
+
+            _text["msg"].AppendLine("Torque Position:     (" + String.Format("{0:0.0000}", _Torque["A1"]) + " , " +
+                                                                    String.Format("{0:0.0000}", _Torque["A2"]) + " , " +
+                                                                    String.Format("{0:0.0000}", _Torque["A3"]) + "," +
+                                                                     String.Format("{0:0.0000}", _Torque["A4"]) + " , " +
+                                                                    String.Format("{0:0.0000}", _Torque["A5"]) + " , " +
+                                                                    String.Format("{0:0.0000}", _Torque["A6"]) + ")");
             lock (desiredAxisLock)
             {
                 _text["msg"].AppendLine("Desired Tip Vector:     (" + String.Format("{0:0.00}", desiredZaxis.X) + " , " +
@@ -442,11 +539,18 @@ namespace LightWeight_Server
                                                                         String.Format("{0:0.00}", desiredZaxis.Z) + ")");
 
             }
+
+            Vector3 DesirredZ = Matrix.CreateFromQuaternion(_DesiredRotation).Backward;
+
+            _text["msg"].AppendLine("Desired Tip Vector2:     (" + String.Format("{0:0.00}", DesirredZ.X) + " , " +
+                                                                    String.Format("{0:0.00}", DesirredZ.Y) + " , " +
+                                                                    String.Format("{0:0.00}", DesirredZ.Z) + ")");
             _text["msg"].AppendLine("Current Tip vector:     (" + String.Format("{0:0.00}", currentPose.Backward.X) + " , " +
                                                                     String.Format("{0:0.00}", currentPose.Backward.Y) + " , " +
                                                                     String.Format("{0:0.00}", currentPose.Backward.Z) + ")");
 
-            _text["msg"].AppendLine("Max Speed: " + MaxDisplacement.ToString() + "mm per cycle");
+            _text["msg"].AppendLine("Max Linear Speed: " + MaxDisplacement.ToString() + "mm per cycle");
+            _text["msg"].AppendLine("Max Angular Speed: " + MaxOrientationDisplacement.ToString() + "deg per cycle");
             if (gripperIsOpen)
             {
                 _text["msg"].AppendLine("Gripper is OPEN.");
@@ -573,17 +677,18 @@ namespace LightWeight_Server
                     {
                         if (_newOrientationLoaded)
                         {
-                            Vector3 axis = Vector3.Zero;
-                            float angle = 0;
-                            SF.getAxisAngle(_DesiredRotation, ref axis, ref angle);
+                        //    Vector3 axis = Vector3.Zero;
+                         //   float angle = 0;
+                         //   SF.getAxisAngle(_DesiredRotation, ref axis, ref angle);
                            // updateError("Loaded Angle of rotation: " + angle.ToString());
                           //  updateError("Loaded Axis of rotation: " + axis.ToString());
-                            long orientationDuration = (long)(TimeSpan.TicksPerSecond * (angle / (MaxOrientationDisplacement * 10)));
+                          //  long orientationDuration = (long)(TimeSpan.TicksPerSecond * (angle / (MaxOrientationDisplacement * 10)));
                           //  updateError("Orientation Time in seconds: " + (1.0f * orientationDuration / TimeSpan.TicksPerSecond).ToString());
                           //  updateError("vectot out 2: " + Vector3.Transform(currentPose.Backward, _DesiredRotation));
                             if (_newPositionLoaded)
                             {
-                                _CurrrentController.load(new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]), _DesiredRotation, currentPose, orientationDuration);
+                                Vector3 newPos = new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]);
+                                _CurrrentController.load(newPos, _DesiredRotation, currentRotation,currentPose.Translation);
                                 _newOrientationLoaded = false;
                                 _newPositionLoaded = false;
                                 _newCommandLoaded = false;
@@ -592,7 +697,7 @@ namespace LightWeight_Server
                             }
                             else
                             {
-                                _CurrrentController.load(_DesiredRotation, currentPose, orientationDuration);
+                                _CurrrentController.load(_DesiredRotation, currentRotation);
                                 _newOrientationLoaded = false;
                                 _newCommandLoaded = false;
                                 _isCommanded = true;
@@ -618,7 +723,7 @@ namespace LightWeight_Server
                 }
                 catch (Exception)
                 {
-                    _CurrrentController.load(new Vector3((float)CurrentPosition(0), (float)CurrentPosition(1), (float)CurrentPosition(2)), Quaternion.Identity, currentPose, 100);
+                    _CurrrentController.load(currentPose.Translation, Quaternion.Identity, currentRotation, currentPose.Translation);
                     _newCommandLoaded = false;
                     _isCommanded = false;
                     _newOrientationLoaded = false;
@@ -695,6 +800,22 @@ namespace LightWeight_Server
             }
         }
 
+        public void newConOrientation(float xx, float xy, float xz, float zx, float zy, float zz)
+        {
+            lock (trajectoryLock)
+            {
+                Vector3 xAxis = new Vector3(xx, xy, xz);
+                Vector3 zAxis = new Vector3(zx, zy, zz);
+                Vector3 yAxis = Vector3.Cross(zAxis, xAxis);
+                
+                xAxis.Normalize();
+                yAxis.Normalize();
+                zAxis.Normalize();
+                Quaternion newOrientation = Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0, yAxis.X, yAxis.Y, yAxis.Z, 0, zAxis.X, zAxis.Y, zAxis.Z, 0, 0, 0, 0, 1));
+                _DesiredRotation = new Quaternion(newOrientation.X, newOrientation.Y, newOrientation.Z, newOrientation.W);
+            }
+        }
+
         public void newConOrientation(float x, float y, float z)
         {
             lock (trajectoryLock)
@@ -714,6 +835,8 @@ namespace LightWeight_Server
                 if (newAngle > 0)
                 {
                     _newOrientationLoaded = setupController(newOrientation, ref _DesiredRotation);
+                    //Next line makes it from base to final!!!
+                    //_DesiredRotation = currentRotation * _DesiredRotation;
                 }
             }
         }
@@ -737,13 +860,14 @@ namespace LightWeight_Server
             }
             else
             {
-                DesiredRotationOut = Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle);
+                DesiredRotationOut = Quaternion.CreateFromRotationMatrix(_currentPose) * Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle);
             //    updateError("vectot out: " + Vector3.Transform(_currentPose.Backward, DesiredRotationOut));
            //     updateError("Setup Angle of rotation: " + angle.ToString());
             //    updateError("Setup Axis of rotation: " + Vector3.Normalize(axis).ToString());
             //    updateError("Matrix of rotation: " + Matrix.CreateFromQuaternion(DesiredRotationOut).ToString());
                 return true;
             }
+            /*
             Vector3 xAxis = Vector3.Zero;
             Vector3 yAxis = Vector3.Zero;
             Vector3 zAxis = EEvector;
@@ -770,6 +894,8 @@ namespace LightWeight_Server
                                                                                        0, 0, 0, 1));
             return true;
             // The output is the transform from origin to final.
+             * 
+             */
         }
 
         public void updateComandPosition()
@@ -779,7 +905,7 @@ namespace LightWeight_Server
                 if (_isConnected && _isCommanded && _CurrrentController.IsActive)
                 {
                     Vector3 comandPos = _CurrrentController.getDisplacement(currentPose.Translation, MaxDisplacement);
-                    Vector3 commandOri = _CurrrentController.getOrientation(currentRotation, (float)MaxOrientationDisplacement);
+                    Vector3 commandOri = _CurrrentController.getOrientation(currentRotation,(float)MaxOrientationDisplacement);
                     // Update the command position all lights green
                     if (comandPos.Equals(Vector3.Zero))
                     {
@@ -827,8 +953,18 @@ namespace LightWeight_Server
                 }
                 else
                 {
+                    if (_moveDown)
+                    {
+                        _CommandedPosition["X"] = -0.5;
+                        _moveDown = false;
+                    }
+                    if (_moveUp)
+                    {
+                        _CommandedPosition["X"] = 0.5;
+                        _moveUp = false;
+                    }
                     // End condition, or disconnected half way command position is zero
-                    flushCommands();
+                    //flushCommands();
                 }
 
             }

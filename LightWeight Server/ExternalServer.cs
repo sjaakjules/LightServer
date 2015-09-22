@@ -398,6 +398,31 @@ namespace LightWeight_Server
                             }
                             break;
 
+                        case "PoseXZ":
+                            
+                            int dataPoint = 6;
+                            double[] newXZOrientation = new double[dataPoint+1];
+                            for (int i = 0; i < dataPoint; i++)
+                            {
+                                double result;
+                                if (double.TryParse(Node.Attributes[SF.getTwoAxisKey(i)].Value, out result))
+                                {
+                                    newXZOrientation[i] = result;
+                                    newXZOrientation[dataPoint] += 1;
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+                            if (newXZOrientation[dataPoint] == dataPoint)
+                            {
+                                _Robot.newConOrientation((float)newXZOrientation[0], (float)newXZOrientation[1], (float)newXZOrientation[2], (float)newXZOrientation[3], (float)newXZOrientation[4], (float)newXZOrientation[5]);
+                                _loadedRotation = true;
+                                _Robot.updateError("Rotation loaded");
+                            }
+                            break;
+
                         case "Speed":
                             double newSpeed = 0;
                             if (double.TryParse(Node.InnerText, out newSpeed))

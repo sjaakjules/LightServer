@@ -322,6 +322,7 @@ namespace LightWeight_Server
                         _Robot.updateError("Error, packet order incorrect: New IPOC: " + _IPOC + " Old IPOC: " + _LIPOC);
                     }
                     State.IPOC = _IPOC;
+                    _Robot.Ipoc = _IPOC;
                 }
                 else
                 {
@@ -410,6 +411,7 @@ namespace LightWeight_Server
                 _Robot.updateError("Generic error " + catchStatement);
                 _Robot.updateError(e.Message);
             }
+            _Robot.writeToFile();
             // Save state of the kuka server
             //_Robot.DataHistory.Push(state);
             haveReceived.Set();
@@ -538,6 +540,8 @@ namespace LightWeight_Server
                 comPosNode.Attributes[SF.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CommandedPosition(i));
 
             }
+
+            _Robot.flushCommands();
 
             XmlNode gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER_A");
             if (_Robot.gripperIsOpen)

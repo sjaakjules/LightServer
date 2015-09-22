@@ -11,6 +11,7 @@ namespace LightWeight_Server
     public static class SF
     {
 
+        static String[] twoAxisKeys = new String[] { "XX", "XY", "XZ", "ZX", "ZY", "ZZ" };
         static String[] cardinalKeys = new String[] { "X", "Y", "Z", "A", "B", "C" };
         static String[] axisKeys = new String[] { "A1", "A2", "A3", "A4", "A5", "A6" };
         static String[] rotationKeys = new String[] { "X1", "X2", "X3", "Y1", "Y2", "Y3", "Z1", "Z2", "Z3" };
@@ -114,6 +115,11 @@ namespace LightWeight_Server
         public static String getCardinalKey(int Index)
         {
             return cardinalKeys[Index];
+        }
+
+        public static String getTwoAxisKey(int Index)
+        {
+            return twoAxisKeys[Index];
         }
 
         public static String getAxisKey(int Index)
