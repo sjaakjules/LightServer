@@ -851,7 +851,7 @@ namespace LightWeight_Server
         bool setupController(Vector3 EEvector, ref Quaternion DesiredRotationOut)
         {
          //   updateError("Desired vector: " + EEvector.ToString());
-            Matrix _currentPose = currentPose;
+            Matrix _currentPose = Matrix.CreateFromQuaternion( currentRotation);
             Vector3 axis = Vector3.Cross(Vector3.Normalize(_currentPose.Backward), Vector3.Normalize(EEvector));
             float angle = (float)Math.Asin((double)axis.Length());
             if (Math.Abs(angle) < MathHelper.ToRadians(1.0f))
@@ -860,7 +860,7 @@ namespace LightWeight_Server
             }
             else
             {
-                DesiredRotationOut = Quaternion.CreateFromRotationMatrix(_currentPose) * Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle);
+                DesiredRotationOut =  Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle) * currentRotation;
             //    updateError("vectot out: " + Vector3.Transform(_currentPose.Backward, DesiredRotationOut));
            //     updateError("Setup Angle of rotation: " + angle.ToString());
             //    updateError("Setup Axis of rotation: " + Vector3.Normalize(axis).ToString());

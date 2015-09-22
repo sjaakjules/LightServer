@@ -194,8 +194,9 @@ namespace LightWeight_Server
 
         public Vector3 getOrientation(Quaternion currentOrientation, float maxChange)
         {
-          //  float Duration = (float)(_elapsedTime.Elapsed.TotalMilliseconds / _trajectoryTime.TotalMilliseconds);
-          //  Duration = (Duration >= 1.0) ? 1.0f : Duration;
+           // float Duration = (float)(_elapsedTime.Elapsed.TotalMilliseconds / _trajectoryTime.TotalMilliseconds);
+           // Duration = (Duration >= 1.0) ? 1.0f : Duration;
+
             if (!_isMoving && !_isRotating)
             {
                 IsActive = false;
@@ -204,7 +205,7 @@ namespace LightWeight_Server
             {
                 Quaternion changeQ = Quaternion.Identity;
                 Quaternion currentInvers = Quaternion.Inverse(currentOrientation);
-                Quaternion toFinal = currentInvers * __FinalOrientation;
+                Quaternion toFinal = __FinalOrientation * currentInvers;
                 Vector3 toFinalAxis = Vector3.Zero;
                 float toFinalAngle = 0;
                 SF.getAxisAngle(toFinal, ref toFinalAxis, ref toFinalAngle);
