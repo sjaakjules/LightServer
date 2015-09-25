@@ -21,8 +21,6 @@ namespace LightWeight_Server
         bool _isActive = false,_isRotating = false, _isTranslating = false;
         TimeCoordinate _finalPose, _startPose, _startVelocity, _startAcceleration, _changePose;
        // TimeSpan _trajectoryTime;
-        float _maxLinearAcceleration = 0.005f;// in mm/ms2
-        float _maxAngularAcceleration = 0.00005f; // in deg/ms2
         Quaternion _startInverse;
 
         public bool IsActive { get { return _isActive; } }
@@ -32,6 +30,11 @@ namespace LightWeight_Server
             _isActive = false;
             _isTranslating = false;
             _isRotating = false;
+        }
+
+        public bool isRotating
+        {
+            get { return _isRotating; }
         }
 
         /// <summary>
@@ -71,6 +74,7 @@ namespace LightWeight_Server
             _isActive = true;
         }
 
+
         /// <summary>
         /// Gets the Reference velocity in TimeCoordinate and handles all termination triggers for tanslation and orientations.
         /// The velocities and acceleration in mm and ms (where once Kuka cycle = 4ms.)
@@ -81,7 +85,7 @@ namespace LightWeight_Server
         /// <param name="linearVelcoty"></param>
         /// <param name="maxAngularVelocity"></param>
         /// <returns></returns>
-        public TimeCoordinate reference(TimeCoordinate currentPose, TimeCoordinate currentVelocity, TimeCoordinate currentAcceleration, double maxLinearVelocity, float maxAngularVelocity)
+        public TimeCoordinate reference(TimeCoordinate currentPose, TimeCoordinate currentVelocity, TimeCoordinate currentAcceleration, double maxLinearVelocity, float maxAngularVelocity, float linearAcceleration, float angularAcceleration)
         {
             if (!_isTranslating && !_isRotating)
             {
@@ -93,17 +97,17 @@ namespace LightWeight_Server
             if (_isTranslating && _isActive)
             {
                 // d = distance for acceleration phase
-                float d = (float)(maxLinearVelocity*maxLinearVelocity / (2 * _maxLinearAcceleration));
+                float d = (float)(maxLinearVelocity * maxLinearVelocity / (2 * linearAcceleration));
                 if (Vector3.Distance(currentPose.Translation, _finalPose.Translation) > d)
                 {
                     // In the acceleration phase if current velocity is less than maxVelecity otherwise in constant velocity region
                     translationComponent = Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPose.Translation),
-                        (Math.Abs((float)maxLinearVelocity - currentVelocity.Translation.Length()) < _maxLinearAcceleration * 4) ? (float)maxLinearVelocity : currentVelocity.Translation.Length() + Math.Sign((float)maxLinearVelocity - currentVelocity.Translation.Length()) * _maxLinearAcceleration * 4);// scale the velocity according to acceleration      //Math.Sign(maxLinearVelocity - currentVelocity.Translation.Length())*currentVelocity.Translation;
+                        (Math.Abs((float)maxLinearVelocity - currentVelocity.Translation.Length()) < linearAcceleration * 4) ? (float)maxLinearVelocity : currentVelocity.Translation.Length() + Math.Sign((float)maxLinearVelocity - currentVelocity.Translation.Length()) * _maxLinearAcceleration * 4);// scale the velocity according to acceleration      //Math.Sign(maxLinearVelocity - currentVelocity.Translation.Length())*currentVelocity.Translation;
                 }
                 else
                 {
                     // In the deceleration phase
-                    if (Vector3.Distance(_finalPose.Translation, currentPose.Translation) < _maxLinearAcceleration * 4)
+                    if (Vector3.Distance(_finalPose.Translation, currentPose.Translation) < linearAcceleration * 4)
                     {
                         translationComponent = _finalPose.Translation - currentPose.Translation;
                         _isTranslating = false;
@@ -120,7 +124,7 @@ namespace LightWeight_Server
             {
 
                 // d = distance for acceleration phase
-                float d = (float)(maxAngularVelocity * maxAngularVelocity / (2 * _maxAngularAcceleration));
+                float d = (float)(maxAngularVelocity * maxAngularVelocity / (2 * angularAcceleration));
                 Quaternion CurrentChange = _startInverse * currentPose.Orientation;
                 float angle;
                 Vector3 axis;
@@ -131,14 +135,14 @@ namespace LightWeight_Server
                 {
                     // In the acceleration phase if current velocity is less than maxVelecity otherwise in constant velocity region
                     changeQ = Quaternion.CreateFromAxisAngle(_changePose.axis,
-                        (Math.Abs((float)maxAngularVelocity - currentVelocity.angle) < _maxAngularAcceleration * 4) ? (float)maxAngularVelocity : currentVelocity.Translation.Length() + Math.Sign((float)maxAngularVelocity - currentVelocity.angle) * _maxAngularAcceleration * 4);// scale the velocity according to acceleration      //Math.Sign(maxLinearVelocity - currentVelocity.Translation.Length())*currentVelocity.Translation;
+                        (Math.Abs((float)maxAngularVelocity - currentVelocity.angle) < angularAcceleration * 4) ? (float)maxAngularVelocity : currentVelocity.Translation.Length() + Math.Sign((float)maxAngularVelocity - currentVelocity.angle) * _maxAngularAcceleration * 4);// scale the velocity according to acceleration      //Math.Sign(maxLinearVelocity - currentVelocity.Translation.Length())*currentVelocity.Translation;
                 }
                 else
                 {
                     // In the deceleration phase
                     Quaternion CurrentChangeEnd = Quaternion.Inverse(currentPose.Orientation) * _finalPose.Orientation;
                     SF.getAxisAngle(CurrentChangeEnd, out axis, out angle);
-                    if (angle <= _maxAngularAcceleration * 4)
+                    if (angle <= angularAcceleration * 4)
                     {
                         changeQ = CurrentChangeEnd;
                         _isRotating = false;

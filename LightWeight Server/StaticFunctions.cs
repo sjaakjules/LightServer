@@ -8,7 +8,68 @@ using System.Threading.Tasks;
 
 namespace LightWeight_Server
 {
-     
+
+    public struct Pose
+    {
+        double _x, _y, _z;
+        float _angle;
+        Quaternion _Orientation;
+        Vector3 _axis;
+
+        public Pose(Matrix Pose) : this(Quaternion.CreateFromRotationMatrix(Pose), Pose.Translation) { }
+
+        public Pose(Quaternion Orientation, Vector3 Position)
+        {
+            this._x = Position.X;
+            this._y = Position.Y;
+            this._z = Position.Z;
+            this._Orientation = Orientation;
+            SF.getAxisAngle(Orientation, out _axis, out _angle);
+        }
+
+
+
+        public Vector3 Translation
+        {
+            get { return new Vector3((float)_x, (float)_y, (float)_z); }
+            set { _x = value.X; _y = value.Y; _z = value.Z; }
+        }
+
+        public Quaternion Orientation
+        {
+            get { return _Orientation; }
+            set
+            {
+                _Orientation = value;
+                SF.getAxisAngle(value, out _axis, out _angle);
+            }
+        }
+
+        public Vector3 zAxis
+        {
+            get { return this * new Vector3(0, 0, 1); }
+        }
+
+        public Vector3 Velocity
+        {
+            get { return _axis * _angle; }
+        }
+
+        public static Vector3 operator *(Pose Pose, Vector3 Position)
+        {
+            Matrix PoseM = Matrix.Transpose(Matrix.CreateFromQuaternion(Pose._Orientation));
+            return new Vector3( (float)Pose._x + PoseM.M11 * Position.X + PoseM.M12 * Position.Y + PoseM.M13 * Position.Z,
+                                (float)Pose._y + PoseM.M21 * Position.X + PoseM.M22 * Position.Y + PoseM.M23 * Position.Z,
+                                (float)Pose._z + PoseM.M31 * Position.X + PoseM.M32 * Position.Y + PoseM.M33 * Position.Z);
+        }
+
+        public static Pose operator *(Pose Pose1, Pose Pose2)
+        {
+            return new Pose(Pose1.Orientation * Pose2.Orientation, Pose1 * Pose2.Translation);
+        }
+
+    }
+
     public struct TimeCoordinate
     {
         public readonly long Ipoc;
@@ -18,7 +79,6 @@ namespace LightWeight_Server
         Quaternion _Orientation;
         public Vector3 axis;
 
-
         public TimeCoordinate(double x, double y, double z, double a, double b, double c, long ipoc)
         {
             this.x = x;
@@ -27,10 +87,10 @@ namespace LightWeight_Server
             this.a = a;
             this.b = b;
             this.c = c;
-            this.Ipoc = ipoc;
-            this.LocalIpoc = Environment.TickCount;
             _Orientation = SF.MakeQuaternionFromKuka(a, b, c);
             SF.getAxisAngle(_Orientation, out axis, out angle);
+            this.Ipoc = ipoc;
+            this.LocalIpoc = Environment.TickCount;
         }
 
         public TimeCoordinate(Vector3 Position, Quaternion Orientation, long ipoc)
@@ -38,51 +98,28 @@ namespace LightWeight_Server
             this.x = Position.X;
             this.y = Position.Y;
             this.z = Position.Z;
-            this.a = 0;
-            this.b = 0;
-            this.c = 0;
+            Vector3 angles = SF.getKukaAngles(Orientation);
+            this.a = angles.X;
+            this.b = angles.Y;
+            this.c = angles.Z;
             _Orientation = new Quaternion(Orientation.X, Orientation.Y, Orientation.Z, Orientation.W);
             SF.getAxisAngle(Orientation, out axis, out angle);
             this.Ipoc = ipoc;
             this.LocalIpoc = Environment.TickCount;
         }
 
-        public TimeCoordinate(double x, double y, double z, Quaternion Orientation, long ipoc)
-        {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.a = 0;
-            this.b = 0;
-            this.c = 0;
-            _Orientation = new Quaternion(Orientation.X, Orientation.Y, Orientation.Z, Orientation.W);
-            SF.getAxisAngle(Orientation, out axis, out angle);
-            this.Ipoc = ipoc;
-            this.LocalIpoc = Environment.TickCount;
-        }
+        public TimeCoordinate(Pose Pose, long ipoc) : this(Pose.Translation, Pose.Orientation, ipoc) { }
 
-        public TimeCoordinate(double x, double y, double z, Vector3 axis, float angle, long ipoc)
-        {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.a = 0;
-            this.b = 0;
-            this.c = 0;
-            this.axis = axis;
-            this.angle = angle;
-            this.Ipoc = ipoc;
-            this.LocalIpoc = Environment.TickCount;
+        public TimeCoordinate(double x, double y, double z, Quaternion Orientation, long ipoc) : this(new Vector3((float)x, (float)y, (float)z), Orientation, ipoc) { }
 
-            _Orientation = Quaternion.CreateFromAxisAngle(axis,angle);
-
-        }
+        public TimeCoordinate(double x, double y, double z, Vector3 axis, float angle, long ipoc) : this(new Vector3((float)x, (float)y, (float)z), Quaternion.CreateFromAxisAngle(axis, angle), ipoc) { }
 
         public Vector3 Translation
         {
             get { return new Vector3((float)x, (float)y, (float)z); }
             set { x = value.X; y = value.Y; z = value.Z; }
         }
+
         public Quaternion Orientation
         {
             get { return _Orientation; }
@@ -90,6 +127,28 @@ namespace LightWeight_Server
             {
                 _Orientation = value;
                 SF.getAxisAngle(value, out axis, out angle);
+                KukaAngles = SF.getKukaAngles(Orientation);
+            }
+        }
+
+        public Vector3 KukaAngles
+        {
+            get { return new Vector3((float)a, (float)b, (float)c); }
+            set
+            {
+                this.a = value.X;
+                this.b = value.Y;
+                this.c = value.Z;
+            }
+        }
+
+        public Pose Pose
+        {
+            get { return new Pose(Orientation, Translation); }
+            set
+            {
+                Orientation = value.Orientation;
+                Translation = value.Translation;
             }
         }
 
@@ -140,9 +199,28 @@ namespace LightWeight_Server
             this._Orientation = Quaternion.CreateFromAxisAngle(axis, angle);
         }
 
-        public float OrientationDisplacement(TimeCoordinate pose1)
+        /// <summary>
+        /// Finds the angle in radians to transform paseB towards this pose.
+        /// </summary>
+        /// <param name="poseB"></param>
+        /// <returns></returns>
+        public float OrientationDisplacementBtoA(TimeCoordinate poseB)
         {
-            Quaternion tempOrientation = this._Orientation * Quaternion.Inverse(pose1._Orientation);
+            Quaternion tempOrientation = this._Orientation * Quaternion.Inverse(poseB.Orientation);
+            Vector3 axis;
+            float angle;
+            SF.getAxisAngle(tempOrientation, out axis, out angle);
+            return angle;
+        }
+
+        /// <summary>
+        /// Finds the angle in radians to transform this pose towards paseB.
+        /// </summary>
+        /// <param name="poseB"></param>
+        /// <returns></returns>
+        public float OrientationDisplacementAtoB(TimeCoordinate poseB)
+        {
+            Quaternion tempOrientation = Quaternion.Inverse(this._Orientation) * poseB.Orientation;
             Vector3 axis;
             float angle;
             SF.getAxisAngle(tempOrientation, out axis, out angle);
@@ -220,28 +298,6 @@ namespace LightWeight_Server
         }
 
 
-        public static Matrix CreateFromQuaternionPosition(Quaternion Q, Vector3 Position)
-        {
-            Matrix matout = Matrix.CreateFromQuaternion(Q);
-            matout.Translation = Position;
-            return matout;
-        }
-        /// <summary>
-        /// Returns the double array which represents [X, Y, Z, A, B, C] using Carinal dictionary keys.
-        /// </summary>
-        /// <param name="dictionary"></param> The Dictionary with cardinal keys
-        /// <returns></returns>
-        public static double[] getCardinalDoubleArray(ConcurrentDictionary<string, double> dictionary)
-        {
-            double[] outArray = new double[6];
-            for (int i = 0; i < 6; i++)
-            {
-                outArray[i] = Getvalue(dictionary, getCardinalKey(i));
-            }
-            return outArray;
-        }
-
-
         /// <summary>
         /// Creates a quaternion from Kuka coordinates, ABC in degrees
         /// </summary>
@@ -273,6 +329,7 @@ namespace LightWeight_Server
             return poseout;
         }
 
+        /*
         /// <summary>
         /// Gets the value with a while loop of a concurrentDictionary<string, double>.
         /// </summary>
@@ -290,6 +347,7 @@ namespace LightWeight_Server
             return outValue;
         }
 
+        
         public static String getCardinalKey(int Index)
         {
             return cardinalKeys[Index];
@@ -304,7 +362,7 @@ namespace LightWeight_Server
         {
             return rotationKeys[Index];
         }
-
+        */
 
         public static void getAxisAngle(Quaternion quaternion, out Vector3 outAxis, out float outAngle)
         {
@@ -411,6 +469,41 @@ namespace LightWeight_Server
 
 
 
+        public static void getKukaAngles(TimeCoordinate Pose, ref float[] KukaAngleOut)
+        {
+            getKukaAngles(Pose.Orientation, ref KukaAngleOut);
+            KukaAngleOut[0] = (float)Pose.x;
+            KukaAngleOut[1] = (float)Pose.y;
+            KukaAngleOut[2] = (float)Pose.z;
+        }
+
+        public static Vector3 getKukaAngles(Quaternion rotation)
+        {
+
+            float A = 0;
+            float B = 0;
+            float C = 0;
+
+            Matrix rotationMat = Matrix.CreateFromQuaternion(rotation);
+            rotationMat = Matrix.Transpose(rotationMat);
+
+            B = (float)Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33));
+
+            if (Math.Abs(Math.Abs(B) - Math.PI / 2) < 1e-6)
+            {
+                // Gimbal lock situation! A and C form a line of infinate solutions.
+                C = 0;// (float)Math.PI / 5f;
+                A = (float)Math.Atan2(Math.Sign(B) * rotationMat.M23, Math.Sign(B) * rotationMat.M13) + Math.Sign(B) * C;
+            }
+            else
+            {
+                A = (float)Math.Atan2(rotationMat.M21, rotationMat.M11);
+                C = (float)Math.Atan2(rotationMat.M32, rotationMat.M33);
+            }
+
+            return new Vector3(MathHelper.ToDegrees(A), MathHelper.ToDegrees(B), MathHelper.ToDegrees(C));
+        }
+
         /// <summary>
         /// Updates the float[6] array with kuka ABC angles in [X,Y,Z,A,B,C]. This only works when the rotation is less than 90 degrees 
         /// and will return iff angle in axis/angle representation is less than 90 degrees.
@@ -451,7 +544,7 @@ namespace LightWeight_Server
         /// </summary>
         /// <param name="pose"></param>
         /// <returns></returns>
-        public static void getKukaAngles(Matrix pose, ref double[] kukaOut)
+        public static void getKukaAngles(Matrix pose, ref float[] kukaOut)
         {
             float A = 0;
             float B = 0;
@@ -472,9 +565,9 @@ namespace LightWeight_Server
                 C = (float)Math.Atan2(rotationMat.M32, rotationMat.M33);
             }
 
-            kukaOut[0] = (double)pose.Translation.X;
-            kukaOut[1] = (double)pose.Translation.Y;
-            kukaOut[2] = (double)pose.Translation.Z;
+            kukaOut[0] = pose.Translation.X;
+            kukaOut[1] = pose.Translation.Y;
+            kukaOut[2] = pose.Translation.Z;
             kukaOut[3] = MathHelper.ToDegrees(A);
             kukaOut[4] = MathHelper.ToDegrees(B);
             kukaOut[5] = MathHelper.ToDegrees(C);
