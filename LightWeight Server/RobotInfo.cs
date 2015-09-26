@@ -47,6 +47,9 @@ namespace LightWeight_Server
 
         bool _gripperIsOpen = true;
 
+        readonly double _MaxCartesianChange = 0.8;
+        readonly double _MaxAngularChange = 0.1;
+
         double _maxLinearVelocity = .12; // in mm/ms
         double _maxAngularVelocity = .012; // in mm/ms
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
@@ -137,7 +140,13 @@ namespace LightWeight_Server
             {
                 lock (linearVelocityLock)
                 {
-                    _maxLinearVelocity = value;
+                    if (value > _MaxCartesianChange)
+                    {
+                        // Assume new velocity given in mm/s
+                        _maxLinearVelocity = value / 1000;
+                    }
+                    else { _maxLinearVelocity = value; }
+                    
                 }
             }
         }
@@ -155,7 +164,15 @@ namespace LightWeight_Server
             {
                 lock (angularVelocityLock)
                 {
-                    _maxAngularVelocity = value;
+                    if (value > _MaxAngularChange)
+                    {
+                        // assume new velocity given in deg/s
+                        _maxAngularVelocity = value / 1000;
+                    }
+                    else
+                    {
+                        _maxAngularVelocity = value;
+                    }
                 }
             }
         }

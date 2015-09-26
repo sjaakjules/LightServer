@@ -435,7 +435,7 @@ namespace LightWeight_Server
                             double newSpeed = 0;
                             if (double.TryParse(Node.InnerText, out newSpeed))
                             {
-                                _Robot.MaxDisplacement = newSpeed;
+                                _Robot.LinearVelocity = newSpeed;
                             }
                             break;
 
@@ -443,7 +443,7 @@ namespace LightWeight_Server
                             double newVelocity = 0;
                             if (double.TryParse(Node.InnerText, out newVelocity))
                             {
-                                _Robot.MaxOrientationDisplacement = newVelocity;
+                                _Robot.AngularVelocity = newVelocity;
                             }
                             break;
 
