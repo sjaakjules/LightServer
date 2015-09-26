@@ -11,6 +11,9 @@ namespace LightWeight_Server
     class Controller
     {
         object movementLock = new object();
+        object viaModeLock = new object();
+
+
         Stopwatch _elapsedTime = new Stopwatch();
         bool _isActive = false;
         public bool _isRotating, _isMoving;
@@ -19,6 +22,7 @@ namespace LightWeight_Server
         TimeSpan _trajectoryTime;
         Vector3 _axis;
         float _finalAngle;
+        bool _ViaMode = false;
 
         RobotInfo _robot;
 
@@ -45,6 +49,23 @@ namespace LightWeight_Server
             }
         }
 
+        public bool ViaMode
+        {
+            get 
+            {
+                lock (viaModeLock)
+                {
+                    return _ViaMode;
+                }
+            }
+            set 
+            {
+                lock (viaModeLock)
+                {
+                    _ViaMode = value;
+                }
+            }
+        }
 
         public Controller(RobotInfo robot)
         {
@@ -109,7 +130,11 @@ namespace LightWeight_Server
             }
             if (_isMoving && IsActive)
             {
-                float accelerationDistance = 5.0f;
+                if (_ViaMode)
+                {
+                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange);
+                }
+                float accelerationDistance = 1.0f;
                 if ((Math.Abs(Vector3.Distance(_startPose.Translation, _finalPose.Translation)) > accelerationDistance))
                 {
                     // in the start/final region
@@ -123,8 +148,8 @@ namespace LightWeight_Server
                     else if (Math.Abs(Vector3.Distance(_startPose.Translation, currentPosition)) < accelerationDistance / 2 ||
                         (Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition)) < accelerationDistance / 2))
                     {
-                        // If its in start of final region find two distances
-                        float disFromStart = Math.Abs(Vector3.Distance(_startPose.Translation, currentPosition)) + .05f;
+                        // If its in start or final region find two distances
+                        float disFromStart = Math.Abs(Vector3.Distance(_startPose.Translation, currentPosition)) + .01f;
                         float disFromFinal = Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition));
                         return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition),
                             (float)maxChange * ((disFromStart < disFromFinal) ? disFromStart : disFromFinal) / (accelerationDistance / 2));
@@ -136,6 +161,7 @@ namespace LightWeight_Server
                 }
                 else
                 {
+                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange);
                     // TODO code when agent is on robot, ie less than 10mm commands
                 }
 

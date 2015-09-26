@@ -423,7 +423,15 @@ namespace LightWeight_Server
                             }
                             break;
 
-                        case "Speed":
+                        case "Via":
+                            bool isVia;
+                            if (bool.TryParse(Node.InnerText, out isVia))
+                            {
+                                _Robot.isVia = isVia;
+                            }
+                            break;
+
+                        case "LinearVelocity":
                             double newSpeed = 0;
                             if (double.TryParse(Node.InnerText, out newSpeed))
                                 {
@@ -431,11 +439,11 @@ namespace LightWeight_Server
                                 }
                             break;
 
-                        case "Velocity":
+                        case "AngularVelocity":
                             double newVelocity = 0;
                             if (double.TryParse(Node.InnerText, out newVelocity))
                             {
-                                _Robot.CurrentSpeed = newVelocity;
+                                _Robot.MaxOrientationDisplacement = newVelocity;
                             }
                             break;
 

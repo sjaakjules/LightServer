@@ -14,7 +14,6 @@ namespace LightWeight_Server
     {
         object trajectoryLock = new object();
         object gripperLock = new object();
-        object maxSpeedLock = new object();
         object maxOrientationSpeedLock = new object();
         object maxDisplacementLock = new object();
         object desiredAxisLock = new object();
@@ -48,9 +47,8 @@ namespace LightWeight_Server
         Controller _CurrrentController;
 
         bool _gripperIsOpen = true;
-        double _maxSpeed = 30;
         double _maxDisplacement = .4;
-        double _maxOrientationSpeed = .05;
+        double _maxOrientationDisplacement = .05;
 
         long _Ipoc = 0;
 
@@ -157,23 +155,6 @@ namespace LightWeight_Server
 
         public Quaternion currentRotation { get { return SF.MakeQuaternionFromKuka(currentDoublePose); } }
 
-        public double MaxOrientationDisplacement
-        {
-            get
-            {
-                lock (maxOrientationSpeedLock)
-                {
-                    return _maxOrientationSpeed;
-                }
-            }
-            set
-            {
-                lock (maxOrientationSpeedLock)
-                {
-                    _maxOrientationSpeed = value;
-                }
-            }
-        }
 
         public bool moveDown
         {
@@ -238,40 +219,23 @@ namespace LightWeight_Server
                 _isRotatingZ = value;
             }
         }
-        public float rotateSpeed
+
+
+
+        public double MaxOrientationDisplacement
         {
             get
             {
                 lock (maxOrientationSpeedLock)
                 {
-                    return _degreePerSec;
+                    return _maxOrientationDisplacement;
                 }
             }
             set
             {
                 lock (maxOrientationSpeedLock)
                 {
-                    _degreePerSec = value;
-                }
-            }
-        }
-
-
-
-        public double CurrentSpeed
-        {
-            get
-            {
-                lock (maxSpeedLock)
-                {
-                    return _maxSpeed;
-                }
-            }
-            set
-            {
-                lock (maxSpeedLock)
-                {
-                    _maxSpeed = value;
+                    _maxOrientationDisplacement = value;
                 }
             }
         }
@@ -292,6 +256,12 @@ namespace LightWeight_Server
                     _maxDisplacement = value;
                 }
             }
+        }
+
+        public bool isVia
+        {
+            get { return _CurrrentController.ViaMode; }
+            set { _CurrrentController.ViaMode = value; }
         }
 
         public bool gripperIsOpen
@@ -813,6 +783,10 @@ namespace LightWeight_Server
                 zAxis.Normalize();
                 Quaternion newOrientation = Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0, yAxis.X, yAxis.Y, yAxis.Z, 0, zAxis.X, zAxis.Y, zAxis.Z, 0, 0, 0, 0, 1));
                 _DesiredRotation = new Quaternion(newOrientation.X, newOrientation.Y, newOrientation.Z, newOrientation.W);
+            }
+            lock (desiredAxisLock)
+            {
+                desiredZaxis = Matrix.CreateFromQuaternion(_DesiredRotation).Backward;
             }
         }
 
