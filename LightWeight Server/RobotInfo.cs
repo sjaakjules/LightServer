@@ -33,6 +33,7 @@ namespace LightWeight_Server
         FixedSizedQueue<TimeCoordinate> _Torque = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<TimeCoordinate> _Angles = new FixedSizedQueue<TimeCoordinate>(6);
         ConcurrentQueue<TimeCoordinate> _DesiredPose;
+        Pose _newPose;
         TimeCoordinate _CurrentDesiredPose;
         TimeCoordinate _CommandPose;
 
@@ -612,7 +613,7 @@ namespace LightWeight_Server
                             // long orientationDuration = (long)(TimeSpan.TicksPerSecond * (_desiredPose.angle / (MaxOrientationDisplacement * 10)));
                             if (_newPositionLoaded)
                             {
-                                _CurrentTrajectory.load(0, _DesiredPose, _Position.LastElement, _velocity.LastElement, _acceleration.LastElement);
+                                _CurrentTrajectory.load(0, _DesiredPose.ToArray()[_DesiredPose.Count], _Position.LastElement, _velocity.LastElement, _acceleration.LastElement);
                                 _newOrientationLoaded = false;
                                 _newPositionLoaded = false;
                                 _newCommandLoaded = false;
@@ -621,7 +622,7 @@ namespace LightWeight_Server
                             }
                             else
                             {
-                                _CurrentTrajectory.load(-1, _DesiredPose, _Position.LastElement, _velocity.LastElement, _acceleration.LastElement);
+                                _CurrentTrajectory.load(-1, _DesiredPose.ToArray()[_DesiredPose.Count], _Position.LastElement, _velocity.LastElement, _acceleration.LastElement);
                                 _newOrientationLoaded = false;
                                 _newCommandLoaded = false;
                                 _isCommanded = true;
@@ -630,7 +631,7 @@ namespace LightWeight_Server
                         }
                         else if (_newPositionLoaded)
                         {
-                            _CurrentTrajectory.load(1, _DesiredPose, _Position.LastElement, _velocity.LastElement, _acceleration.LastElement);
+                            _CurrentTrajectory.load(1, _DesiredPose.ToArray()[_DesiredPose.Count], _Position.LastElement, _velocity.LastElement, _acceleration.LastElement);
                             _newPositionLoaded = false;
                             _newCommandLoaded = false;
                             _isCommanded = true;
@@ -702,7 +703,7 @@ namespace LightWeight_Server
         {
             lock (trajectoryLock)
             {
-                _DesiredPose.Translation = new Vector3((float)x, (float)y, (float)z);
+                _newPose.Translation = new Vector3((float)x, (float)y, (float)z);
                 _newPositionLoaded = true;
             }
         }
@@ -711,7 +712,7 @@ namespace LightWeight_Server
         {
             lock (trajectoryLock)
             {
-                _DesiredPose.Orientation = Quaternion.CreateFromRotationMatrix(new Matrix(x1, x2, x3, 0, y1, y2, y3, 0, z1, z2, z3, 0, 0, 0, 0, 1));
+                _newPose.Orientation = Quaternion.CreateFromRotationMatrix(new Matrix(x1, x2, x3, 0, y1, y2, y3, 0, z1, z2, z3, 0, 0, 0, 0, 1));
                 _newOrientationLoaded = true;
 
             }
@@ -723,11 +724,7 @@ namespace LightWeight_Server
             {
                 Vector3 newOrientation = new Vector3(x, y, z);
                 newOrientation = Vector3.Normalize(newOrientation);
-                lock (desiredAxisLock)
-                {
-                    desiredZaxis = newOrientation;
-                }
-                _newOrientationLoaded = setupController(newOrientation, ref _DesiredPose);
+                _newOrientationLoaded = setupController(newOrientation, ref _newPose);
             }
         }
 
@@ -738,7 +735,7 @@ namespace LightWeight_Server
         /// <param name="EEvector"></param>
         /// <param name="DesiredRotationOut"></param>
         /// <returns></returns>
-        bool setupController(Vector3 EEvector, ref TimeCoordinate DesiredRotationOut)
+        bool setupController(Vector3 EEvector, ref Pose DesiredRotationOut)
         {
             Quaternion _currentOrientation = _Position.LastElement.Orientation;
             Matrix _currentPose = Matrix.CreateFromQuaternion(_currentOrientation);
@@ -750,7 +747,7 @@ namespace LightWeight_Server
             }
             else
             {
-                DesiredRotationOut.Orientation = _currentOrientation * Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle);
+                DesiredRotationOut.Orientation = Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle) * _currentOrientation;
                 return true;
             }
             // The output is the transform from Base to final.

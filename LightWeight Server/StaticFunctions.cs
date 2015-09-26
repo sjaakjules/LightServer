@@ -27,6 +27,7 @@ namespace LightWeight_Server
             SF.getAxisAngle(Orientation, out _axis, out _angle);
         }
 
+        public Pose(TimeCoordinate Pose) : this(Pose.Orientation, Pose.Translation) { }
 
 
         public Vector3 Translation
@@ -228,7 +229,6 @@ namespace LightWeight_Server
         }
     }
 
-
     public class FixedSizedQueue<T> : ConcurrentQueue<T>
     {
         private readonly object syncObject = new object();
@@ -283,9 +283,10 @@ namespace LightWeight_Server
         }
 
 
-        static String[] cardinalKeys = new String[] { "X", "Y", "Z", "A", "B", "C" };
-        static String[] axisKeys = new String[] { "A1", "A2", "A3", "A4", "A5", "A6" };
-        static String[] rotationKeys = new String[] { "X1", "X2", "X3", "Y1", "Y2", "Y3", "Z1", "Z2", "Z3" };
+        public static readonly String[] cardinalKeys = new String[] { "X", "Y", "Z", "A", "B", "C" };
+        public static readonly String[] axisKeys = new String[] { "A1", "A2", "A3", "A4", "A5", "A6" };
+        public static readonly String[] rotationKeys = new String[] { "X1", "X2", "X3", "Y1", "Y2", "Y3", "Z1", "Z2", "Z3" };
+        public static readonly String[] axisVecotrKeys = new String[] { "XX", "XY", "XZ", "ZX", "ZY", "ZZ"};
 
         static Matrix M(Matrix mat1, Matrix mat2)
         {

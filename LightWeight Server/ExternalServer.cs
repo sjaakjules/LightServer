@@ -380,7 +380,7 @@ namespace LightWeight_Server
                             for (int i = 0; i < dataPoints; i++)
                             {
                                 double result;
-                                if (double.TryParse(Node.Attributes[SF.getCardinalKey(i)].Value, out result))
+                                if (double.TryParse(Node.Attributes[SF.cardinalKeys[i]].Value, out result))
                                 {
                                     newOrientation[i] = result;
                                     newOrientation[dataPoints] += 1;
