@@ -354,7 +354,7 @@ namespace LightWeight_Server
                             for (int i = 0; i < 9; i++)
                             {
                                 double result;
-                                if (double.TryParse(Node.Attributes[SF.getrotationKeys(i)].Value, out result))
+                                if (double.TryParse(Node.Attributes[SF.rotationKeys[i]].Value, out result))
                                 {
                                     newRotation[i] = result;
                                     newRotation[9] += 1;
@@ -398,19 +398,52 @@ namespace LightWeight_Server
                             }
                             break;
 
-                        case "Speed":
-                            double newSpeed = 0;
-                            if (double.TryParse(Node.InnerText, out newSpeed))
+                        case "PoseXZ":
+
+                            int dataPoint = 6;
+                            double[] newXZOrientation = new double[dataPoint + 1];
+                            for (int i = 0; i < dataPoint; i++)
+                            {
+                                double result;
+                                if (double.TryParse(Node.Attributes[SF.axisVecotrKeys[i]].Value, out result))
                                 {
-                                    _Robot.MaxDisplacement = newSpeed;
+                                    newXZOrientation[i] = result;
+                                    newXZOrientation[dataPoint] += 1;
                                 }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+                            if (newXZOrientation[dataPoint] == dataPoint)
+                            {
+                                _Robot.newConOrientation((float)newXZOrientation[0], (float)newXZOrientation[1], (float)newXZOrientation[2], (float)newXZOrientation[3], (float)newXZOrientation[4], (float)newXZOrientation[5]);
+                                _loadedRotation = true;
+                                _Robot.updateError("Rotation loaded");
+                            }
                             break;
 
-                        case "Velocity":
+                        case "Via":
+                            bool isVia;
+                            if (bool.TryParse(Node.InnerText, out isVia))
+                            {
+                                _Robot.isVia = isVia;
+                            }
+                            break;
+
+                        case "LinearVelocity":
+                            double newSpeed = 0;
+                            if (double.TryParse(Node.InnerText, out newSpeed))
+                            {
+                                _Robot.MaxDisplacement = newSpeed;
+                            }
+                            break;
+
+                        case "AngularVelocity":
                             double newVelocity = 0;
                             if (double.TryParse(Node.InnerText, out newVelocity))
                             {
-                                _Robot.CurrentSpeed = newVelocity;
+                                _Robot.MaxOrientationDisplacement = newVelocity;
                             }
                             break;
 
@@ -556,7 +589,7 @@ namespace LightWeight_Server
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    currentPosition.Attributes[SF.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CurrentPosition(i));
+                    currentPosition.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot.CurrentPosition(i));
                 }
             }
 
@@ -565,7 +598,7 @@ namespace LightWeight_Server
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    currentVelocity.Attributes[SF.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CurrentVelocity(i));
+                    currentVelocity.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot.CurrentVelocity(i));
                 }
             }
 
@@ -574,7 +607,7 @@ namespace LightWeight_Server
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    currentAcceleration.Attributes[SF.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CurrentAcceleration(i));
+                    currentAcceleration.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot.CurrentAcceleration(i));
                 }
             }
 
