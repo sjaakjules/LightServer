@@ -15,6 +15,7 @@ namespace LightWeight_Server
         float _angle;
         Quaternion _Orientation;
         Vector3 _axis;
+        float[] _kukaValues = new float[6];
 
         public Pose(Matrix Pose) : this(Quaternion.CreateFromRotationMatrix(Pose), Pose.Translation) { }
 
@@ -25,6 +26,10 @@ namespace LightWeight_Server
             this._z = Position.Z;
             this._Orientation = Orientation;
             SF.getAxisAngle(Orientation, out _axis, out _angle);
+            SF.getKukaAngles(Orientation, ref _kukaValues);
+            _kukaValues[0] = (float)_x;
+            _kukaValues[1] = (float)_y;
+            _kukaValues[2] = (float)_z;
         }
 
         public Pose(TimeCoordinate Pose) : this(Pose.Orientation, Pose.Translation) { }
@@ -46,6 +51,11 @@ namespace LightWeight_Server
             }
         }
 
+        public float[] kukaValues
+        {
+            get { return _kukaValues; }
+        }
+
         public Vector3 zAxis
         {
             get { return this * new Vector3(0, 0, 1); }
@@ -54,6 +64,16 @@ namespace LightWeight_Server
         public Vector3 Velocity
         {
             get { return _axis * _angle; }
+        }
+
+        public Vector3 axis
+        {
+            get { return _axis; }
+        }
+
+        public float angle
+        {
+            get { return _angle; }
         }
 
         public static Vector3 operator *(Pose Pose, Vector3 Position)
@@ -79,6 +99,7 @@ namespace LightWeight_Server
         public float angle;
         Quaternion _Orientation;
         public Vector3 axis;
+        double[] _kukaValues = new double[6];
 
         public TimeCoordinate(double x, double y, double z, double a, double b, double c, long ipoc)
         {
@@ -88,6 +109,12 @@ namespace LightWeight_Server
             this.a = a;
             this.b = b;
             this.c = c;
+            _kukaValues[0] = x;
+            _kukaValues[1] = y;
+            _kukaValues[2] = z;
+            _kukaValues[3] = a;
+            _kukaValues[4] = b;
+            _kukaValues[5] = c;
             _Orientation = SF.MakeQuaternionFromKuka(a, b, c);
             SF.getAxisAngle(_Orientation, out axis, out angle);
             this.Ipoc = ipoc;
@@ -103,6 +130,12 @@ namespace LightWeight_Server
             this.a = angles.X;
             this.b = angles.Y;
             this.c = angles.Z;
+            _kukaValues[0] = x;
+            _kukaValues[1] = y;
+            _kukaValues[2] = z;
+            _kukaValues[3] = a;
+            _kukaValues[4] = b;
+            _kukaValues[5] = c;
             _Orientation = new Quaternion(Orientation.X, Orientation.Y, Orientation.Z, Orientation.W);
             SF.getAxisAngle(Orientation, out axis, out angle);
             this.Ipoc = ipoc;
@@ -141,6 +174,11 @@ namespace LightWeight_Server
                 this.b = value.Y;
                 this.c = value.Z;
             }
+        }
+
+        public double[] kukaValues
+        {
+            get { return _kukaValues; }
         }
 
         public Pose Pose

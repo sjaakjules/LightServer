@@ -63,6 +63,7 @@ namespace LightWeight_Server
         bool _newCommandLoaded = false;
         bool _newOrientationLoaded = false;
         bool _newPositionLoaded = false;
+        bool _isVia = false;
 
 
         // Test variables
@@ -97,6 +98,10 @@ namespace LightWeight_Server
             }
         }
 
+        public TimeCoordinate commandPose
+        {
+            get { return _CommandPose; }
+        }
         /*
         // inb degrees
         public double[] currentDoublePose { get { return SF.getCardinalDoubleArray(_ReadPosition); } }
@@ -247,6 +252,11 @@ namespace LightWeight_Server
             }
         }
 
+        public bool isVia
+        {
+            get { return _isVia; }
+            set { _isVia = value; }
+        }
 
         public bool gripperIsOpen
         {
@@ -630,7 +640,7 @@ namespace LightWeight_Server
                             // long orientationDuration = (long)(TimeSpan.TicksPerSecond * (_desiredPose.angle / (MaxOrientationDisplacement * 10)));
                             if (_newPositionLoaded)
                             {
-                                _CurrentTrajectory.load(0, _DesiredPose.ToArray()[_DesiredPose.Count], _Position.LastElement, _velocity.LastElement, _acceleration.LastElement);
+                                _CurrentTrajectory.load(0, _DesiredPose.ToArray()[_DesiredPose.Count-1].Pose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0,0,0)));
                                 _newOrientationLoaded = false;
                                 _newPositionLoaded = false;
                                 _newCommandLoaded = false;
@@ -639,7 +649,7 @@ namespace LightWeight_Server
                             }
                             else
                             {
-                                _CurrentTrajectory.load(-1, _DesiredPose.ToArray()[_DesiredPose.Count], _Position.LastElement, _velocity.LastElement, _acceleration.LastElement);
+                                _CurrentTrajectory.load(-1, _DesiredPose.ToArray()[_DesiredPose.Count - 1].Pose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
                                 _newOrientationLoaded = false;
                                 _newCommandLoaded = false;
                                 _isCommanded = true;
@@ -648,7 +658,7 @@ namespace LightWeight_Server
                         }
                         else if (_newPositionLoaded)
                         {
-                            _CurrentTrajectory.load(1, _DesiredPose.ToArray()[_DesiredPose.Count], _Position.LastElement, _velocity.LastElement, _acceleration.LastElement);
+                            _CurrentTrajectory.load(1, _DesiredPose.ToArray()[_DesiredPose.Count - 1].Pose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
                             _newPositionLoaded = false;
                             _newCommandLoaded = false;
                             _isCommanded = true;
@@ -735,6 +745,8 @@ namespace LightWeight_Server
             }
         }
 
+
+
         public void newConOrientation(float x, float y, float z)
         {
             lock (trajectoryLock)
@@ -776,17 +788,14 @@ namespace LightWeight_Server
             {
                 if (_isConnected && _isCommanded && _CurrentTrajectory.IsActive)
                 {
-
-                    Vector3 comandPos = _CurrentTrajectory.getDisplacement(currentPose.Translation, MaxDisplacement);
-                    Vector3 commandOri = _CurrentTrajectory.getOrientation(currentRotation, (float)MaxOrientationDisplacement);
+                    Pose commandPose = _CurrentTrajectory.reference(currentPose, currentVelocity, _maxLinearVelocity, (float)_maxAngularVelocity, _maxLinearAcceleration, _maxAngularAcceleration);
+                   // Vector3 comandPos = _CurrentTrajectory.getDisplacement(currentPose.Translation, MaxDisplacement);
+                   // Vector3 commandOri = _CurrentTrajectory.getOrientation(currentRotation, (float)MaxOrientationDisplacement);
                     // Update the command position all lights green
-                    _CommandedPosition["X"] = comandPos.X;
-                    _CommandedPosition["Y"] = comandPos.Y;
-                    _CommandedPosition["Z"] = comandPos.Z;
-                    _CommandedPosition["A"] = commandOri.X;
-                    _CommandedPosition["B"] = commandOri.Y;
-                    _CommandedPosition["C"] = commandOri.Z;
+                    Vector3 kukaAngles = SF.getKukaAngles(commandPose.Orientation);
+                    _CommandPose = new TimeCoordinate(commandPose, _Position.LastElement.Ipoc);
                 }
+                    /*
                 else if (_isRotating)
                 {
                     Vector3 commandOri = Vector3.Zero;
@@ -811,6 +820,8 @@ namespace LightWeight_Server
                     _CommandedPosition["B"] = commandOri.Y;
                     _CommandedPosition["C"] = commandOri.Z;
                 }
+                     * 
+                     */
                 else
                 {
                     // End condition, or disconnected half way command position is zero
@@ -834,10 +845,7 @@ namespace LightWeight_Server
 
         public void flushCommands()
         {
-            for (int i = 0; i < 6; i++)
-            {
-                _CommandedPosition[SF.getCardinalKey(i)] = 0.0;
-            }
+            _CommandPose = new TimeCoordinate(0, 0, 0, 0, 0, 0, _Position.LastElement.Ipoc);
         }
 
         #endregion

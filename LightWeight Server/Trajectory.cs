@@ -19,7 +19,7 @@ namespace LightWeight_Server
     {
      //   Stopwatch _elapsedTime = new Stopwatch();
         bool _isActive = false,_isRotating = false, _isTranslating = false;
-        TimeCoordinate _finalPose, _startPose, _startVelocity, _startAcceleration, _changePose;
+        Pose _finalPose, _startPose, _startVelocity, _finalVelocity, _changePose;
        // TimeSpan _trajectoryTime;
         Quaternion _startInverse;
 
@@ -48,7 +48,7 @@ namespace LightWeight_Server
         /// <param name="startVelocity"></param>
         /// <param name="startAcceleration"></param>
         /// <param name="timespan"></param>
-        public void load(int trigger, TimeCoordinate finalPose, TimeCoordinate startPose, TimeCoordinate startVelocity, TimeCoordinate startAcceleration)
+        public void load(int trigger, Pose finalPose, Pose startPose, Pose startVelocity, Pose finalVelocity)
         {
             if (trigger >= 0)
             {
@@ -56,7 +56,6 @@ namespace LightWeight_Server
                 _startPose.Translation = startPose.Translation;
                 _changePose.Translation = finalPose.Translation - startPose.Translation;
                 _startVelocity.Translation = startVelocity.Translation;
-                _startAcceleration.Translation = startAcceleration.Translation;
                 _isTranslating = true;
             }
             if (trigger <= 0)
@@ -66,7 +65,6 @@ namespace LightWeight_Server
                 _startInverse = Quaternion.Inverse(startPose.Orientation);
                 _changePose.Orientation = _startInverse * finalPose.Orientation;
                 _startVelocity.Orientation = startVelocity.Orientation;
-                _startAcceleration.Orientation = startAcceleration.Orientation;
             //    _trajectoryTime = new TimeSpan(timespan);
             //    _elapsedTime.Restart();
                 _isRotating = true;
@@ -85,12 +83,12 @@ namespace LightWeight_Server
         /// <param name="linearVelcoty"></param>
         /// <param name="maxAngularVelocity"></param>
         /// <returns></returns>
-        public TimeCoordinate reference(TimeCoordinate currentPose, TimeCoordinate currentVelocity, TimeCoordinate currentAcceleration, double maxLinearVelocity, float maxAngularVelocity, float linearAcceleration, float angularAcceleration)
+        public Pose reference(Pose currentPose, Pose currentVelocity, double maxLinearVelocity, float maxAngularVelocity, float linearAcceleration, float angularAcceleration)
         {
             if (!_isTranslating && !_isRotating)
             {
                 _isActive = false;
-                return new TimeCoordinate(0,0,0,Quaternion.Identity, currentPose.Ipoc);
+                return new Pose(Quaternion.Identity,new Vector3(0,0,0));
             }
             Vector3 translationComponent = Vector3.Zero;
             Quaternion changeQ = Quaternion.Identity;
@@ -102,7 +100,7 @@ namespace LightWeight_Server
                 {
                     // In the acceleration phase if current velocity is less than maxVelecity otherwise in constant velocity region
                     translationComponent = Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPose.Translation),
-                        (Math.Abs((float)maxLinearVelocity - currentVelocity.Translation.Length()) < linearAcceleration * 4) ? (float)maxLinearVelocity : currentVelocity.Translation.Length() + Math.Sign((float)maxLinearVelocity - currentVelocity.Translation.Length()) * _maxLinearAcceleration * 4);// scale the velocity according to acceleration      //Math.Sign(maxLinearVelocity - currentVelocity.Translation.Length())*currentVelocity.Translation;
+                        (Math.Abs((float)maxLinearVelocity - currentVelocity.Translation.Length()) < linearAcceleration * 4) ? (float)maxLinearVelocity : currentVelocity.Translation.Length() + Math.Sign((float)maxLinearVelocity - currentVelocity.Translation.Length()) * linearAcceleration * 4);// scale the velocity according to acceleration      //Math.Sign(maxLinearVelocity - currentVelocity.Translation.Length())*currentVelocity.Translation;
                 }
                 else
                 {
@@ -135,7 +133,7 @@ namespace LightWeight_Server
                 {
                     // In the acceleration phase if current velocity is less than maxVelecity otherwise in constant velocity region
                     changeQ = Quaternion.CreateFromAxisAngle(_changePose.axis,
-                        (Math.Abs((float)maxAngularVelocity - currentVelocity.angle) < angularAcceleration * 4) ? (float)maxAngularVelocity : currentVelocity.Translation.Length() + Math.Sign((float)maxAngularVelocity - currentVelocity.angle) * _maxAngularAcceleration * 4);// scale the velocity according to acceleration      //Math.Sign(maxLinearVelocity - currentVelocity.Translation.Length())*currentVelocity.Translation;
+                        (Math.Abs((float)maxAngularVelocity - currentVelocity.angle) < angularAcceleration * 4) ? (float)maxAngularVelocity : currentVelocity.Translation.Length() + Math.Sign((float)maxAngularVelocity - currentVelocity.angle) * angularAcceleration * 4);// scale the velocity according to acceleration      //Math.Sign(maxLinearVelocity - currentVelocity.Translation.Length())*currentVelocity.Translation;
                 }
                 else
                 {
@@ -156,7 +154,7 @@ namespace LightWeight_Server
 
             }
 
-            return new TimeCoordinate(translationComponent.X, translationComponent.Y, translationComponent.Z, changeQ, currentPose.Ipoc);
+            return new Pose(changeQ, new Vector3(translationComponent.X, translationComponent.Y, translationComponent.Z));
 
         }
     }

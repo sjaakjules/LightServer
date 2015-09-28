@@ -541,7 +541,7 @@ namespace LightWeight_Server
             XmlNode comPosNode = _SendXML.SelectSingleNode("//Sen/RKorr");
             for (int i = 0; i < 6; i++)
             {
-                comPosNode.Attributes[SF.getCardinalKey(i)].Value = String.Format("{0:0.0000}", _Robot.CommandedPosition(i));
+                comPosNode.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot.commandPose.kukaValues[i]);
 
             }
 
