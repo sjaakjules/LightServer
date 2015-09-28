@@ -15,7 +15,7 @@ namespace LightWeight_Server
         float _angle;
         Quaternion _Orientation;
         Vector3 _axis;
-        float[] _kukaValues = new float[6];
+        float[] _kukaValues;
 
         public Pose(Matrix Pose) : this(Quaternion.CreateFromRotationMatrix(Pose), Pose.Translation) { }
 
@@ -26,6 +26,7 @@ namespace LightWeight_Server
             this._z = Position.Z;
             this._Orientation = Orientation;
             SF.getAxisAngle(Orientation, out _axis, out _angle);
+            _kukaValues = new float[6];
             SF.getKukaAngles(Orientation, ref _kukaValues);
             _kukaValues[0] = (float)_x;
             _kukaValues[1] = (float)_y;
@@ -99,7 +100,7 @@ namespace LightWeight_Server
         public float angle;
         Quaternion _Orientation;
         public Vector3 axis;
-        double[] _kukaValues = new double[6];
+        double[] _kukaValues;
 
         public TimeCoordinate(double x, double y, double z, double a, double b, double c, long ipoc)
         {
@@ -109,12 +110,7 @@ namespace LightWeight_Server
             this.a = a;
             this.b = b;
             this.c = c;
-            _kukaValues[0] = x;
-            _kukaValues[1] = y;
-            _kukaValues[2] = z;
-            _kukaValues[3] = a;
-            _kukaValues[4] = b;
-            _kukaValues[5] = c;
+            _kukaValues = new double[] { x, y, z, a, b, c };
             _Orientation = SF.MakeQuaternionFromKuka(a, b, c);
             SF.getAxisAngle(_Orientation, out axis, out angle);
             this.Ipoc = ipoc;
@@ -130,12 +126,7 @@ namespace LightWeight_Server
             this.a = angles.X;
             this.b = angles.Y;
             this.c = angles.Z;
-            _kukaValues[0] = x;
-            _kukaValues[1] = y;
-            _kukaValues[2] = z;
-            _kukaValues[3] = a;
-            _kukaValues[4] = b;
-            _kukaValues[5] = c;
+            _kukaValues = new double[] { x, y, z, a, b, c };
             _Orientation = new Quaternion(Orientation.X, Orientation.Y, Orientation.Z, Orientation.W);
             SF.getAxisAngle(Orientation, out axis, out angle);
             this.Ipoc = ipoc;

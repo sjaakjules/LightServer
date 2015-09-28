@@ -51,16 +51,16 @@ namespace LightWeight_Server
                             ConnectedKuka.rotateZ = true;
                             break;
                         case ConsoleKey.OemPlus:
-                            ConnectedKuka.MaxDisplacement += 0.1;
+                            ConnectedKuka.LinearVelocity = ConnectedKuka.LinearVelocity + 0.01;
                             break;
                         case ConsoleKey.OemMinus:
-                            ConnectedKuka.MaxDisplacement -= 0.1;
+                            ConnectedKuka.LinearVelocity = ConnectedKuka.LinearVelocity - 0.01;
                             break;
                         case ConsoleKey.D0:
-                            ConnectedKuka.MaxOrientationDisplacement += 0.1;
+                            ConnectedKuka.AngularVelocity = ConnectedKuka.AngularVelocity + 0.001;
                             break;
                         case ConsoleKey.D9:
-                            ConnectedKuka.MaxOrientationDisplacement -= 0.1;
+                            ConnectedKuka.AngularVelocity = ConnectedKuka.AngularVelocity - 0.001;
                             break;
 
                     }

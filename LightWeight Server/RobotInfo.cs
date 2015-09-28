@@ -413,6 +413,7 @@ namespace LightWeight_Server
                     if (_isConnected)
                     {
                         updateMsg();
+                        /*
                         hasMsg = false;
                         while (!hasMsg)
                         {
@@ -420,6 +421,8 @@ namespace LightWeight_Server
                             Console.Clear();
                             Console.WriteLine(_DisplayMsg.ToString());
                         }
+                         * 
+                         */
                     }
                     else
                     {
@@ -504,31 +507,31 @@ namespace LightWeight_Server
             Console.WriteLine("Angular Acceleration: " + AngularAcceleration.ToString() + "mm per ms2");
             if (gripperIsOpen)
             {
-                _text["msg"].AppendLine("Gripper is OPEN.");
+                Console.WriteLine("Gripper is OPEN.");
             }
             else
             {
-                _text["msg"].AppendLine("Gripper is CLOSED");
+                Console.WriteLine("Gripper is CLOSED");
             }
             if (_isCommanded)
             {
-                _text["msg"].AppendLine("Robot is Commanded");
+                Console.WriteLine("Robot is Commanded");
             }
             else
             {
-                _text["msg"].AppendLine("Robot is NOT Commanded");
+                Console.WriteLine("Robot is NOT Commanded");
             }
             if (_CurrentTrajectory.isRotating)
             {
-                _text["msg"].AppendLine("You spin me right round baby... right round....");
+                Console.WriteLine("You spin me right round baby... right round....");
             }
             else
             {
-                _text["msg"].AppendLine("no rotating");
+                Console.WriteLine("no rotating");
             }
-            _text["msg"].AppendLine("Process data time: " + _processDataTimer.ToString() + "ms.");
-            _text["msg"].AppendLine("Max Process data time: " + _maxProcessDataTimer.ToString() + "ms.");
-            _text["msg"].AppendLine("Kuka cycle time: " + _loopTime.ToString() + "ms.");
+            Console.WriteLine("Process data time: " + _processDataTimer.ToString() + "ms.");
+            Console.WriteLine("Max Process data time: " + _maxProcessDataTimer.ToString() + "ms.");
+            Console.WriteLine("Kuka cycle time: " + _loopTime.ToString() + "ms.");
 
 
         }
@@ -746,6 +749,21 @@ namespace LightWeight_Server
         }
 
 
+        public void newConOrientation(float xx, float xy, float xz, float zx, float zy, float zz)
+        {
+            lock (trajectoryLock)
+            {
+                Vector3 xAxis = new Vector3(xx, xy, xz);
+                Vector3 zAxis = new Vector3(zx, zy, zz);
+                Vector3 yAxis = Vector3.Cross(zAxis, xAxis);
+
+                xAxis.Normalize();
+                yAxis.Normalize();
+                zAxis.Normalize();
+                Quaternion newOrientation = Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0, yAxis.X, yAxis.Y, yAxis.Z, 0, zAxis.X, zAxis.Y, zAxis.Z, 0, 0, 0, 0, 1));
+                _newPose.Orientation = new Quaternion(newOrientation.X, newOrientation.Y, newOrientation.Z, newOrientation.W);
+            }
+        }
 
         public void newConOrientation(float x, float y, float z)
         {
