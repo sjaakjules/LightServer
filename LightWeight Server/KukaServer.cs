@@ -366,7 +366,7 @@ namespace LightWeight_Server
                 UpdateXML(State);
 
                 processDataTimer.Stop();
-                _Robot.ProcessDataTimer = 1.0 * processDataTimer.ElapsedTicks / TimeSpan.TicksPerMillisecond;
+                _Robot.ProcessDataTimer = 1.0 * processDataTimer.Elapsed.TotalMilliseconds;
 
             }
             catch (SocketException se)
@@ -493,6 +493,27 @@ namespace LightWeight_Server
             techNode.Attributes.Append(attribute);
             rootNode.AppendChild(techNode);
 
+            XmlNode comPosNode = _SendXML.CreateElement("AKorr");
+            attribute = _SendXML.CreateAttribute("A1");
+            attribute.Value = "0.0000";
+            comPosNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("A2");
+            attribute.Value = "0.0000";
+            comPosNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("A3");
+            attribute.Value = "0.0000";
+            comPosNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("A4");
+            attribute.Value = "0.0000";
+            comPosNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("A5");
+            attribute.Value = "0.0000";
+            comPosNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("A6");
+            attribute.Value = "0.0000";
+            comPosNode.Attributes.Append(attribute);
+            rootNode.AppendChild(comPosNode);
+            /*
             XmlNode comPosNode = _SendXML.CreateElement("RKorr");
             attribute = _SendXML.CreateAttribute("X");
             attribute.Value = "0.0000";
@@ -514,6 +535,8 @@ namespace LightWeight_Server
             comPosNode.Attributes.Append(attribute);
             rootNode.AppendChild(comPosNode);
 
+             * 
+             */
             XmlNode DiONode = _SendXML.CreateElement("DiO");
             DiONode.InnerText = "125";
             rootNode.AppendChild(DiONode);
@@ -537,14 +560,22 @@ namespace LightWeight_Server
             XmlNode IpocNode = _SendXML.SelectSingleNode("//Sen/IPOC");
             IpocNode.InnerText = state.IPOC.ToString();
 
+            XmlNode comAxisNode = _SendXML.SelectSingleNode("//Sen/AKorr");
+            for (int i = 0; i < 6; i++)
+            {
+                comAxisNode.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.000000}", _Robot._axisCommand[i]);
 
+            }
+            /*
             XmlNode comPosNode = _SendXML.SelectSingleNode("//Sen/RKorr");
             for (int i = 0; i < 6; i++)
             {
-                comPosNode.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot.commandPose.kukaValues[i]);
+                comPosNode.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.000000}", _Robot.commandPose.kukaValues[i]);
 
             }
-
+            
+             * 
+             */
             XmlNode gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER_A");
             if (_Robot.gripperIsOpen)
             {

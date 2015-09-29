@@ -199,6 +199,10 @@ namespace LightWeight_Server
             if (this.Ipoc < pose1.Ipoc)
             {
                 double delTime = 1.0 * (pose1.Ipoc - this.Ipoc) / TimeSpan.TicksPerMillisecond;
+                if (delTime == 0)
+                {
+                    delTime = 1;
+                }
                 Quaternion changeOrientation = Quaternion.Inverse(this._Orientation) * pose1._Orientation;
                 SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
                 return new TimeCoordinate(  (pose1.x - this.x) / delTime,
@@ -211,6 +215,10 @@ namespace LightWeight_Server
             else
             {
                 double delTime = 1.0 * (this.Ipoc - pose1.Ipoc) / TimeSpan.TicksPerMillisecond;
+                if (delTime == 0)
+                {
+                    delTime = 1;
+                }
                 Quaternion changeOrientation = Quaternion.Inverse(pose1._Orientation) * this._Orientation;
                 SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
                 return new TimeCoordinate(  (pose1.x - this.x) / delTime,
@@ -302,9 +310,9 @@ namespace LightWeight_Server
 
         public static TimeCoordinate AverageRateOfChange(TimeCoordinate[] list)
         {
-            TimeCoordinate averageRate = new TimeCoordinate(0, 0, 0, Vector3.Zero, 0, list[list.Length - 1].Ipoc);
+            TimeCoordinate averageRate = list[0].getRateOfChange(list[1]); ;
 
-            for (int i = 1; i < list.Length; i++)
+            for (int i = 2; i < list.Length; i++)
             {
                 averageRate += list[i - 1].getRateOfChange(list[i]);
             }
@@ -408,6 +416,10 @@ namespace LightWeight_Server
                 outAxis.X = quaternion.X;
                 outAxis.Y = quaternion.Y;
                 outAxis.Z = quaternion.Z;
+                if (quaternion.Z == double.NaN)
+                {
+                    outAxis.Z = 1;
+                }
                 outAxis.Normalize();
                 if (quaternion.X != 0)
                 {
@@ -445,6 +457,7 @@ namespace LightWeight_Server
                 else
                 {
                     outAngle = 0;
+                    outAxis = new Vector3(0,0,1);
                 }
 
             }
@@ -455,6 +468,11 @@ namespace LightWeight_Server
                 s = quaternion.X == 0 ? s : quaternion.X / axis.X;
                 s = quaternion.Y == 0 ? s : quaternion.Y / axis.Y;
                 s = quaternion.Z == 0 ? s : quaternion.Z / axis.Z;
+
+                if (float.IsNaN(quaternion.Z))
+                {
+                    outAxis.Z = 1;
+                }
                 outAxis = new Vector3(quaternion.X / s, quaternion.Y / s, quaternion.Z / s);
                 outAxis.Normalize();
                 if (quaternion.X != 0)

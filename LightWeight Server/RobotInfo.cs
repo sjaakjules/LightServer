@@ -19,6 +19,8 @@ namespace LightWeight_Server
         object linearAccelerationLock = new object();
         object angularVelocityLock = new object();
         object angularAccelerationLock = new object();
+        object axisComandLock = new object();
+        object axisRotateLock = new object();
 
         Stopwatch _KukaCycleTime = new Stopwatch();
 
@@ -65,6 +67,10 @@ namespace LightWeight_Server
         bool _newPositionLoaded = false;
         bool _isVia = false;
 
+        public double[] _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
+        bool _A1axis = false, _A2axis = false, _A3axis = false, _A4axis = false, _A5axis = false, _A6axis = false;
+        Stopwatch A1 = new Stopwatch(), A2 = new Stopwatch();
+        TimeSpan A3 = TimeSpan.Zero, A4 = TimeSpan.Zero, A5 = TimeSpan.Zero, A6 = TimeSpan.Zero;
 
         // Test variables
         bool _isRotatingX = false;
@@ -81,6 +87,115 @@ namespace LightWeight_Server
 
 
         #region Properties
+
+        public bool A1axis
+        {
+            get
+            {
+                lock (axisRotateLock)
+                {
+                    return _A1axis;
+                }
+            }
+            set
+            {
+                lock (axisRotateLock)
+                {
+                    _A1axis = value;
+                }
+            }
+        }
+
+        public bool A2axis
+        {
+            get
+            {
+                lock (axisRotateLock)
+                {
+                    return _A2axis;
+                }
+            }
+            set
+            {
+                lock (axisRotateLock)
+                {
+                    _A2axis = value;
+                }
+            }
+        }
+
+        bool A3axis
+        {
+            get
+            {
+                lock (axisRotateLock)
+                {
+                    return _A3axis;
+                }
+            }
+            set
+            {
+                lock (axisRotateLock)
+                {
+                    _A3axis = value;
+                }
+            }
+        }
+
+        bool A4axis
+        {
+            get
+            {
+                lock (axisRotateLock)
+                {
+                    return _A4axis;
+                }
+            }
+            set
+            {
+                lock (axisRotateLock)
+                {
+                    _A4axis = value;
+                }
+            }
+        }
+
+        bool A5axis
+        {
+            get
+            {
+                lock (axisRotateLock)
+                {
+                    return _A5axis;
+                }
+            }
+            set
+            {
+                lock (axisRotateLock)
+                {
+                    _A5axis = value;
+                }
+            }
+        }
+
+        bool A6axis
+        {
+            get
+            {
+                lock (axisRotateLock)
+                {
+                    return _A6axis;
+                }
+            }
+            set
+            {
+                lock (axisRotateLock)
+                {
+                    _A6axis = value;
+                }
+            }
+        }
+
         public double ProcessDataTimer
         {
             get { return _processDataTimer; }
@@ -453,6 +568,17 @@ namespace LightWeight_Server
 
         void updateMsg()
         {
+            /*
+            double[] displayAxis = new double[6];
+            lock (axisComandLock)
+            {
+                for (int i = 0; i < 6; i++)
+                {
+                    displayAxis[i] = _axisCommand[i];
+                }
+            }
+             * 
+             */
             TimeCoordinate _DisplayPosition = _Position.LastElement;
             TimeCoordinate _DisplayVelocity = _velocity.LastElement;
             TimeCoordinate _DisplayAcceleration = _acceleration.LastElement;
@@ -499,6 +625,17 @@ namespace LightWeight_Server
                                                                     String.Format("{0:0.00}", _DisplayCommandPosition.a) + " , " +
                                                                     String.Format("{0:0.00}", _DisplayCommandPosition.b) + " , " +
                                                                     String.Format("{0:0.00}", _DisplayCommandPosition.c) + ")");
+
+            /*
+            Console.WriteLine("Command Axis:         (" + String.Format("{0:0.0000}", displayAxis[0]) + " , " +
+                                                                    String.Format("{0:0.0000}", displayAxis[1]) + " , " +
+                                                                    String.Format("{0:0.0000}", displayAxis[2]) + " , " +
+                                                                    String.Format("{0:0.0000}", displayAxis[3]) + " , " +
+                                                                    String.Format("{0:0.0000}", displayAxis[4]) + " , " +
+                                                                    String.Format("{0:0.0000}", displayAxis[5]) + ")");
+             * 
+             * 
+             */
 
 
             Console.WriteLine("Linear Velocity: " + LinearVelocity.ToString() + "mm per ms");
@@ -643,7 +780,7 @@ namespace LightWeight_Server
                             // long orientationDuration = (long)(TimeSpan.TicksPerSecond * (_desiredPose.angle / (MaxOrientationDisplacement * 10)));
                             if (_newPositionLoaded)
                             {
-                                _CurrentTrajectory.load(0, _DesiredPose.ToArray()[_DesiredPose.Count-1].Pose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0,0,0)));
+                                _CurrentTrajectory.load(0, _newPose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0,0,0)));
                                 _newOrientationLoaded = false;
                                 _newPositionLoaded = false;
                                 _newCommandLoaded = false;
@@ -652,7 +789,7 @@ namespace LightWeight_Server
                             }
                             else
                             {
-                                _CurrentTrajectory.load(-1, _DesiredPose.ToArray()[_DesiredPose.Count - 1].Pose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
+                                _CurrentTrajectory.load(-1, _newPose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
                                 _newOrientationLoaded = false;
                                 _newCommandLoaded = false;
                                 _isCommanded = true;
@@ -661,7 +798,7 @@ namespace LightWeight_Server
                         }
                         else if (_newPositionLoaded)
                         {
-                            _CurrentTrajectory.load(1, _DesiredPose.ToArray()[_DesiredPose.Count - 1].Pose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
+                            _CurrentTrajectory.load(1, _newPose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
                             _newPositionLoaded = false;
                             _newCommandLoaded = false;
                             _isCommanded = true;
@@ -804,6 +941,7 @@ namespace LightWeight_Server
         {
             lock (trajectoryLock)
             {
+
                 if (_isConnected && _isCommanded && _CurrentTrajectory.IsActive)
                 {
                     Pose commandPose = _CurrentTrajectory.reference(currentPose, currentVelocity, _maxLinearVelocity, (float)_maxAngularVelocity, _maxLinearAcceleration, _maxAngularAcceleration);
@@ -813,6 +951,8 @@ namespace LightWeight_Server
                     Vector3 kukaAngles = SF.getKukaAngles(commandPose.Orientation);
                     _CommandPose = new TimeCoordinate(commandPose, _Position.LastElement.Ipoc);
                 }
+
+
                     /*
                 else if (_isRotating)
                 {
@@ -847,6 +987,38 @@ namespace LightWeight_Server
                 }
 
             }
+
+                
+                if (A1axis && A1.Elapsed.TotalMilliseconds == 0)
+                {
+                    _axisCommand[4] = 0.01;
+                    _axisCommand[3] = 0.01;
+                    _axisCommand[5] = -0.01;
+                    A1axis = false;
+                    A1.Restart();
+                }
+
+                if (A2axis && A2.Elapsed.TotalMilliseconds == 0)
+                {
+                    _axisCommand[4] = -0.01;
+                    _axisCommand[3] = -0.01;
+                    _axisCommand[5] = 0.01;
+                    A1axis = false;
+                    A2.Restart();
+                }
+                if (A2.Elapsed.TotalMilliseconds > 5000)
+                {
+                    A2.Stop();
+                    A2.Reset();
+                    _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
+                }
+                if (A1.Elapsed.TotalMilliseconds > 5000)
+                {
+                    A1.Stop();
+                    A1.Reset();
+                    _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
+                }
+            
 
         }
 

@@ -62,6 +62,12 @@ namespace LightWeight_Server
                         case ConsoleKey.D9:
                             ConnectedKuka.AngularVelocity = ConnectedKuka.AngularVelocity - 0.001;
                             break;
+                        case ConsoleKey.D1:
+                            ConnectedKuka.A1axis = true;
+                            break;
+                        case ConsoleKey.D2:
+                            ConnectedKuka.A2axis = true;
+                            break;
 
                     }
             }
