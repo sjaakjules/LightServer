@@ -22,7 +22,7 @@ namespace LightWeight_Server
         TimeSpan _trajectoryTime;
         Vector3 _axis;
         float _finalAngle;
-        bool _ViaMode = false;
+        bool _ViaMode = true;
 
         RobotInfo _robot;
 
@@ -130,8 +130,20 @@ namespace LightWeight_Server
             }
             if (_isMoving && IsActive)
             {
+
+                if ((Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition))) < maxChange *2)
+                {
+                    _isMoving = false;
+                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange);
+                }
                 if (_ViaMode)
                 {
+
+                    if ((Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition))) < 0.05f)
+                    {
+                        _isMoving = false;
+                        return _finalPose.Translation - currentPosition;
+                    }
                     return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange);
                 }
                 float accelerationDistance = 1.0f;
@@ -140,7 +152,7 @@ namespace LightWeight_Server
                     // in the start/final region
                     // Check for last step occurance
 
-                    if ((Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition))) < 0.01f)
+                    if ((Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition))) < 0.05f)
                     {
                         _isMoving = false;
                         return _finalPose.Translation - currentPosition;

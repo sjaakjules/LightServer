@@ -51,16 +51,16 @@ namespace LightWeight_Server
                             ConnectedKuka.rotateZ = true;
                             break;
                         case ConsoleKey.OemPlus:
-                            ConnectedKuka.MaxDisplacement += 0.1;
+                            ConnectedKuka.MaxDisplacement += 0.02;
                             break;
                         case ConsoleKey.OemMinus:
-                            ConnectedKuka.MaxDisplacement -= 0.1;
+                            ConnectedKuka.MaxDisplacement -= 0.02;
                             break;
                         case ConsoleKey.D0:
-                            ConnectedKuka.MaxOrientationDisplacement += 0.1;
+                            ConnectedKuka.MaxOrientationDisplacement += 0.002;
                             break;
                         case ConsoleKey.D9:
-                            ConnectedKuka.MaxOrientationDisplacement -= 0.1;
+                            ConnectedKuka.MaxOrientationDisplacement -= 0.002;
                             break;
                         case ConsoleKey.DownArrow:
                             ConnectedKuka.moveDown = true;;

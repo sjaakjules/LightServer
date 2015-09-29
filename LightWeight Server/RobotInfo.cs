@@ -47,7 +47,7 @@ namespace LightWeight_Server
         Controller _CurrrentController;
 
         bool _gripperIsOpen = true;
-        double _maxDisplacement = .4;
+        double _maxDisplacement = .3;
         double _maxOrientationDisplacement = .05;
 
         long _Ipoc = 0;
@@ -76,6 +76,9 @@ namespace LightWeight_Server
 
         float _degreePerSec = 5;
 
+        Vector3 _desiredZ = new Vector3(0, 0, -1);
+        Vector3 _desiredY = new Vector3(0, -1, 0);
+        Vector3 _desiredX = new Vector3(1, 0, 0);
 
         StringBuilder _PrintMsg = new StringBuilder();
         int _errorMsgs = 0;
@@ -510,11 +513,21 @@ namespace LightWeight_Server
 
             }
 
-            Vector3 DesirredZ = Matrix.CreateFromQuaternion(_DesiredRotation).Backward;
+            Vector3 DesirredZ = _desiredZ;
 
-            _text["msg"].AppendLine("Desired Tip Vector2:     (" + String.Format("{0:0.00}", DesirredZ.X) + " , " +
+            _text["msg"].AppendLine("Desired Tip Z:     (" + String.Format("{0:0.00}", DesirredZ.X) + " , " +
                                                                     String.Format("{0:0.00}", DesirredZ.Y) + " , " +
                                                                     String.Format("{0:0.00}", DesirredZ.Z) + ")");
+            Vector3 DesirredY = _desiredY;
+
+            _text["msg"].AppendLine("Desired Tip Y:     (" + String.Format("{0:0.00}", DesirredY.X) + " , " +
+                                                                    String.Format("{0:0.00}", DesirredY.Y) + " , " +
+                                                                    String.Format("{0:0.00}", DesirredY.Z) + ")");
+            Vector3 DesirredX = _desiredX;
+
+            _text["msg"].AppendLine("Desired X:     (" + String.Format("{0:0.00}", DesirredX.X) + " , " +
+                                                                    String.Format("{0:0.00}", DesirredX.Y) + " , " +
+                                                                    String.Format("{0:0.00}", DesirredX.Z) + ")");
             _text["msg"].AppendLine("Current Tip vector:     (" + String.Format("{0:0.00}", currentPose.Backward.X) + " , " +
                                                                     String.Format("{0:0.00}", currentPose.Backward.Y) + " , " +
                                                                     String.Format("{0:0.00}", currentPose.Backward.Z) + ")");
@@ -629,6 +642,7 @@ namespace LightWeight_Server
         {
             lock (trajectoryLock)
             {
+                _newOrientationLoaded = true;
                 _newCommandLoaded = true;
             }
         }
@@ -770,7 +784,7 @@ namespace LightWeight_Server
             }
         }
 
-        public void newConOrientation(float xx, float xy, float xz, float zx, float zy, float zz)
+        public bool newConOrientation(float xx, float xy, float xz, float zx, float zy, float zz)
         {
             lock (trajectoryLock)
             {
@@ -781,6 +795,14 @@ namespace LightWeight_Server
                 xAxis.Normalize();
                 yAxis.Normalize();
                 zAxis.Normalize();
+                if (Vector3.Distance(_desiredZ,zAxis) < 1e-2 && Vector3.Distance(_desiredY,yAxis) < 1e-2 && Vector3.Distance(_desiredX,xAxis) < 1e-2)
+                {
+                    return false;
+                }
+                _desiredX = xAxis;
+                _desiredY = yAxis;
+                _desiredZ = zAxis;
+
                 Quaternion newOrientation = Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0, yAxis.X, yAxis.Y, yAxis.Z, 0, zAxis.X, zAxis.Y, zAxis.Z, 0, 0, 0, 0, 1));
                 _DesiredRotation = new Quaternion(newOrientation.X, newOrientation.Y, newOrientation.Z, newOrientation.W);
             }
@@ -788,6 +810,7 @@ namespace LightWeight_Server
             {
                 desiredZaxis = Matrix.CreateFromQuaternion(_DesiredRotation).Backward;
             }
+            return true;
         }
 
         public void newConOrientation(float x, float y, float z)
@@ -809,6 +832,7 @@ namespace LightWeight_Server
                 if (newAngle > 0)
                 {
                     _newOrientationLoaded = setupController(newOrientation, ref _DesiredRotation);
+                    
                     //Next line makes it from base to final!!!
                     //_DesiredRotation = currentRotation * _DesiredRotation;
                 }

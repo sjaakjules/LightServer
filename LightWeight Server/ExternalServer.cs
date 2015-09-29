@@ -417,8 +417,8 @@ namespace LightWeight_Server
                             }
                             if (newXZOrientation[dataPoint] == dataPoint)
                             {
-                                _Robot.newConOrientation((float)newXZOrientation[0], (float)newXZOrientation[1], (float)newXZOrientation[2], (float)newXZOrientation[3], (float)newXZOrientation[4], (float)newXZOrientation[5]);
-                                _loadedRotation = true;
+                                _loadedRotation = _Robot.newConOrientation((float)newXZOrientation[0], (float)newXZOrientation[1], (float)newXZOrientation[2], (float)newXZOrientation[3], (float)newXZOrientation[4], (float)newXZOrientation[5]);
+                                
                                 _Robot.updateError("Rotation loaded");
                             }
                             break;
@@ -461,7 +461,7 @@ namespace LightWeight_Server
                             break;
                     }
                 }
-                if (_loadedPosition || _loadedRotation)
+                if (_loadedRotation)
                 {
                     _loadedPosition = false;
                     _loadedRotation = false;
