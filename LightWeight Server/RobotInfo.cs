@@ -13,7 +13,7 @@ namespace LightWeight_Server
     class RobotInfo
     {
 
-        readonly double MAXDISPACEMENT = .8;
+        readonly double MAXDISPACEMENT = .6;
         readonly double MAXORIENTATIONDEISPLACEMENT = .1;
 
         object trajectoryLock = new object();

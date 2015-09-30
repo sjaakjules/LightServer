@@ -134,19 +134,19 @@ namespace LightWeight_Server
                 if ((Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition))) < maxChange)
                 {
                     _isTranslating = false;
-                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange);
+                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange/2);
                 }
-                if (_ViaMode)
+                if (!_ViaMode)
                 {
                     return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange);
                 }
-                float accelerationDistance = 1.0f;
+                float accelerationDistance = 10.0f;
                 if ((Math.Abs(Vector3.Distance(_startPose.Translation, _finalPose.Translation)) > accelerationDistance))
                 {
                     // in the start/final region
                     // Check for last step occurance
 
-                    if ((Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition))) < 0.05f)
+                    if ((Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition))) < 0.1f)
                     {
                         _isTranslating = false;
                         return _finalPose.Translation - currentPosition;
@@ -167,7 +167,7 @@ namespace LightWeight_Server
                 }
                 else
                 {
-                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange);
+                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange/2);
                     // TODO code when agent is on robot, ie less than 1mm commands
                 }
 
