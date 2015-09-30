@@ -26,6 +26,13 @@ namespace LightWeight_Server
         bool _loadedPosition = false;
         bool _loadedRotation = false;
 
+        Vector3 lastPosition = new Vector3(0, 0, 0);
+        Vector3 lastZOnlyaxis = new Vector3(0, 0, 0);
+        Vector3 lastZaxis = new Vector3(0, 0, 0);
+        Vector3 lastXaxis = new Vector3(0, 0, 0);
+        double _error = 1e-2;
+        int _CommandTrigger = 0;
+
         RobotInfo _Robot;
 
         #region Constructor:
@@ -343,8 +350,8 @@ namespace LightWeight_Server
                             }
                             if (newPosition[3] == 3)
                             {
-                                _Robot.newPosition(newPosition[0], newPosition[1], newPosition[2]);
-                                _loadedPosition = true;
+                                _loadedPosition = _Robot.newPosition(newPosition[0], newPosition[1], newPosition[2], lastPosition, _error);
+                                
                                 _Robot.updateError("Position loaded");
                             }
                             break;
@@ -392,8 +399,8 @@ namespace LightWeight_Server
                             }
                             if (newOrientation[dataPoints] == dataPoints)
                             {
-                                _Robot.newConOrientation((float)newOrientation[0], (float)newOrientation[1], (float)newOrientation[2]);
-                                _loadedRotation = true;
+                                _loadedRotation = _Robot.newConOrientation((float)newOrientation[0], (float)newOrientation[1], (float)newOrientation[2], lastZOnlyaxis, _error);
+                                
                                 _Robot.updateError("Rotation loaded");
                             }
                             break;
@@ -417,7 +424,7 @@ namespace LightWeight_Server
                             }
                             if (newXZOrientation[dataPoint] == dataPoint)
                             {
-                                _loadedRotation = _Robot.newConOrientation((float)newXZOrientation[0], (float)newXZOrientation[1], (float)newXZOrientation[2], (float)newXZOrientation[3], (float)newXZOrientation[4], (float)newXZOrientation[5]);
+                                _loadedRotation = _Robot.newConOrientation((float)newXZOrientation[0], (float)newXZOrientation[1], (float)newXZOrientation[2], (float)newXZOrientation[3], (float)newXZOrientation[4], (float)newXZOrientation[5], lastXaxis, lastZaxis, _error);
                                 
                                 _Robot.updateError("Rotation loaded");
                             }
@@ -461,11 +468,25 @@ namespace LightWeight_Server
                             break;
                     }
                 }
-                if (_loadedRotation)
+                if (_loadedRotation && _loadedPosition)
                 {
                     _loadedPosition = false;
                     _loadedRotation = false;
-                    _Robot.LoadedCommand();
+                    _Robot.LoadedCommand(0);
+                    _Robot.updateError("Loaded both rotation and position");
+                }
+                else if (_loadedRotation)
+                {
+                    _loadedPosition = false;
+                    _loadedRotation = false;
+                    _Robot.LoadedCommand(-1);
+                    _Robot.updateError("Loaded both rotation and position");
+                }
+                else if (_loadedPosition)
+                {
+                    _loadedPosition = false;
+                    _loadedRotation = false;
+                    _Robot.LoadedCommand(1);
                     _Robot.updateError("Loaded both rotation and position");
                 }
                 UpdateXML(State);

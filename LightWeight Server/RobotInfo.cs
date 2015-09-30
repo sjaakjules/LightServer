@@ -12,6 +12,10 @@ namespace LightWeight_Server
 {
     class RobotInfo
     {
+
+        readonly double MAXDISPACEMENT = .8;
+        readonly double MAXORIENTATIONDEISPLACEMENT = .1;
+
         object trajectoryLock = new object();
         object gripperLock = new object();
         object maxOrientationSpeedLock = new object();
@@ -638,12 +642,20 @@ namespace LightWeight_Server
             _Torque["A6"] = a6;
         }
 
-        public void LoadedCommand()
+        public void LoadedCommand(int commandedTrigger)
         {
             lock (trajectoryLock)
             {
-                _newOrientationLoaded = true;
-                _newCommandLoaded = true;
+                if (commandedTrigger <= 0)
+                {
+                    _newOrientationLoaded = true;
+                    _newCommandLoaded = true;
+                }
+                if (commandedTrigger >= 0)
+                {
+                    _newPositionLoaded = true;
+                    _newCommandLoaded = true;
+                }
             }
         }
 
@@ -707,7 +719,6 @@ namespace LightWeight_Server
                 }
                 catch (Exception)
                 {
-                    _CurrrentController.load(currentPose.Translation, Quaternion.Identity, currentRotation, currentPose.Translation);
                     _newCommandLoaded = false;
                     _isCommanded = false;
                     _newOrientationLoaded = false;
@@ -755,17 +766,18 @@ namespace LightWeight_Server
             }
         }
 
-        public void newPosition(double x, double y, double z)
+        public bool newPosition(double x, double y, double z, Vector3 lastPosition, double error)
         {
+            if (Vector3.Distance(lastPosition, new Vector3((float)x, (float)y, (float)z)) < error)
+            {
+                return false;
+            }
             lock (trajectoryLock)
             {
-                if ((_DesiredPosition["X"] != x) || (_DesiredPosition["Y"] != y) || (_DesiredPosition["Z"] != z))
-                {
-                    _DesiredPosition["X"] = x;
-                    _DesiredPosition["Y"] = y;
-                    _DesiredPosition["Z"] = z;
-                    _newPositionLoaded = true;
-                }
+                _DesiredPosition["X"] = x;
+                _DesiredPosition["Y"] = y;
+                _DesiredPosition["Z"] = z;
+                return true;
             }
             /*
             lock (trajectoryLock)
@@ -784,59 +796,60 @@ namespace LightWeight_Server
             }
         }
 
-        public bool newConOrientation(float xx, float xy, float xz, float zx, float zy, float zz)
+        public bool newConOrientation(float xx, float xy, float xz, float zx, float zy, float zz, Vector3 lastXaxis, Vector3 lastZaxis, double error)
         {
+            Vector3 xAxis = new Vector3(xx, xy, xz);
+            Vector3 zAxis = new Vector3(zx, zy, zz);
+            if (Vector3.Distance(xAxis, lastXaxis) < error && Vector3.Distance(zAxis, lastZaxis) < error)
+            {
+                return false;
+            }
+            Vector3 yAxis = Vector3.Cross(zAxis, xAxis);
+            xAxis.Normalize();
+            yAxis.Normalize();
+            zAxis.Normalize();
+            Matrix RotationMatrix = Matrix.Identity;
             lock (trajectoryLock)
             {
-                Vector3 xAxis = new Vector3(xx, xy, xz);
-                Vector3 zAxis = new Vector3(zx, zy, zz);
-                Vector3 yAxis = Vector3.Cross(zAxis, xAxis);
-                
-                xAxis.Normalize();
-                yAxis.Normalize();
-                zAxis.Normalize();
-                if (Vector3.Distance(_desiredZ,zAxis) < 1e-2 && Vector3.Distance(_desiredY,yAxis) < 1e-2 && Vector3.Distance(_desiredX,xAxis) < 1e-2)
-                {
-                    return false;
-                }
                 _desiredX = xAxis;
                 _desiredY = yAxis;
                 _desiredZ = zAxis;
-
-                Quaternion newOrientation = Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0, yAxis.X, yAxis.Y, yAxis.Z, 0, zAxis.X, zAxis.Y, zAxis.Z, 0, 0, 0, 0, 1));
-                _DesiredRotation = new Quaternion(newOrientation.X, newOrientation.Y, newOrientation.Z, newOrientation.W);
+                RotationMatrix = new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0, yAxis.X, yAxis.Y, yAxis.Z, 0, zAxis.X, zAxis.Y, zAxis.Z, 0, 0, 0, 0, 1);
+                _DesiredRotation = Quaternion.CreateFromRotationMatrix(RotationMatrix);
             }
             lock (desiredAxisLock)
             {
-                desiredZaxis = Matrix.CreateFromQuaternion(_DesiredRotation).Backward;
+                desiredZaxis = RotationMatrix.Backward;
             }
             return true;
         }
 
-        public void newConOrientation(float x, float y, float z)
+        public bool newConOrientation(float x, float y, float z, Vector3 lastZaxis, double error)
         {
+            Vector3 zAxis = Vector3.Normalize(new Vector3(x, y, z));
+            if (Vector3.Distance(lastZaxis, zAxis) < error)
+            {
+                return false;
+            }
+
+            Matrix RotationMatrix = Matrix.Identity;
             lock (trajectoryLock)
             {
-                int newAngle = 0;
-                Vector3 newOrientation = new Vector3(x, y, z);
-                newOrientation = Vector3.Normalize(newOrientation);
-                lock (desiredAxisLock)
+                if (setupController(zAxis, ref _DesiredRotation))
                 {
-                    float error = 1e-4f;
-                    if (Math.Abs(desiredZaxis.X - x) > error ||Math.Abs(desiredZaxis.Y - y) > error ||Math.Abs(desiredZaxis.Z - z) > error )
-                    {
-                        desiredZaxis = newOrientation;
-                        newAngle++;
-                    }
+                    RotationMatrix = Matrix.CreateFromQuaternion(_DesiredRotation);
                 }
-                if (newAngle > 0)
+                else
                 {
-                    _newOrientationLoaded = setupController(newOrientation, ref _DesiredRotation);
-                    
-                    //Next line makes it from base to final!!!
-                    //_DesiredRotation = currentRotation * _DesiredRotation;
+                    return false;
                 }
             }
+
+            lock (desiredAxisLock)
+            {
+                desiredZaxis = RotationMatrix.Backward;
+            }
+            return true;
         }
 
         /// <summary>
@@ -852,48 +865,33 @@ namespace LightWeight_Server
             Matrix _currentPose = Matrix.CreateFromQuaternion( currentRotation);
             Vector3 axis = Vector3.Cross(Vector3.Normalize(_currentPose.Backward), Vector3.Normalize(EEvector));
             float angle = (float)Math.Asin((double)axis.Length());
-            if (Math.Abs(angle) < MathHelper.ToRadians(1.0f))
+            if (Math.Abs(angle) < MathHelper.ToRadians(0.2f))
             {
                 return false;
             }
             else
             {
                 DesiredRotationOut =  Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle) * currentRotation;
-            //    updateError("vectot out: " + Vector3.Transform(_currentPose.Backward, DesiredRotationOut));
-           //     updateError("Setup Angle of rotation: " + angle.ToString());
-            //    updateError("Setup Axis of rotation: " + Vector3.Normalize(axis).ToString());
-            //    updateError("Matrix of rotation: " + Matrix.CreateFromQuaternion(DesiredRotationOut).ToString());
                 return true;
             }
-            /*
-            Vector3 xAxis = Vector3.Zero;
-            Vector3 yAxis = Vector3.Zero;
-            Vector3 zAxis = EEvector;
-        //    updateError("current Pose: " + _currentPose.ToString());
-       //     updateError("Forwards: " + _currentPose.Forward.ToString() + "Down: " + _currentPose.Down.ToString() + "Left: " + _currentPose.Left.ToString());
-        //    updateError("Y comp: " + Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Up)).ToString());
-        //    updateError("X comp: " + Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right)).ToString());
+        }
 
-            if (Math.Abs(Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Right))) > Math.Abs(Vector3.Dot(EEvector, Vector3.Normalize(_currentPose.Up))))
+        Vector3 checkVector(Vector3 VectorIn, double Saturation)
+        {
+            Vector3 VecOut = VectorIn;
+            if (Math.Abs(VectorIn.X) > Saturation)
             {
-                yAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Backward));
-                xAxis = Vector3.Normalize(Vector3.Cross(yAxis, zAxis));
+                VecOut.X = Math.Sign(VectorIn.X) * (float)Saturation;
             }
-            else
+            if (Math.Abs(VectorIn.Y) > Saturation)
             {
-                xAxis = Vector3.Normalize(Vector3.Cross(EEvector, _currentPose.Backward));
-                yAxis = Vector3.Normalize(Vector3.Cross(zAxis, xAxis));
+                VecOut.Y = Math.Sign(VectorIn.Y) * (float)Saturation;
             }
-
-       //     updateError("Setup xAxis: " + xAxis.ToString() + "\nSetup yAxis: " + yAxis.ToString() + "\nSetup zAxis: " + zAxis.ToString());
-            DesiredRotationOut = Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0,
-                                                                                       yAxis.X, yAxis.Y, yAxis.Z, 0,
-                                                                                       zAxis.X, zAxis.Y, zAxis.Z, 0,
-                                                                                       0, 0, 0, 1));
-            return true;
-            // The output is the transform from origin to final.
-             * 
-             */
+            if (Math.Abs(VectorIn.Z) > Saturation)
+            {
+                VecOut.Z = Math.Sign(VectorIn.Z) * (float)Saturation;
+            }
+            return VecOut;
         }
 
         public void updateComandPosition()
@@ -904,11 +902,9 @@ namespace LightWeight_Server
                 {
                     Vector3 comandPos = _CurrrentController.getDisplacement(currentPose.Translation, MaxDisplacement);
                     Vector3 commandOri = _CurrrentController.getOrientation(currentRotation,(float)MaxOrientationDisplacement);
-                    // Update the command position all lights green
-                    if (comandPos.Equals(Vector3.Zero))
-                    {
 
-                    }
+                    comandPos = checkVector(comandPos, MAXDISPACEMENT);
+                    commandOri = checkVector(commandOri, MAXORIENTATIONDEISPLACEMENT);
 
                     _CommandedPosition["X"] = comandPos.X;
                     _CommandedPosition["Y"] = comandPos.Y;
@@ -916,14 +912,6 @@ namespace LightWeight_Server
                     _CommandedPosition["A"] = commandOri.X;
                     _CommandedPosition["B"] = commandOri.Y;
                     _CommandedPosition["C"] = commandOri.Z;
-                    //double[] newComandPos = getKukaDisplacement();
-
-                    //_CommandedPosition["X"] = newComandPos[0];
-                    // _CommandedPosition["Y"] = newComandPos[1];
-                    //_CommandedPosition["Z"] = newComandPos[2];
-                    // _CommandedPosition["A"] = newComandPos[3];
-                    // _CommandedPosition["B"] = newComandPos[4];
-                    // _CommandedPosition["C"] = newComandPos[5];
                 }
                 else if (_isRotating)
                 {
@@ -967,22 +955,6 @@ namespace LightWeight_Server
 
             }
 
-            /*
-            try
-            {
-                goTo.updateSpeed();
-                //double[] commandArray = getKukaDisplacement();
-                for (int i = 0; i < 3; i++)
-                {
-                    CommandedPosition[goTo.axisKey[i]] = goTo.normalVector[i];
-                }
-
-            }
-            catch (Exception)
-            {
-
-            }
-             * */
         }
 
         double[] getKukaDisplacement()
