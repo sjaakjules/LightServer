@@ -737,6 +737,72 @@ namespace LightWeight_Server
             double m44 = 1;
             Matrix M = new Matrix((float)m11, (float)m12, (float)m13, (float)m14, (float)m21, (float)m22, (float)m23, (float)m24, (float)m31, (float)m32, (float)m33, (float)m34, (float)m41, (float)m42, (float)m43, (float)m44);
             return new TimeCoordinate(M.Translation.X, M.Translation.Y, M.Translation.Z, Quaternion.CreateFromRotationMatrix(Matrix.Transpose(M)), Ipoc);
+
+            /*  
+             * 
+             * 
+ans =
+ 
+sin(t6)*(cos(t4)*sin(t1) + sin(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) + cos(t6)*(cos(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2)))
+ 
+ 
+ans =
+ 
+sin(t6)*(cos(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2))) - cos(t6)*(cos(t4)*sin(t1) + sin(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2)))
+ 
+ 
+ans =
+ 
+- sin(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - cos(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2))
+ 
+ 
+ans =
+ 
+25*cos(t1) + 560*cos(t1)*cos(t2) - 515*cos(t1)*sin(t2)*sin(t3) - 80*sin(t1)*sin(t4)*sin(t5) + 515*cos(t1)*cos(t2)*cos(t3) + 35*cos(t1)*cos(t2)*sin(t3) + 35*cos(t1)*cos(t3)*sin(t2) + 80*cos(t1)*cos(t2)*cos(t3)*cos(t5) - 80*cos(t1)*cos(t5)*sin(t2)*sin(t3) - 80*cos(t1)*cos(t2)*cos(t4)*sin(t3)*sin(t5) - 80*cos(t1)*cos(t3)*cos(t4)*sin(t2)*sin(t5)
+ 
+ 
+ans =
+ 
+sin(t6)*(cos(t1)*cos(t4) + sin(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + cos(t6)*(cos(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + sin(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)))
+ 
+ 
+ans =
+ 
+sin(t6)*(cos(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + sin(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2))) - cos(t6)*(cos(t1)*cos(t4) + sin(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2)))
+ 
+ 
+ans =
+ 
+cos(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)) - sin(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2)))
+ 
+ 
+ans =
+ 
+515*sin(t1)*sin(t2)*sin(t3) - 560*cos(t2)*sin(t1) - 35*cos(t2)*sin(t1)*sin(t3) - 35*cos(t3)*sin(t1)*sin(t2) - 80*cos(t1)*sin(t4)*sin(t5) - 25*sin(t1) - 515*cos(t2)*cos(t3)*sin(t1) - 80*cos(t2)*cos(t3)*cos(t5)*sin(t1) + 80*cos(t5)*sin(t1)*sin(t2)*sin(t3) + 80*cos(t2)*cos(t4)*sin(t1)*sin(t3)*sin(t5) + 80*cos(t3)*cos(t4)*sin(t1)*sin(t2)*sin(t5)
+ 
+ 
+ans =
+ 
+sin(t4)*sin(t6)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2)) - cos(t6)*(sin(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) + cos(t4)*cos(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2)))
+ 
+ 
+ans =
+ 
+- sin(t6)*(sin(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) + cos(t4)*cos(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) - cos(t6)*sin(t4)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))
+ 
+ 
+ans =
+ 
+cos(t4)*sin(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2)) - cos(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2))
+ 
+ 
+ans =
+ 
+40*sin(t2 - pi/2 + t3)*sin(t4 + t5) - 35*sin(t2 - pi/2 + t3) - 560*sin(t2) - 515*cos(t2 - pi/2 + t3) - 80*cos(t2 - pi/2 + t3)*cos(t5) - 40*sin(t4 - t5)*sin(t2 - pi/2 + t3) + 400
+ 
+             * 
+             * 
+             */
         }
 
         public void updateRobotAngles(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
