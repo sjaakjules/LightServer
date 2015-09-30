@@ -122,7 +122,7 @@ namespace LightWeight_Server
 
 
 
-        public Vector3 getDisplacement(Vector3 currentPosition, double maxChange)
+        public Vector3 getDisplacement(Vector3 currentPosition, double maxChange, double linearAcceleration)
         {
             if (!_isTranslating && !_isRotating)
             {
@@ -140,6 +140,8 @@ namespace LightWeight_Server
                 {
                     return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange);
                 }
+
+                float d = (float)(maxChange * maxChange / (32 * linearAcceleration));
                 float accelerationDistance = 10.0f;
                 if ((Math.Abs(Vector3.Distance(_startPose.Translation, _finalPose.Translation)) > accelerationDistance))
                 {

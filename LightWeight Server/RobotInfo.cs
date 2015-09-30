@@ -22,6 +22,7 @@ namespace LightWeight_Server
         object maxDisplacementLock = new object();
         object desiredAxisLock = new object();
         object outputLock = new object();
+        object maxAccelerationLock = new object();
 
         Stopwatch _KukaCycleTime = new Stopwatch();
 
@@ -53,6 +54,7 @@ namespace LightWeight_Server
         bool _gripperIsOpen = true;
         double _maxDisplacement = .3;
         double _maxOrientationDisplacement = .05;
+        double _maxAcceleration = 0.005;
 
         long _Ipoc = 0;
 
@@ -228,6 +230,23 @@ namespace LightWeight_Server
         }
 
 
+        public double MaxAcceleration
+        {
+            get
+            {
+                lock (maxAccelerationLock)
+                {
+                    return _maxAcceleration;
+                }
+            }
+            set
+            {
+                lock (maxAccelerationLock)
+                {
+                    _maxAcceleration = value;
+                }
+            }
+        }
 
         public double MaxOrientationDisplacement
         {
@@ -519,25 +538,26 @@ namespace LightWeight_Server
 
             Vector3 DesirredZ = _desiredZ;
 
-            _text["msg"].AppendLine("Desired Tip Z:     (" + String.Format("{0:0.00}", DesirredZ.X) + " , " +
+            _text["msg"].AppendLine("Desired Tip Z:        (" + String.Format("{0:0.00}", DesirredZ.X) + " , " +
                                                                     String.Format("{0:0.00}", DesirredZ.Y) + " , " +
                                                                     String.Format("{0:0.00}", DesirredZ.Z) + ")");
             Vector3 DesirredY = _desiredY;
 
-            _text["msg"].AppendLine("Desired Tip Y:     (" + String.Format("{0:0.00}", DesirredY.X) + " , " +
+            _text["msg"].AppendLine("Desired Tip Y:        (" + String.Format("{0:0.00}", DesirredY.X) + " , " +
                                                                     String.Format("{0:0.00}", DesirredY.Y) + " , " +
                                                                     String.Format("{0:0.00}", DesirredY.Z) + ")");
             Vector3 DesirredX = _desiredX;
 
-            _text["msg"].AppendLine("Desired X:     (" + String.Format("{0:0.00}", DesirredX.X) + " , " +
+            _text["msg"].AppendLine("Desired X:            (" + String.Format("{0:0.00}", DesirredX.X) + " , " +
                                                                     String.Format("{0:0.00}", DesirredX.Y) + " , " +
                                                                     String.Format("{0:0.00}", DesirredX.Z) + ")");
-            _text["msg"].AppendLine("Current Tip vector:     (" + String.Format("{0:0.00}", currentPose.Backward.X) + " , " +
+            _text["msg"].AppendLine("Current Tip vector:   (" + String.Format("{0:0.00}", currentPose.Backward.X) + " , " +
                                                                     String.Format("{0:0.00}", currentPose.Backward.Y) + " , " +
                                                                     String.Format("{0:0.00}", currentPose.Backward.Z) + ")");
 
-            _text["msg"].AppendLine("Max Linear Speed: " + MaxDisplacement.ToString() + "mm per cycle");
-            _text["msg"].AppendLine("Max Angular Speed: " + MaxOrientationDisplacement.ToString() + "deg per cycle");
+            _text["msg"].AppendLine("Max Linear Speed:      " + MaxDisplacement.ToString() + "mm per cycle");
+            _text["msg"].AppendLine("Max Angular Speed:     " + MaxOrientationDisplacement.ToString() + "deg per cycle");
+            _text["msg"].AppendLine("Max Acceleration:      " + MaxAcceleration.ToString() + "mm per ms2");
             if (gripperIsOpen)
             {
                 _text["msg"].AppendLine("Gripper is OPEN.");
@@ -900,7 +920,7 @@ namespace LightWeight_Server
             {
                 if (_isConnected && _isCommanded && _CurrrentController.IsActive)
                 {
-                    Vector3 comandPos = _CurrrentController.getDisplacement(currentPose.Translation, MaxDisplacement);
+                    Vector3 comandPos = _CurrrentController.getDisplacement(currentPose.Translation, MaxDisplacement,MaxAcceleration);
                     Vector3 commandOri = _CurrrentController.getOrientation(currentRotation,(float)MaxOrientationDisplacement);
 
                     comandPos = checkVector(comandPos, MAXDISPACEMENT);
