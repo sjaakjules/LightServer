@@ -351,6 +351,9 @@ namespace LightWeight_Server
                                                     double.Parse(Node.Attributes["A3"].Value), double.Parse(Node.Attributes["A4"].Value),
                                                     double.Parse(Node.Attributes["A5"].Value), double.Parse(Node.Attributes["A6"].Value), _IPOC);
                             break;
+                        case "Robot":
+                            _Robot.updateSignal(int.Parse(Node.Attributes["Active1"].Value), int.Parse(Node.Attributes["Active2"].Value), _IPOC);
+                            break;
                         default:
                             break;
                     }
@@ -513,42 +516,16 @@ namespace LightWeight_Server
             attribute.Value = "0.0000";
             comPosNode.Attributes.Append(attribute);
             rootNode.AppendChild(comPosNode);
-            /*
-            XmlNode comPosNode = _SendXML.CreateElement("RKorr");
-            attribute = _SendXML.CreateAttribute("X");
-            attribute.Value = "0.0000";
-            comPosNode.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("Y");
-            attribute.Value = "0.0000";
-            comPosNode.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("Z");
-            attribute.Value = "0.0000";
-            comPosNode.Attributes.Append(attribute);
+            
+            XmlNode gripper = _SendXML.CreateElement("GRIPPER");
             attribute = _SendXML.CreateAttribute("A");
-            attribute.Value = "0.0000";
-            comPosNode.Attributes.Append(attribute);
+            attribute.Value = "0";
+            gripper.Attributes.Append(attribute);
             attribute = _SendXML.CreateAttribute("B");
-            attribute.Value = "0.0000";
-            comPosNode.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("C");
-            attribute.Value = "0.0000";
-            comPosNode.Attributes.Append(attribute);
-            rootNode.AppendChild(comPosNode);
-
-             * 
-             */
-            XmlNode DiONode = _SendXML.CreateElement("DiO");
-            DiONode.InnerText = "125";
-            rootNode.AppendChild(DiONode);
-
-            XmlNode gripperA = _SendXML.CreateElement("GRIPPER_A");
-            gripperA.InnerText = "0";
-            rootNode.AppendChild(gripperA);
-
-            XmlNode gripperB = _SendXML.CreateElement("GRIPPER_B");
-            gripperB.InnerText = "0";
-            rootNode.AppendChild(gripperB);
-
+            attribute.Value = "0";
+            gripper.Attributes.Append(attribute);
+            rootNode.AppendChild(gripper);
+            
             XmlNode IpocNode = _SendXML.CreateElement("IPOC");
             IpocNode.InnerText = "0";
             rootNode.AppendChild(IpocNode);
@@ -564,39 +541,18 @@ namespace LightWeight_Server
             for (int i = 0; i < 6; i++)
             {
                 comAxisNode.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.000000}", _Robot._axisCommand[i]);
-
             }
-            /*
-            XmlNode comPosNode = _SendXML.SelectSingleNode("//Sen/RKorr");
-            for (int i = 0; i < 6; i++)
-            {
-                comPosNode.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.000000}", _Robot.commandPose.kukaValues[i]);
-
-            }
-            
-             * 
-             */
-            XmlNode gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER_A");
+            XmlNode gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER");
             if (_Robot.gripperIsOpen)
             {
-                gripperNode.InnerText = "1";
-
+                gripperNode.Attributes["A"].Value = "1";
+                gripperNode.Attributes["B"].Value = "0";
             }
             else
             {
-                gripperNode.InnerText = "0";
+                gripperNode.Attributes["A"].Value = "0";
+                gripperNode.Attributes["B"].Value = "1";
             }
-            gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER_B");
-            if (_Robot.gripperIsOpen)
-            {
-                gripperNode.InnerText = "0";
-
-            }
-            else
-            {
-                gripperNode.InnerText = "1";
-            }
-
 
             state.XMLout = (XmlDocument)_SendXML.Clone();
 

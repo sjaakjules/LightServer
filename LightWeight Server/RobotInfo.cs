@@ -737,141 +737,109 @@ namespace LightWeight_Server
             double m44 = 1;
             Matrix M = new Matrix((float)m11, (float)m12, (float)m13, (float)m14, (float)m21, (float)m22, (float)m23, (float)m24, (float)m31, (float)m32, (float)m33, (float)m34, (float)m41, (float)m42, (float)m43, (float)m44);
             return new TimeCoordinate(M.Translation.X, M.Translation.Y, M.Translation.Z, Quaternion.CreateFromRotationMatrix(Matrix.Transpose(M)), Ipoc);
+        }
 
-            /*  
-             * 
-             * 
-ans =
- 
-[  cos(t1), -sin(t1),  0,   0]
-[ -sin(t1), -cos(t1),  0,   0]
-[        0,        0, -1, 400]
-[        0,        0,  0,   1]
- 
- 
-ans =
- 
-[ cos(t2), -sin(t2),  0, 25]
-[       0,        0, -1,  0]
-[ sin(t2),  cos(t2),  0,  0]
-[       0,        0,  0,  1]
- 
- 
-ans =
- 
-[  sin(t3), cos(t3), 0, 560]
-[ -cos(t3), sin(t3), 0,   0]
-[        0,       0, 1,   0]
-[        0,       0, 0,   1]
- 
- 
-ans =
- 
-[ cos(t4), -sin(t4),  0,  35]
-[       0,        0, -1, 515]
-[ sin(t4),  cos(t4),  0,   0]
-[       0,        0,  0,   1]
- 
- 
-ans =
- 
-[  cos(t5), -sin(t5), 0, 0]
-[        0,        0, 1, 0]
-[ -sin(t5), -cos(t5), 0, 0]
-[        0,        0, 0, 1]
- 
- 
-ans =
- 
-[ cos(t6), -sin(t6),  0, 0]
-[       0,        0, -1, 0]
-[ sin(t6),  cos(t6),  0, 0]
-[       0,        0,  0, 1]
- 
- 
-ans =
- 
-[ 1,  0,  0,   0]
-[ 0, -1,  0,   0]
-[ 0,  0, -1, -80]
-[ 0,  0,  0,   1]
- 
-             * 
-             * 
-ans =
- 
-sin(t6)*(cos(t4)*sin(t1) + sin(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) + cos(t6)*(cos(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2)))
- 
- 
-ans =
- 
-sin(t6)*(cos(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2))) - cos(t6)*(cos(t4)*sin(t1) + sin(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2)))
- 
- 
-ans =
- 
-- sin(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - cos(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2))
- 
- 
-ans =
- 
-25*cos(t1) + 560*cos(t1)*cos(t2) - 515*cos(t1)*sin(t2)*sin(t3) - 80*sin(t1)*sin(t4)*sin(t5) + 515*cos(t1)*cos(t2)*cos(t3) + 35*cos(t1)*cos(t2)*sin(t3) + 35*cos(t1)*cos(t3)*sin(t2) + 80*cos(t1)*cos(t2)*cos(t3)*cos(t5) - 80*cos(t1)*cos(t5)*sin(t2)*sin(t3) - 80*cos(t1)*cos(t2)*cos(t4)*sin(t3)*sin(t5) - 80*cos(t1)*cos(t3)*cos(t4)*sin(t2)*sin(t5)
- 
- 
-ans =
- 
-sin(t6)*(cos(t1)*cos(t4) + sin(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + cos(t6)*(cos(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + sin(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)))
- 
- 
-ans =
- 
-sin(t6)*(cos(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + sin(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2))) - cos(t6)*(cos(t1)*cos(t4) + sin(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2)))
- 
- 
-ans =
- 
-cos(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)) - sin(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2)))
- 
- 
-ans =
- 
-515*sin(t1)*sin(t2)*sin(t3) - 560*cos(t2)*sin(t1) - 35*cos(t2)*sin(t1)*sin(t3) - 35*cos(t3)*sin(t1)*sin(t2) - 80*cos(t1)*sin(t4)*sin(t5) - 25*sin(t1) - 515*cos(t2)*cos(t3)*sin(t1) - 80*cos(t2)*cos(t3)*cos(t5)*sin(t1) + 80*cos(t5)*sin(t1)*sin(t2)*sin(t3) + 80*cos(t2)*cos(t4)*sin(t1)*sin(t3)*sin(t5) + 80*cos(t3)*cos(t4)*sin(t1)*sin(t2)*sin(t5)
- 
- 
-ans =
- 
-sin(t4)*sin(t6)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2)) - cos(t6)*(sin(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) + cos(t4)*cos(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2)))
- 
- 
-ans =
- 
-- sin(t6)*(sin(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) + cos(t4)*cos(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) - cos(t6)*sin(t4)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))
- 
- 
-ans =
- 
-cos(t4)*sin(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2)) - cos(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2))
- 
- 
-ans =
- 
-40*sin(t2 - pi/2 + t3)*sin(t4 + t5) - 35*sin(t2 - pi/2 + t3) - 560*sin(t2) - 515*cos(t2 - pi/2 + t3) - 80*cos(t2 - pi/2 + t3)*cos(t5) - 40*sin(t4 - t5)*sin(t2 - pi/2 + t3) + 400
-             * 
- 
-             * 
-             * 
-             */
+        /// <summary>
+        /// Assume Angles are in radians!
+        /// </summary>
+        /// <param name="t1"></param>
+        /// <param name="t2"></param>
+        /// <param name="t3"></param>
+        /// <param name="t4"></param>
+        /// <param name="t5"></param>
+        /// <param name="t6"></param>
+        /// <returns></returns>
+        Pose[] getLinkTransforms(double t1, double t2, double t3, double t4, double t5, double t6)
+        {
+            Matrix T01 = new Matrix((float)Math.Cos(t1), (float)-Math.Sin(t1), 0, 0, (float)-Math.Sin(t1), (float)-Math.Cos(t1), 0, 0, 0, 0, -1, 400, 0, 0, 0, 1);
+            Matrix T12 = new Matrix((float)Math.Cos(t2), (float)-Math.Sin(t2), 0, 25, 0, 0, -1, 0, (float)Math.Sin(t2), (float)Math.Cos(t2), 0, 0, 0, 0, 0, 1);
+            Matrix T23 = new Matrix((float)Math.Sin(t3), (float)Math.Cos(t3), 0, 560, (float)-Math.Cos(t3), (float)Math.Sin(t3), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+            Matrix T34 = new Matrix((float)Math.Cos(t4), (float)-Math.Sin(t4), 0, 35, 0, 0, -1, 515, (float)Math.Sin(t4), (float)Math.Cos(t4), 0, 0, 0, 0, 0, 1);
+            Matrix T45 = new Matrix((float)Math.Cos(t5), (float)-Math.Sin(t5), 0, 0, 0, 0, 1, 0, (float)-Math.Sin(t5), (float)-Math.Cos(t5), 0, 0, 0, 0, 0, 1);
+            Matrix T56 = new Matrix((float)Math.Cos(t6), (float)-Math.Sin(t6), 0, 0, 0, 0, -1, 0, (float)Math.Sin(t6), (float)Math.Cos(t6), 0, 0, 0, 0, 0, 1);
+            Matrix T67 = new Matrix(1, 0, 0, 0, 0, -1, 0, 0, 0, 0, -1, -80, 0, 0, 0, 1);
+            return new Pose[] { new Pose(Matrix.Transpose(T01)), new Pose(Matrix.Transpose(T12)), new Pose(Matrix.Transpose(T23)), new Pose(Matrix.Transpose(T34)), new Pose(Matrix.Transpose(T45)), new Pose(Matrix.Transpose(T56)), new Pose(Matrix.Transpose(T67)) };
+        }
+
+
+        double[,] Jacobian(Matrix[] T, Matrix[] T0)
+        {
+            return new double[1, 2];
+        }
+
+
+        public Pose forwardKinimatics(double a1, double a2, double a3, double a4, double a5, double a6)
+        {
+            double s1 = Math.Sin(a1);
+            double c1 = Math.Cos(a1);
+            double s2 = Math.Sin(a2);
+            double c2 = Math.Cos(a2);
+            double s23 = Math.Sin(a2-Math.PI/2+a3);
+            double c23 = Math.Cos(a2-Math.PI/2+a3);
+            double s3 = Math.Sin(a3);
+            double c3 = Math.Cos(a3);
+            double s3p = Math.Sin(a3-Math.PI/2);
+            double c3p = Math.Cos(a3-Math.PI/2);
+            double s4 = Math.Sin(a4);
+            double c4 = Math.Cos(a4);
+            double s45 = Math.Sin(a4 + a5);
+            double s4m5 = Math.Sin(a4 - a5);
+            double s5 = Math.Sin(a5);
+            double c5 = Math.Cos(a5);
+            double s6 = Math.Sin(a6);
+            double c6 = Math.Cos(a6);
+            double a = (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p));
+            double b1 = (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p));
+            double b2 = (c1 * c2 * s3p + c1 * c3p * s2);
+            double b = (c5 * b1 - s5 * b2);
+            double m11 = s6 * a + c6 * b;
+            double m12 = s6 * b - c6 * a;
+            double m13 = -s5 * b1 - c5 * b2;
+            double m14 = 25 * c1 + 560 * c1 * c2 - 515 * c1 * s2 * s3 - 80 * s1 * s4 * s5 + 515 * c1 * c2 * c3 + 35 * c1 * c2 * s3 + 35 * c1 * c3 * s2 + 80 * c1 * c2 * c3 * c5 - 80 * c1 * c5 * s2 * s3 - 80 * c1 * c2 * c4 * s3 * s5 - 80 * c1 * c3 * c4 * s2 * s5;
+            a = (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p));
+            b1 = (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p));
+            b2 = (c2 * s1 * s3p + c3p * s1 * s2);
+            b = (c5 * b1 + s5 * b2);
+            double m21 = s6 * a + c6 * b;
+            double m22 = s6 * b - c6 * a;
+            double m23 = c5 * b2 - s5 * b1;
+            double m24 = 515 * s1 * s2 * s3 - 560 * c2 * s1 - 35 * c2 * s1 * s3 - 35 * c3 * s1 * s2 - 80 * c1 * s4 * s5 - 25 * s1 - 515 * c2 * c3 * s1 - 80 * c2 * c3 * c5 * s1 + 80 * c5 * s1 * s2 * s3 + 80 * c2 * c4 * s1 * s3 * s5 + 80 * c3 * c4 * s1 * s2 * s5;
+            a = (c2 * s3p + c3p * s2);
+            b1 = (c2 * c3p - s2 * s3p);
+            b = (s5 * b1 + c4 * c5 * a);
+            double m31 = s4 * s6 * a - c6 * b;
+            double m32 = -s6 * b - c6 * s4 * a;
+            double m33 = c4 * s5 * a - c5 * b1;
+            double m34 = 40 * s23 * s45 - 35 * s23 - 560 * s2 - 515 * c23 - 80 * c23 * c5 - 40 * s4m5 * s23 + 400;
+            double m41 = 0;
+            double m42 = 0;
+            double m43 = 0;
+            double m44 = 1;
+            Matrix M = new Matrix((float)m11, (float)m12, (float)m13, (float)m14, (float)m21, (float)m22, (float)m23, (float)m24, (float)m31, (float)m32, (float)m33, (float)m34, (float)m41, (float)m42, (float)m43, (float)m44);
+            return new Pose(Matrix.Transpose(M));
+        }
+
+        public void updateSignal(int a, int b, long Ipoc)
+        {
+            if (a == 65)
+            {
+                // Robot has not moved
+            }
+            if (b == 3)
+            {
+                // Robot Drives are on
+            }
+            else if (b == 4)
+            {
+                // Robot Drives are off
+            }
         }
 
         public void updateRobotAngles(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
         {
-            _Angles.Enqueue(forwardKinimatics(a1, a2 - 90, a3 + 90, a4, a5 + 90, a6, Ipoc));
+            _Angles.Enqueue(new TimeCoordinate(forwardKinimatics(a1 * Math.PI / 180, a2 * Math.PI / 180, a3 * Math.PI / 180, a4 * Math.PI / 180, a5 * Math.PI / 180, a6 * Math.PI / 180), Ipoc));
         }
 
-        void checkStall()
-        {
-
-        }
 
         public void updateRobotTorque(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
         {
