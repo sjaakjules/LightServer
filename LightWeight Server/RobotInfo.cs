@@ -743,6 +743,63 @@ namespace LightWeight_Server
              * 
 ans =
  
+[  cos(t1), -sin(t1),  0,   0]
+[ -sin(t1), -cos(t1),  0,   0]
+[        0,        0, -1, 400]
+[        0,        0,  0,   1]
+ 
+ 
+ans =
+ 
+[ cos(t2), -sin(t2),  0, 25]
+[       0,        0, -1,  0]
+[ sin(t2),  cos(t2),  0,  0]
+[       0,        0,  0,  1]
+ 
+ 
+ans =
+ 
+[  sin(t3), cos(t3), 0, 560]
+[ -cos(t3), sin(t3), 0,   0]
+[        0,       0, 1,   0]
+[        0,       0, 0,   1]
+ 
+ 
+ans =
+ 
+[ cos(t4), -sin(t4),  0,  35]
+[       0,        0, -1, 515]
+[ sin(t4),  cos(t4),  0,   0]
+[       0,        0,  0,   1]
+ 
+ 
+ans =
+ 
+[  cos(t5), -sin(t5), 0, 0]
+[        0,        0, 1, 0]
+[ -sin(t5), -cos(t5), 0, 0]
+[        0,        0, 0, 1]
+ 
+ 
+ans =
+ 
+[ cos(t6), -sin(t6),  0, 0]
+[       0,        0, -1, 0]
+[ sin(t6),  cos(t6),  0, 0]
+[       0,        0,  0, 1]
+ 
+ 
+ans =
+ 
+[ 1,  0,  0,   0]
+[ 0, -1,  0,   0]
+[ 0,  0, -1, -80]
+[ 0,  0,  0,   1]
+ 
+             * 
+             * 
+ans =
+ 
 sin(t6)*(cos(t4)*sin(t1) + sin(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) + cos(t6)*(cos(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2)))
  
  
@@ -799,6 +856,7 @@ cos(t4)*sin(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2)) - cos(t5)*(cos
 ans =
  
 40*sin(t2 - pi/2 + t3)*sin(t4 + t5) - 35*sin(t2 - pi/2 + t3) - 560*sin(t2) - 515*cos(t2 - pi/2 + t3) - 80*cos(t2 - pi/2 + t3)*cos(t5) - 40*sin(t4 - t5)*sin(t2 - pi/2 + t3) + 400
+             * 
  
              * 
              * 
