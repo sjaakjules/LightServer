@@ -77,14 +77,14 @@ namespace LightWeight_Server
             get { return _angle; }
         }
 
-        public Pose inverse(Pose pose)
+        public static Pose inverse(Pose pose)
         {
-            return new Pose(Quaternion.Inverse(pose.Orientation), Vector3.Transform(pose.Translation, Quaternion.Inverse(pose.Orientation)));
+            return new Pose(Quaternion.Inverse(pose.Orientation), -Vector3.Transform(pose.Translation, Quaternion.Inverse(pose.Orientation)));
         }
 
         public Pose invert
         {
-            get { return new Pose(Quaternion.Inverse(this.Orientation), Vector3.Transform(this.Translation, Quaternion.Inverse(this.Orientation))); }
+            get { return new Pose(Quaternion.Inverse(this.Orientation), -Vector3.Transform(this.Translation, Quaternion.Inverse(this.Orientation))); }
         }
 
         public static Vector3 operator *(Pose Pose, Vector3 Position)

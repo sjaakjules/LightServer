@@ -434,7 +434,7 @@ namespace LightWeight_Server
                 double[] startAngles = _Angles.LastElement;
                 _StartPose = forwardKinimatics(startAngles, Vector3.Zero);
                 _StartTipPose = _Position.LastElement.Pose;
-                _EndEffectorPose = _StartPose.invert * _StartTipPose;
+                _EndEffectorPose = Pose.inverse(_StartPose) * _StartTipPose ;
                 _EndEffector = _EndEffectorPose.Translation;
                 _isConnected = true;
             }
@@ -847,6 +847,7 @@ namespace LightWeight_Server
         /// <returns></returns>
         public Pose forwardKinimatics(double[] angles, Vector3 EE)
         {
+            EE = EE;
             return forwardKinimatics(angles[0] * Math.PI / 180, angles[1] * Math.PI / 180, angles[2] * Math.PI / 180, angles[3] * Math.PI / 180, angles[4] * Math.PI / 180, angles[5] * Math.PI / 180, EE);
         }
 
@@ -863,6 +864,7 @@ namespace LightWeight_Server
         /// <returns></returns>
         public Pose forwardKinimatics(double a1, double a2, double a3, double a4, double a5, double a6, Vector3 EE)
         {
+            EE = EE;
             double s1 = Math.Sin(a1);
             double c1 = Math.Cos(a1);
             double s2 = Math.Sin(a2);
