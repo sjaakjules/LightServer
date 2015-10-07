@@ -19,6 +19,7 @@ namespace LightWeight_Server
         TimeSpan _trajectoryTime;
         Vector3 _axis;
         float _finalAngle;
+        double P, I, D;
 
 
         public Boolean IsActive
@@ -51,6 +52,28 @@ namespace LightWeight_Server
             _isMoving = false;
             _isRotating = false;
             _finalPose = Matrix.Identity;
+        }
+
+        public void updateP(double newP)
+        {
+            // TODO: link update
+            P = newP;
+        }
+        public void updateI(double newI)
+        {
+            // TODO: link update
+            I = newI;
+        }
+        public void updateD(double newD)
+        {
+            // TODO: link update
+            D = newD;
+        }
+
+        public double[] getControllerEffort(Pose referencePosition, Pose referenceVelocity, Pose measuredPosition, Pose measuredVelocity,double[,] Jacobian)
+        {
+            // TODO: write PID controller, may need karman filter for noise
+            return new double[] { 0, 0, 0, 0, 0, 0 };
         }
 
         public void load(Vector3 position, Matrix startPose)

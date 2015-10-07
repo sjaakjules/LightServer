@@ -308,6 +308,12 @@ namespace LightWeight_Server
     public static class SF
     {
 
+        public static double[] multiplyJacobian(double[,] Jacobian, double taskVelocity)
+        {
+            // TODO basic matrix multiplication
+            return new double[] { 0, 0, 0, 0, 0, 0 };
+        }
+
         public static TimeCoordinate AverageRateOfChange(TimeCoordinate[] list)
         {
             TimeCoordinate averageRate = list[0].getRateOfChange(list[1]); ;

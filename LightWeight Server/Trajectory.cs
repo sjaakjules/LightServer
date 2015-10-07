@@ -22,6 +22,10 @@ namespace LightWeight_Server
         Pose _finalPose, _startPose, _startVelocity, _finalVelocity, _changePose;
        // TimeSpan _trajectoryTime;
         Quaternion _startInverse;
+        double[][] _QuinticPerameters = new double[6][];
+        double[][] _NewQuinticPerameters = new double[6][];
+        Vector3 _TrajectoryAxis;
+        Vector3 _NewTrajectoryAxis;
 
         public bool IsActive { get { return _isActive; } }
 
@@ -30,11 +34,33 @@ namespace LightWeight_Server
             _isActive = false;
             _isTranslating = false;
             _isRotating = false;
+            // TODO: Load dummy or initial trajectoy values which move nowhere
         }
 
         public bool isRotating
         {
             get { return _isRotating; }
+        }
+
+        public void hasStopped()
+        {
+            // TODO: Add code to pause the trajectory
+        }
+
+        public void updateFinalPose(int trigger, Pose finalPose, Pose startPose, Pose startVelocity, Pose finalVelocity)
+        {
+            // TODO: update new Quintic and new trajectory axis, does not initialise only updates values, (called from external not kuka)
+        }
+
+        public void loadNew()
+        {
+            // TODO: Stopes and resets trajectory and loads new quintic / axis for trajectory
+        }
+
+        public Pose[] reference()
+        {
+            // TODO: returns an array of reference position and velocity knowing the trajectory time which is updated and paused accordingly
+            return new Pose[] { _startPose, _startVelocity };
         }
 
         /// <summary>
