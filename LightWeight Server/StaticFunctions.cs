@@ -77,6 +77,16 @@ namespace LightWeight_Server
             get { return _angle; }
         }
 
+        public Pose inverse(Pose pose)
+        {
+            return new Pose(Quaternion.Inverse(pose.Orientation), Vector3.Transform(pose.Translation, Quaternion.Inverse(pose.Orientation)));
+        }
+
+        public Pose invert
+        {
+            get { return new Pose(Quaternion.Inverse(this.Orientation), Vector3.Transform(this.Translation, Quaternion.Inverse(this.Orientation))); }
+        }
+
         public static Vector3 operator *(Pose Pose, Vector3 Position)
         {
             Matrix PoseM = Matrix.Transpose(Matrix.CreateFromQuaternion(Pose._Orientation));
@@ -307,6 +317,14 @@ namespace LightWeight_Server
 
     public static class SF
     {
+        public static Matrix MatMultiply(Matrix M1, Matrix M2)
+        {
+            return new Matrix(  M1.M11 * M2.M11 + M1.M21 * M2.M12 + M1.M31 * M2.M13 + M1.M41 * M2.M14, M1.M12 * M2.M11 + M1.M22 * M2.M12 + M1.M32 * M2.M13 + M1.M42 * M2.M14, M1.M13 * M2.M11 + M1.M23 * M2.M12 + M1.M33 * M2.M13 + M1.M43 * M2.M14, M1.M14 * M2.M11 + M1.M24 * M2.M12 + M1.M34 * M2.M13 + M1.M44 * M2.M14,
+                                M1.M11 * M2.M21 + M1.M21 * M2.M22 + M1.M31 * M2.M23 + M1.M41 * M2.M24, M1.M12 * M2.M21 + M1.M22 * M2.M22 + M1.M32 * M2.M23 + M1.M42 * M2.M24, M1.M13 * M2.M21 + M1.M23 * M2.M22 + M1.M33 * M2.M23 + M1.M43 * M2.M24, M1.M14 * M2.M21 + M1.M24 * M2.M22 + M1.M34 * M2.M23 + M1.M44 * M2.M24,
+                                M1.M11 * M2.M31 + M1.M21 * M2.M32 + M1.M31 * M2.M33 + M1.M41 * M2.M34, M1.M12 * M2.M31 + M1.M22 * M2.M32 + M1.M32 * M2.M33 + M1.M42 * M2.M34, M1.M13 * M2.M31 + M1.M23 * M2.M32 + M1.M33 * M2.M33 + M1.M43 * M2.M34, M1.M14 * M2.M31 + M1.M24 * M2.M32 + M1.M34 * M2.M33 + M1.M44 * M2.M34,
+                                M1.M11 * M2.M41 + M1.M21 * M2.M42 + M1.M31 * M2.M43 + M1.M41 * M2.M44, M1.M12 * M2.M41 + M1.M22 * M2.M42 + M1.M32 * M2.M43 + M1.M42 * M2.M44, M1.M13 * M2.M41 + M1.M23 * M2.M42 + M1.M33 * M2.M43 + M1.M43 * M2.M44, M1.M14 * M2.M41 + M1.M24 * M2.M42 + M1.M34 * M2.M43 + M1.M44 * M2.M44); 
+                                
+        }
 
         public static double[] multiplyJacobian(double[,] Jacobian, double taskVelocity)
         {
@@ -331,7 +349,7 @@ namespace LightWeight_Server
         public static readonly String[] rotationKeys = new String[] { "X1", "X2", "X3", "Y1", "Y2", "Y3", "Z1", "Z2", "Z3" };
         public static readonly String[] axisVecotrKeys = new String[] { "XX", "XY", "XZ", "ZX", "ZY", "ZZ"};
 
-        static Matrix M(Matrix mat1, Matrix mat2)
+        public static Matrix M(Matrix mat1, Matrix mat2)
         {
             return Matrix.Transpose(Matrix.Transpose(mat1) * Matrix.Transpose(mat2));
         }

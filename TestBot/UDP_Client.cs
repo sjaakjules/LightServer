@@ -62,13 +62,14 @@ namespace TestBot
         int _Port = 6009;
         XmlDocument _SendXML;
 
-        double[] _kukaPosition;
+        double[] _kukaPosition, _kukaAngles;
         Matrix _kukaPose;
 
         Stopwatch IPOCTimer = new Stopwatch();
         public Stopwatch _loopTimer = new Stopwatch();
 
         string[] CardinalKey = new string[] { "X", "Y", "Z", "A", "B", "C" };
+        string[] AxisKey = new string[] { "A1", "A2", "A3", "A4", "A5", "A6" };
 
         bool isConnected = false;
 
@@ -80,7 +81,9 @@ namespace TestBot
         /// <param name="robot"></param> The robot information to be updated and read from
         public UDP_Client()
         {
-            _kukaPosition = new double[] { 540.5, -18.1, 833.3, -180, 0, -180 };
+            // 540, 0, 915 is kuka end effector base hence 39.5 -18.1 81.7 is tip
+            _kukaPosition = new double[] { 500.5, -18.1, 833.3, -180, 0, -180 };
+            _kukaAngles = new double[] { 0, -90, 90, 0, 90, 0 };
             _kukaPose = MakeMatrixFromKuka(_kukaPosition);
             _kukaServerIPEP = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 6008);
 
@@ -322,6 +325,26 @@ namespace TestBot
                                 updateRobotPosition(newCommand);
                             }
                             break;
+                        case "AKorr":
+                            double[] newAngleCommand = new double[7];
+                            for (int i = 0; i < 6; i++)
+                            {
+                                double result;
+                                if (double.TryParse(Node.Attributes[AxisKey[i]].Value, out result))
+                                {
+                                    newAngleCommand[i] = result;
+                                    newAngleCommand[6] += 1;
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+                            if (newAngleCommand[6] == 6)
+                            {
+                                updateRobotAngle(newAngleCommand);
+                            }
+                            break;
                         default:
                             break;
                     }
@@ -343,6 +366,15 @@ namespace TestBot
                 Console.WriteLine(e.Message);
                 Console.WriteLine(e.StackTrace);
             }
+        }
+
+        void updateRobotAngle(double[] newAngle)
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                _kukaAngles[i] += newAngle[i];
+            }
+            
         }
 
         void updateRobotPosition(double[] newCommand)
@@ -423,6 +455,12 @@ namespace TestBot
             {
                 comPosNode.Attributes[CardinalKey[i]].Value = String.Format("{0:0.0}", _kukaPosition[i]);
             }
+
+            XmlNode comAngNode = _SendXML.SelectSingleNode("//Rob/AIPos");
+            for (int i = 0; i < 6; i++)
+            {
+                comAngNode.Attributes[AxisKey[i]].Value = String.Format("{0:0.0}", _kukaAngles[i]);
+            }
             _PacketOut = Encoding.UTF8.GetBytes(Beautify(_SendXML));
 
         }
@@ -482,6 +520,27 @@ namespace TestBot
             attribute.Value = _kukaPosition[5].ToString();
             comPosNode.Attributes.Append(attribute);
             rootNode.AppendChild(comPosNode);
+
+            XmlNode comAngNode = _SendXML.CreateElement("AIPos");
+            attribute = _SendXML.CreateAttribute("A1");
+            attribute.Value = _kukaAngles[0].ToString();
+            comAngNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("A2");
+            attribute.Value = _kukaAngles[1].ToString();
+            comAngNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("A3");
+            attribute.Value = _kukaAngles[2].ToString();
+            comAngNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("A4");
+            attribute.Value = _kukaAngles[3].ToString();
+            comAngNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("A5");
+            attribute.Value = _kukaAngles[4].ToString();
+            comAngNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("A6");
+            attribute.Value = _kukaAngles[5].ToString();
+            comAngNode.Attributes.Append(attribute);
+            rootNode.AppendChild(comAngNode);
 
             XmlNode IpocNode = _SendXML.CreateElement("IPOC");
             IpocNode.InnerText = "0";

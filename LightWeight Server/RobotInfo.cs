@@ -21,6 +21,7 @@ namespace LightWeight_Server
         object angularAccelerationLock = new object();
         object axisComandLock = new object();
         object axisRotateLock = new object();
+        object EEposeLock = new object();
 
         Stopwatch _KukaCycleTime = new Stopwatch();
 
@@ -33,11 +34,15 @@ namespace LightWeight_Server
         FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<TimeCoordinate> _acceleration = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<TimeCoordinate> _Torque = new FixedSizedQueue<TimeCoordinate>(6);
-        FixedSizedQueue<TimeCoordinate> _Angles = new FixedSizedQueue<TimeCoordinate>(6);
+        FixedSizedQueue<double[]> _Angles = new FixedSizedQueue<double[]>(6);
         ConcurrentQueue<TimeCoordinate> _DesiredPose;
         Pose _newPose;
         TimeCoordinate _CurrentDesiredPose;
         TimeCoordinate _CommandPose;
+
+        Pose _StartPose, _StartTipPose;
+        Pose _EndEffectorPose;
+        Vector3 _EndEffector;
 
         // Thread safe lists for updating and storing of robot information.
         // public ConcurrentStack<StateObject> DataHistory;
@@ -58,6 +63,7 @@ namespace LightWeight_Server
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
 
         bool _isConnected = false;
+        bool _isConnecting = false;
         bool _isCommanded = false;
         bool _isCommandedPosition = false;
         bool _isCommandedOrientation = false;
@@ -403,7 +409,7 @@ namespace LightWeight_Server
             _velocity.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0));
             _acceleration.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
             _Torque.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
-            _Angles.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
+            _Angles.Enqueue(new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
             _CurrentDesiredPose = new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0);
             _CommandPose = new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0);
 
@@ -423,12 +429,23 @@ namespace LightWeight_Server
 
         public void Connect()
         {
+            if (_isConnecting)
+            {
+                double[] startAngles = _Angles.LastElement;
+                _StartPose = forwardKinimatics(startAngles, Vector3.Zero);
+                _StartTipPose = _Position.LastElement.Pose;
+                _EndEffectorPose = _StartPose.invert * _StartTipPose;
+                _EndEffector = _EndEffectorPose.Translation;
+                _isConnected = true;
+            }
             if (!_isConnected)
             {
                 _ConnectionTimer.Restart();
+                _isConnecting = true;
             }
-            _isConnected = true;
         }
+
+
 
         public void Disconnect()
         {
@@ -585,12 +602,22 @@ namespace LightWeight_Server
             TimeCoordinate _DisplayTorque = _Torque.LastElement;
             TimeCoordinate _DisplayDesiredPosition = _CurrentDesiredPose;
             TimeCoordinate _DisplayCommandPosition = _CommandPose;
+            double[] _DisplayAngle = _Angles.LastElement;
             Vector3 currentZAxis = _DisplayPosition.Pose.zAxis;
             Vector3 desiredZAxis = _DisplayDesiredPosition.Pose.zAxis;
             Vector3 currentVelocity = _DisplayVelocity.Pose.Velocity;
 
             Console.Clear();
             Console.WriteLine("---------------------------------\n              Info:\n");
+            Console.WriteLine("Number of Angles: " + _Angles.ToArray().Length.ToString());
+            Console.WriteLine("Current Angles:       (" + String.Format("{0:0.00}", _DisplayAngle[0]) + " , " +
+                                                                    String.Format("{0:0.00}", _DisplayAngle[1]) + " , " +
+                                                                    String.Format("{0:0.00}", _DisplayAngle[2]) + " , " +
+                                                                    String.Format("{0:0.00}", _DisplayAngle[3]) + " , " +
+                                                                    String.Format("{0:0.00}", _DisplayAngle[4]) + " , " +
+                                                                    String.Format("{0:0.00}", _DisplayAngle[5]) + ")");
+
+            plotPose(forwardKinimatics(_DisplayAngle,Vector3.Zero), "FK Position:     (");
             Console.WriteLine("Current Position:     (" + String.Format("{0:0.00}", _DisplayPosition.x) + " , " +
                                                                     String.Format("{0:0.00}", _DisplayPosition.y) + " , " +
                                                                     String.Format("{0:0.00}", _DisplayPosition.z) + " , " +
@@ -626,6 +653,7 @@ namespace LightWeight_Server
                                                                     String.Format("{0:0.00}", _DisplayCommandPosition.b) + " , " +
                                                                     String.Format("{0:0.00}", _DisplayCommandPosition.c) + ")");
 
+            plotPose(_EndEffectorPose, "End Effector Position:     (");
             /*
             Console.WriteLine("Command Axis:         (" + String.Format("{0:0.0000}", displayAxis[0]) + " , " +
                                                                     String.Format("{0:0.0000}", displayAxis[1]) + " , " +
@@ -673,6 +701,17 @@ namespace LightWeight_Server
 
         }
         #endregion
+        void plotPose(Pose pose, string msg)
+        {
+            Vector3 kukaAngles = SF.getKukaAngles(pose.Orientation);
+            Console.WriteLine(msg + String.Format("{0:0.00}", pose.Translation.X) + " , " +
+                                                                    String.Format("{0:0.00}", pose.Translation.Y) + " , " +
+                                                                    String.Format("{0:0.00}", pose.Translation.Z) + " , " +
+                                                                    String.Format("{0:0.00}", kukaAngles.X) + " , " +
+                                                                    String.Format("{0:0.00}", kukaAngles.Y) + " , " +
+                                                                    String.Format("{0:0.00}", kukaAngles.Z) + ")");
+            
+        }
 
         #region Movement
         public void updateRobotPosition(long LIpoc, long Ipoc, double x, double y, double z, double a, double b, double c)
@@ -705,6 +744,7 @@ namespace LightWeight_Server
             _acceleration.Enqueue(SF.AverageRateOfChange(velocities));
         }
 
+        /*
         public TimeCoordinate forwardKinimatics(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
         {
             double s1 = Math.Sin(a1 * Math.PI / 180);
@@ -739,6 +779,10 @@ namespace LightWeight_Server
             return new TimeCoordinate(M.Translation.X, M.Translation.Y, M.Translation.Z, Quaternion.CreateFromRotationMatrix(Matrix.Transpose(M)), Ipoc);
         }
 
+         * 
+         * 
+         */
+
         /// <summary>
         /// Assume Angles are in radians!
         /// </summary>
@@ -749,27 +793,75 @@ namespace LightWeight_Server
         /// <param name="t5"></param>
         /// <param name="t6"></param>
         /// <returns></returns>
-        Pose[] getLinkTransforms(double t1, double t2, double t3, double t4, double t5, double t6)
+        void getLinkTransforms(double t1, double t2, double t3, double t4, double t5, double t6, Vector3 End, out Pose[] T, out Matrix[] T0)
         {
-            Matrix T01 = new Matrix((float)Math.Cos(t1), (float)-Math.Sin(t1), 0, 0, (float)-Math.Sin(t1), (float)-Math.Cos(t1), 0, 0, 0, 0, -1, 400, 0, 0, 0, 1);
-            Matrix T12 = new Matrix((float)Math.Cos(t2), (float)-Math.Sin(t2), 0, 25, 0, 0, -1, 0, (float)Math.Sin(t2), (float)Math.Cos(t2), 0, 0, 0, 0, 0, 1);
-            Matrix T23 = new Matrix((float)Math.Sin(t3), (float)Math.Cos(t3), 0, 560, (float)-Math.Cos(t3), (float)Math.Sin(t3), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
-            Matrix T34 = new Matrix((float)Math.Cos(t4), (float)-Math.Sin(t4), 0, 35, 0, 0, -1, 515, (float)Math.Sin(t4), (float)Math.Cos(t4), 0, 0, 0, 0, 0, 1);
-            Matrix T45 = new Matrix((float)Math.Cos(t5), (float)-Math.Sin(t5), 0, 0, 0, 0, 1, 0, (float)-Math.Sin(t5), (float)-Math.Cos(t5), 0, 0, 0, 0, 0, 1);
-            Matrix T56 = new Matrix((float)Math.Cos(t6), (float)-Math.Sin(t6), 0, 0, 0, 0, -1, 0, (float)Math.Sin(t6), (float)Math.Cos(t6), 0, 0, 0, 0, 0, 1);
-            Matrix T67 = new Matrix(1, 0, 0, 0, 0, -1, 0, 0, 0, 0, -1, -80, 0, 0, 0, 1);
-            return new Pose[] { new Pose(Matrix.Transpose(T01)), new Pose(Matrix.Transpose(T12)), new Pose(Matrix.Transpose(T23)), new Pose(Matrix.Transpose(T34)), new Pose(Matrix.Transpose(T45)), new Pose(Matrix.Transpose(T56)), new Pose(Matrix.Transpose(T67)) };
+            Matrix T01 = Matrix.Transpose(new Matrix((float)Math.Cos(t1), (float)-Math.Sin(t1), 0, 0, (float)-Math.Sin(t1), (float)-Math.Cos(t1), 0, 0, 0, 0, -1, 400, 0, 0, 0, 1));
+            Matrix T12 = Matrix.Transpose(new Matrix((float)Math.Cos(t2), (float)-Math.Sin(t2), 0, 25, 0, 0, -1, 0, (float)Math.Sin(t2), (float)Math.Cos(t2), 0, 0, 0, 0, 0, 1));
+            Matrix T23 = Matrix.Transpose(new Matrix((float)Math.Sin(t3), (float)Math.Cos(t3), 0, 560, (float)-Math.Cos(t3), (float)Math.Sin(t3), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1));
+            Matrix T34 = Matrix.Transpose(new Matrix((float)Math.Cos(t4), (float)-Math.Sin(t4), 0, 35, 0, 0, -1, 515, (float)Math.Sin(t4), (float)Math.Cos(t4), 0, 0, 0, 0, 0, 1));
+            Matrix T45 = Matrix.Transpose(new Matrix((float)Math.Cos(t5), (float)-Math.Sin(t5), 0, 0, 0, 0, 1, 0, (float)-Math.Sin(t5), (float)-Math.Cos(t5), 0, 0, 0, 0, 0, 1));
+            Matrix T56 = Matrix.Transpose(new Matrix((float)Math.Cos(t6), (float)-Math.Sin(t6), 0, 0, 0, 0, -1, 0, (float)Math.Sin(t6), (float)Math.Cos(t6), 0, 0, 0, 0, 0, 1));
+            Matrix T67 = Matrix.Transpose(new Matrix(1, 0, 0, End.X, 0, -1, 0, -End.Y, 0, 0, -1, -End.Z-80, 0, 0, 0, 1));
+            Matrix T02 = SF.M(T01, T12);
+            Matrix T03 = SF.M(T02, T23);
+            Matrix T04 = SF.M(T03, T34);
+            Matrix T05 = SF.M(T04, T45);
+            Matrix T06 = SF.M(T05, T56);
+            Matrix T07 = SF.M(T06, T67);
+            T = new Pose[] { new Pose(T01), new Pose(T12), new Pose(T23), new Pose(T34), new Pose(T45), new Pose(T56), new Pose(T67) };
+            T0 = new Matrix[] {T01,T02,T03,T04,T05,T06,T07};
         }
 
 
-        double[,] Jacobian(Matrix[] T, Matrix[] T0)
+
+        double[,] Jacobian(Pose[] T, Matrix[] T0)
         {
             // TODO: return jacobian
-            return new double[1, 2];
+            Vector3[] rit = new Vector3[6];
+            Vector3[] Jr = new Vector3[6];
+            Vector3[] Jw = new  Vector3[6];
+            rit[5] = T[6].Translation;
+            for (int i = 4; i >= 0; i--)
+			{
+			    rit[i] = T[i+1].Translation + Vector3.Transform(rit[i+1],T[i+1].Orientation);
+			}
+            for (int i = 0; i < 6; i++)
+			{
+			    Jr[i] = Vector3.Transform(Vector3.Cross(new Vector3(0,0,1),rit[i]),T0[i]);
+                Jw[i] = new Vector3(T0[i].M31,T0[i].M32,T0[i].M33);
+			}
+
+            return new double[,] {{Jr[0].X,Jr[1].X,Jr[2].X,Jr[3].X,Jr[4].X,Jr[5].X},
+                                  {Jr[0].Y,Jr[1].Y,Jr[2].Y,Jr[3].Y,Jr[4].Y,Jr[5].Y},
+                                  {Jr[0].Z,Jr[1].Z,Jr[2].Z,Jr[3].Z,Jr[4].Z,Jr[5].Z},
+                                  {Jw[0].X,Jw[1].X,Jw[2].X,Jw[3].X,Jw[4].X,Jw[5].X},
+                                  {Jw[0].Y,Jw[1].Y,Jw[2].Y,Jw[3].Y,Jw[4].Y,Jw[5].Y},
+                                  {Jw[0].Z,Jw[1].Z,Jw[2].Z,Jw[3].Z,Jw[4].Z,Jw[5].Z}};
         }
 
+        /// <summary>
+        /// Computers the forwards kinimatics using a known EndEffector displacement aligned with T67. The angles are in DEGREES, EE is in mm
+        /// </summary>
+        /// <param name="angles"></param>
+        /// <param name="EE"></param>
+        /// <returns></returns>
+        public Pose forwardKinimatics(double[] angles, Vector3 EE)
+        {
+            return forwardKinimatics(angles[0] * Math.PI / 180, angles[1] * Math.PI / 180, angles[2] * Math.PI / 180, angles[3] * Math.PI / 180, angles[4] * Math.PI / 180, angles[5] * Math.PI / 180, EE);
+        }
 
-        public Pose forwardKinimatics(double a1, double a2, double a3, double a4, double a5, double a6)
+        /// <summary>
+        /// Computers the forwards kinimatics using a known EndEffector displacement aligned with T67. The angles are in radians EE is in mm
+        /// </summary>
+        /// <param name="a1"></param>
+        /// <param name="a2"></param>
+        /// <param name="a3"></param>
+        /// <param name="a4"></param>
+        /// <param name="a5"></param>
+        /// <param name="a6"></param>
+        /// <param name="EE"></param>
+        /// <returns></returns>
+        public Pose forwardKinimatics(double a1, double a2, double a3, double a4, double a5, double a6, Vector3 EE)
         {
             double s1 = Math.Sin(a1);
             double c1 = Math.Cos(a1);
@@ -796,7 +888,9 @@ namespace LightWeight_Server
             double m11 = s6 * a + c6 * b;
             double m12 = s6 * b - c6 * a;
             double m13 = -s5 * b1 - c5 * b2;
-            double m14 = 25 * c1 + 560 * c1 * c2 - 515 * c1 * s2 * s3 - 80 * s1 * s4 * s5 + 515 * c1 * c2 * c3 + 35 * c1 * c2 * s3 + 35 * c1 * c3 * s2 + 80 * c1 * c2 * c3 * c5 - 80 * c1 * c5 * s2 * s3 - 80 * c1 * c2 * c4 * s3 * s5 - 80 * c1 * c3 * c4 * s2 * s5;
+            //double m14 = 25 * c1 + 560 * c1 * c2 - 515 * c1 * s2 * s3 - 80 * s1 * s4 * s5 + 515 * c1 * c2 * c3 + 35 * c1 * c2 * s3 + 35 * c1 * c3 * s2 + 80 * c1 * c2 * c3 * c5 - 80 * c1 * c5 * s2 * s3 - 80 * c1 * c2 * c4 * s3 * s5 - 80 * c1 * c3 * c4 * s2 * s5;
+            double m14 = 25 * c1 + 560 * c1 * c2 + EE.X * (s6 * (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p)) + c6 * (c5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s5 * (c1 * c2 * s3p + c1 * c3p * s2))) - EE.Y * (c6 * (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s6 * (c5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s5 * (c1 * c2 * s3p + c1 * c3p * s2))) - (s5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) + c5 * (c1 * c2 * s3p + c1 * c3p * s2)) * (EE.Z + 80) - 515 * c1 * c2 * s3p - 515 * c1 * c3p * s2 - 35 * c1 * s2 * s3p + 35 * c1 * c2 * c3p;
+ 
             a = (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p));
             b1 = (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p));
             b2 = (c2 * s1 * s3p + c3p * s1 * s2);
@@ -804,14 +898,18 @@ namespace LightWeight_Server
             double m21 = s6 * a + c6 * b;
             double m22 = s6 * b - c6 * a;
             double m23 = c5 * b2 - s5 * b1;
-            double m24 = 515 * s1 * s2 * s3 - 560 * c2 * s1 - 35 * c2 * s1 * s3 - 35 * c3 * s1 * s2 - 80 * c1 * s4 * s5 - 25 * s1 - 515 * c2 * c3 * s1 - 80 * c2 * c3 * c5 * s1 + 80 * c5 * s1 * s2 * s3 + 80 * c2 * c4 * s1 * s3 * s5 + 80 * c3 * c4 * s1 * s2 * s5;
+            //double m24 = 515 * s1 * s2 * s3 - 560 * c2 * s1 - 35 * c2 * s1 * s3 - 35 * c3 * s1 * s2 - 80 * c1 * s4 * s5 - 25 * s1 - 515 * c2 * c3 * s1 - 80 * c2 * c3 * c5 * s1 + 80 * c5 * s1 * s2 * s3 + 80 * c2 * c4 * s1 * s3 * s5 + 80 * c3 * c4 * s1 * s2 * s5;
+            double m24 = EE.X * (s6 * (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p)) + c6 * (c5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p)) + s5 * (c2 * s1 * s3p + c3p * s1 * s2))) - 560 * c2 * s1 - 25 * s1 - EE.Y * (c6 * (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p)) - s6 * (c5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3)) + s5 * (c2 * s1 * s3p + c3 * s1 * s2))) - (s5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p)) - c5 * (c2 * s1 * s3p + c3p * s1 * s2)) * (EE.Z + 80) - 35 * c2 * c3p * s1 + 515 * c2 * s1 * s3p + 515 * c3p * s1 * s2 + 35 * s1 * s2 * s3p;
+ 
             a = (c2 * s3p + c3p * s2);
             b1 = (c2 * c3p - s2 * s3p);
             b = (s5 * b1 + c4 * c5 * a);
             double m31 = s4 * s6 * a - c6 * b;
             double m32 = -s6 * b - c6 * s4 * a;
             double m33 = c4 * s5 * a - c5 * b1;
-            double m34 = 40 * s23 * s45 - 35 * s23 - 560 * s2 - 515 * c23 - 80 * c23 * c5 - 40 * s4m5 * s23 + 400;
+            //double m34 = 40 * s23 * s45 - 35 * s23 - 560 * s2 - 515 * c23 - 80 * c23 * c5 - 40 * s4m5 * s23 + 400;
+            double m34 = 515 * s2 * s3p - 515 * c2 * c3p - 35 * c2 * s3p - 35 * c3p * s2 - 560 * s2 - (c5 * (c2 * c3p - s2 * s3p) - c4 * s5 * (c2 * s3p + c3p * s2)) * (EE.Z + 80) - EE.X * (c6 * (s5 * (c2 * c3p - s2 * s3p) + c4 * c5 * (c2 * s3p + c3p * s2)) - s4 * s6 * (c2 * s3p + c3p * s2)) - EE.Y * (s6 * (s5 * (c2 * c3p - s2 * s3p) + c4 * c5 * (c2 * s3p + c3p * s2)) + c6 * s4 * (c2 * s3p + c3p * s2)) + 400;
+ 
             double m41 = 0;
             double m42 = 0;
             double m43 = 0;
@@ -838,7 +936,7 @@ namespace LightWeight_Server
 
         public void updateRobotAngles(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
         {
-            _Angles.Enqueue(new TimeCoordinate(forwardKinimatics(a1 * Math.PI / 180, a2 * Math.PI / 180, a3 * Math.PI / 180, a4 * Math.PI / 180, a5 * Math.PI / 180, a6 * Math.PI / 180), Ipoc));
+            _Angles.Enqueue(new double[]{a1,a2,a3,a4,a5,a6});
         }
 
 
