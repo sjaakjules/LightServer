@@ -801,7 +801,7 @@ namespace LightWeight_Server
             Matrix T34 = Matrix.Transpose(new Matrix((float)Math.Cos(t4), (float)-Math.Sin(t4), 0, 35, 0, 0, -1, 515, (float)Math.Sin(t4), (float)Math.Cos(t4), 0, 0, 0, 0, 0, 1));
             Matrix T45 = Matrix.Transpose(new Matrix((float)Math.Cos(t5), (float)-Math.Sin(t5), 0, 0, 0, 0, 1, 0, (float)-Math.Sin(t5), (float)-Math.Cos(t5), 0, 0, 0, 0, 0, 1));
             Matrix T56 = Matrix.Transpose(new Matrix((float)Math.Cos(t6), (float)-Math.Sin(t6), 0, 0, 0, 0, -1, 0, (float)Math.Sin(t6), (float)Math.Cos(t6), 0, 0, 0, 0, 0, 1));
-            Matrix T67 = Matrix.Transpose(new Matrix(1, 0, 0, End.X, 0, -1, 0, -End.Y, 0, 0, -1, -End.Z-80, 0, 0, 0, 1));
+            Matrix T67 = Matrix.Transpose(new Matrix(-1, 0, 0, -End.X, 0, 1, 0, End.Y, 0, 0, -1, -End.Z-80, 0, 0, 0, 1));
             Matrix T02 = SF.M(T01, T12);
             Matrix T03 = SF.M(T02, T23);
             Matrix T04 = SF.M(T03, T34);
@@ -887,30 +887,30 @@ namespace LightWeight_Server
             double b1 = (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p));
             double b2 = (c1 * c2 * s3p + c1 * c3p * s2);
             double b = (c5 * b1 - s5 * b2);
-            double m11 = s6 * a + c6 * b;
-            double m12 = s6 * b - c6 * a;
+            double m11 = -s6 * a - c6 * b;
+            double m12 = c6 * a - s6 * b;
             double m13 = -s5 * b1 - c5 * b2;
             //double m14 = 25 * c1 + 560 * c1 * c2 - 515 * c1 * s2 * s3 - 80 * s1 * s4 * s5 + 515 * c1 * c2 * c3 + 35 * c1 * c2 * s3 + 35 * c1 * c3 * s2 + 80 * c1 * c2 * c3 * c5 - 80 * c1 * c5 * s2 * s3 - 80 * c1 * c2 * c4 * s3 * s5 - 80 * c1 * c3 * c4 * s2 * s5;
-            double m14 = 25 * c1 + 560 * c1 * c2 + EE.X * (s6 * (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p)) + c6 * (c5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s5 * (c1 * c2 * s3p + c1 * c3p * s2))) - EE.Y * (c6 * (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s6 * (c5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s5 * (c1 * c2 * s3p + c1 * c3p * s2))) - (s5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) + c5 * (c1 * c2 * s3p + c1 * c3p * s2)) * (EE.Z + 80) - 515 * c1 * c2 * s3p - 515 * c1 * c3p * s2 - 35 * c1 * s2 * s3p + 35 * c1 * c2 * c3p;
+            double m14 = 25 * c1 + 560 * c1 * c2 - EE.X * (s6 * (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p)) + c6 * (c5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s5 * (c1 * c2 * s3p + c1 * c3p * s2))) + EE.Y * (c6 * (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s6 * (c5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s5 * (c1 * c2 * s3p + c1 * c3p * s2))) - (s5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) + c5 * (c1 * c2 * s3p + c1 * c3p * s2)) * (EE.Z + 80) - 515 * c1 * c2 * s3p - 515 * c1 * c3p * s2 - 35 * c1 * s2 * s3p + 35 * c1 * c2 * c3p;
  
             a = (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p));
             b1 = (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p));
             b2 = (c2 * s1 * s3p + c3p * s1 * s2);
             b = (c5 * b1 + s5 * b2);
-            double m21 = s6 * a + c6 * b;
-            double m22 = s6 * b - c6 * a;
-            double m23 = c5 * b2 - s5 * b1;
+            double m21 = -s6 * a + c6 * b;
+            double m22 = -s6 * b + c6 * a;
+            double m23 = -s5 * b1 + c5 * b2;
             //double m24 = 515 * s1 * s2 * s3 - 560 * c2 * s1 - 35 * c2 * s1 * s3 - 35 * c3 * s1 * s2 - 80 * c1 * s4 * s5 - 25 * s1 - 515 * c2 * c3 * s1 - 80 * c2 * c3 * c5 * s1 + 80 * c5 * s1 * s2 * s3 + 80 * c2 * c4 * s1 * s3 * s5 + 80 * c3 * c4 * s1 * s2 * s5;
-            double m24 = EE.X * (s6 * (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p)) + c6 * (c5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p)) + s5 * (c2 * s1 * s3p + c3p * s1 * s2))) - 560 * c2 * s1 - 25 * s1 - EE.Y * (c6 * (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p)) - s6 * (c5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3)) + s5 * (c2 * s1 * s3p + c3 * s1 * s2))) - (s5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p)) - c5 * (c2 * s1 * s3p + c3p * s1 * s2)) * (EE.Z + 80) - 35 * c2 * c3p * s1 + 515 * c2 * s1 * s3p + 515 * c3p * s1 * s2 + 35 * s1 * s2 * s3p;
+            double m24 = -EE.X * (s6 * (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p)) + c6 * (c5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p)) + s5 * (c2 * s1 * s3p + c3p * s1 * s2))) - 560 * c2 * s1 - 25 * s1 + EE.Y * (c6 * (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p)) - s6 * (c5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3)) + s5 * (c2 * s1 * s3p + c3 * s1 * s2))) - (s5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p)) - c5 * (c2 * s1 * s3p + c3p * s1 * s2)) * (EE.Z + 80) - 35 * c2 * c3p * s1 + 515 * c2 * s1 * s3p + 515 * c3p * s1 * s2 + 35 * s1 * s2 * s3p;
  
             a = (c2 * s3p + c3p * s2);
             b1 = (c2 * c3p - s2 * s3p);
             b = (s5 * b1 + c4 * c5 * a);
-            double m31 = s4 * s6 * a - c6 * b;
-            double m32 = -s6 * b - c6 * s4 * a;
+            double m31 = -s4 * s6 * a + c6 * b;
+            double m32 = s6 * b + c6 * s4 * a;
             double m33 = c4 * s5 * a - c5 * b1;
             //double m34 = 40 * s23 * s45 - 35 * s23 - 560 * s2 - 515 * c23 - 80 * c23 * c5 - 40 * s4m5 * s23 + 400;
-            double m34 = 515 * s2 * s3p - 515 * c2 * c3p - 35 * c2 * s3p - 35 * c3p * s2 - 560 * s2 - (c5 * (c2 * c3p - s2 * s3p) - c4 * s5 * (c2 * s3p + c3p * s2)) * (EE.Z + 80) - EE.X * (c6 * (s5 * (c2 * c3p - s2 * s3p) + c4 * c5 * (c2 * s3p + c3p * s2)) - s4 * s6 * (c2 * s3p + c3p * s2)) - EE.Y * (s6 * (s5 * (c2 * c3p - s2 * s3p) + c4 * c5 * (c2 * s3p + c3p * s2)) + c6 * s4 * (c2 * s3p + c3p * s2)) + 400;
+            double m34 = 515 * s2 * s3p - 515 * c2 * c3p - 35 * c2 * s3p - 35 * c3p * s2 - 560 * s2 - (c5 * (c2 * c3p - s2 * s3p) - c4 * s5 * (c2 * s3p + c3p * s2)) * (EE.Z + 80) + EE.X * (c6 * (s5 * (c2 * c3p - s2 * s3p) + c4 * c5 * (c2 * s3p + c3p * s2)) - s4 * s6 * (c2 * s3p + c3p * s2)) + EE.Y * (s6 * (s5 * (c2 * c3p - s2 * s3p) + c4 * c5 * (c2 * s3p + c3p * s2)) + c6 * s4 * (c2 * s3p + c3p * s2)) + 400;
  
             double m41 = 0;
             double m42 = 0;
@@ -918,6 +918,70 @@ namespace LightWeight_Server
             double m44 = 1;
             Matrix M = new Matrix((float)m11, (float)m12, (float)m13, (float)m14, (float)m21, (float)m22, (float)m23, (float)m24, (float)m31, (float)m32, (float)m33, (float)m34, (float)m41, (float)m42, (float)m43, (float)m44);
             return new Pose(Matrix.Transpose(M));
+
+            /*
+             * 
+ans =
+ 
+- sin(t6)*(cos(t4)*sin(t1) + sin(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - cos(t6)*(cos(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2)))
+ 
+ 
+ans =
+ 
+cos(t6)*(cos(t4)*sin(t1) + sin(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t6)*(cos(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2)))
+ 
+ 
+ans =
+ 
+- sin(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - cos(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2))
+ 
+ 
+ans =
+ 
+25*cos(t1) + 560*cos(t1)*cos(t2) - x*(sin(t6)*(cos(t4)*sin(t1) + sin(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) + cos(t6)*(cos(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2)))) + y*(cos(t6)*(cos(t4)*sin(t1) + sin(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t6)*(cos(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2)))) - (sin(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) + cos(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2)))*(z + 80) - 515*cos(t1)*cos(t2)*sin(t3 - pi/2) - 515*cos(t1)*cos(t3 - pi/2)*sin(t2) - 35*cos(t1)*sin(t2)*sin(t3 - pi/2) + 35*cos(t1)*cos(t2)*cos(t3 - pi/2)
+ 
+ 
+ans =
+ 
+- sin(t6)*(cos(t1)*cos(t4) + sin(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) - cos(t6)*(cos(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + sin(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)))
+ 
+ 
+ans =
+ 
+cos(t6)*(cos(t1)*cos(t4) + sin(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) - sin(t6)*(cos(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + sin(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)))
+ 
+ 
+ans =
+ 
+cos(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)) - sin(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2)))
+ 
+ 
+ans =
+ 
+y*(cos(t6)*(cos(t1)*cos(t4) + sin(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) - sin(t6)*(cos(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + sin(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)))) - 560*cos(t2)*sin(t1) - x*(sin(t6)*(cos(t1)*cos(t4) + sin(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + cos(t6)*(cos(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + sin(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)))) - 25*sin(t1) - (sin(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) - cos(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)))*(z + 80) - 35*cos(t2)*cos(t3 - pi/2)*sin(t1) + 515*cos(t2)*sin(t1)*sin(t3 - pi/2) + 515*cos(t3 - pi/2)*sin(t1)*sin(t2) + 35*sin(t1)*sin(t2)*sin(t3 - pi/2)
+ 
+ 
+ans =
+ 
+cos(t6)*(sin(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) + cos(t4)*cos(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) - sin(t4)*sin(t6)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))
+ 
+ 
+ans =
+ 
+sin(t6)*(sin(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) + cos(t4)*cos(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) + cos(t6)*sin(t4)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))
+ 
+ 
+ans =
+ 
+cos(t4)*sin(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2)) - cos(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2))
+ 
+ 
+ans =
+ 
+515*sin(t2)*sin(t3 - pi/2) - 515*cos(t2)*cos(t3 - pi/2) - 35*cos(t2)*sin(t3 - pi/2) - 35*cos(t3 - pi/2)*sin(t2) - 560*sin(t2) - (cos(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) - cos(t4)*sin(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2)))*(z + 80) + x*(cos(t6)*(sin(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) + cos(t4)*cos(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) - sin(t4)*sin(t6)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) + y*(sin(t6)*(sin(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) + cos(t4)*cos(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) + cos(t6)*sin(t4)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) + 400
+ 
+             * 
+             */
         }
 
         public void updateSignal(int a, int b, long Ipoc)
