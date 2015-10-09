@@ -308,10 +308,32 @@ namespace LightWeight_Server
     public static class SF
     {
 
-        public static double[] multiplyJacobian(double[,] Jacobian, double taskVelocity)
+        public static double[] multiplyJacobian(double[,] Jacobian, double[] taskVelocity)
         {
             // TODO basic matrix multiplication
             return new double[] { 0, 0, 0, 0, 0, 0 };
+        }
+
+        public static Vector3 getOrientationError(Matrix reference, Matrix measured)
+        {
+            return Vector3.Multiply((Vector3.Cross(getAxisfromMatrix(measured, 1), getAxisfromMatrix(reference, 1)) + Vector3.Cross(getAxisfromMatrix(measured, 2), getAxisfromMatrix(reference, 2)) + Vector3.Cross(getAxisfromMatrix(measured, 3), getAxisfromMatrix(reference, 3))), 0.5f);
+        }
+
+        static Vector3 getAxisfromMatrix(Matrix rotation, int column)
+        {
+            if (column == 1)
+            {
+                return new Vector3(rotation.M11, rotation.M12, rotation.M13);
+            }
+            if (column == 2)
+            {
+                return new Vector3(rotation.M21, rotation.M22, rotation.M23);
+            }
+            if (column == 3)
+            {
+                return new Vector3(rotation.M31, rotation.M32, rotation.M33);
+            }
+            return Vector3.Zero;
         }
 
         public static TimeCoordinate AverageRateOfChange(TimeCoordinate[] list)

@@ -17,14 +17,17 @@ namespace LightWeight_Server
 {
     class Trajectory
     {
-     //   Stopwatch _elapsedTime = new Stopwatch();
-        bool _isActive = false,_isRotating = false, _isTranslating = false;
-        Pose _finalPose, _startPose, _startVelocity, _finalVelocity, _changePose;
-       // TimeSpan _trajectoryTime;
+        Stopwatch _elapsedTime = new Stopwatch();
+        bool _isActive = false, _isRotating = false, _isTranslating = false, _hasCompleated = false;
+        Pose[] _finalPose, _startPose, _startVelocity, _finalVelocity, _changePose;
+        TimeSpan[] _trajectoryTime;
         Quaternion _startInverse;
-        double[][] _QuinticPerameters = new double[6][];
-        double[][] _NewQuinticPerameters = new double[6][];
+        int segments, currentSegment=0;
+        double[][] _QuinticPerameters = new double[4][];
         Vector3 _TrajectoryAxis;
+
+        int newSegments;
+        double[][] _NewQuinticPerameters = new double[4][];
         Vector3 _NewTrajectoryAxis;
 
         public bool IsActive { get { return _isActive; } }
@@ -98,6 +101,68 @@ namespace LightWeight_Server
             _isActive = true;
         }
 
+        public Pose getReferencePosition(Pose currentPose)
+        {
+            if (_isActive)
+            {
+                if (_hasCompleated)
+                {
+                    return _finalPose;
+                }
+                double t = _elapsedTime.Elapsed.TotalMilliseconds;
+                if (t>=_trajectoryTime.TotalMilliseconds)
+                {
+                    _hasCompleated = true;
+                    _elapsedTime.Stop();
+                }
+                Vector3 translation = new Vector3(getPosition(t, _QuinticPerameters[1]), getPosition(t, _QuinticPerameters[2]), getPosition(t, _QuinticPerameters[3]));
+                Pose ReferencePose = new Pose(Quaternion.CreateFromAxisAngle(_TrajectoryAxis, getPosition(t, _QuinticPerameters[4])), translation);
+
+            }
+            return currentPose;
+        }
+
+
+        public Pose getReferenceVelocity(Pose CurrentVelocity)
+        {
+            if (_isActive)
+            {
+                if (_hasCompleated)
+                {
+                    return _finalVelocity;
+                }
+                double t = _elapsedTime.Elapsed.TotalMilliseconds;
+                if (t >= _trajectoryTime.TotalMilliseconds)
+                {
+                    _hasCompleated = true;
+                    _elapsedTime.Stop();
+                }
+                Vector3 translation = new Vector3(getVelocity(t, _QuinticPerameters[1]), getVelocity(t, _QuinticPerameters[2]), getVelocity(t, _QuinticPerameters[3]));
+                Pose ReferencePose = new Pose(Quaternion.CreateFromAxisAngle(_TrajectoryAxis, getVelocity(t, _QuinticPerameters[4])), translation);
+            }
+            return CurrentVelocity;
+        }
+
+
+        public void checkFinish(Pose currentPose, double error)
+        {
+            if (Vector3.Distance(currentPose.Translation, _finalPose.Translation) <= error && SF.getOrientationError(Matrix.CreateFromQuaternion(_finalPose.Orientation), Matrix.CreateFromQuaternion(_changePose.Orientation)).Length() <= error)
+            {
+                _isActive = false;
+                _hasCompleated = false;
+                _elapsedTime.Stop();
+            }
+        }
+
+        float getPosition(double t, double[] a)
+        {
+            return (float)(a[0] + a[1] * t + a[2] * Math.Pow(t, 2) + a[3] * Math.Pow(t, 3) + a[4] * Math.Pow(t, 4) + a[5] * Math.Pow(t, 5));
+        }
+
+        float getVelocity(double t, double[] a)
+        {
+            return (float)(a[1] + 2 * a[2] * Math.Pow(t, 1) + 3 * a[3] * Math.Pow(t, 2) + 4 * a[4] * Math.Pow(t, 3) + 5 * a[5] * Math.Pow(t, 4));
+        }
 
         /// <summary>
         /// Gets the Reference velocity in TimeCoordinate and handles all termination triggers for tanslation and orientations.

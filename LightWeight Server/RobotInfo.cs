@@ -46,6 +46,7 @@ namespace LightWeight_Server
 
         //Trajectory _CurrentTrajectory;
         Trajectory _CurrentTrajectory;
+        Controller _Controller;
 
         bool _gripperIsOpen = true;
 
@@ -396,6 +397,7 @@ namespace LightWeight_Server
         public RobotInfo()
         {
             _CurrentTrajectory = new Trajectory();
+            _Controller = new Controller(this);
             _text.TryAdd("msg", new StringBuilder());
             _text.TryAdd("Error", new StringBuilder());
             _text.TryAdd("Controller", new StringBuilder());
@@ -1037,6 +1039,9 @@ namespace LightWeight_Server
 
                 if (_isConnected && _isCommanded && _CurrentTrajectory.IsActive)
                 {
+                    Pose CurrentPose = currentPose;
+                    _Controller.getControllerEffort(_CurrentTrajectory.getReferencePosition(CurrentPose), _CurrentTrajectory.getReferenceVelocity(CurrentPose), CurrentPose, currentVelocity, Jacobian);
+                    _CurrentTrajectory.checkFinish(CurrentPose);
                     Pose commandPose = _CurrentTrajectory.reference(currentPose, currentVelocity, _maxLinearVelocity, (float)_maxAngularVelocity, _maxLinearAcceleration, _maxAngularAcceleration);
                    // Vector3 comandPos = _CurrentTrajectory.getDisplacement(currentPose.Translation, MaxDisplacement);
                    // Vector3 commandOri = _CurrentTrajectory.getOrientation(currentRotation, (float)MaxOrientationDisplacement);
