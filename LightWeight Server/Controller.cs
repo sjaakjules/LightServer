@@ -73,6 +73,7 @@ namespace LightWeight_Server
         public double[] getControllerEffort(Pose referencePosition, Pose referenceVelocity, Pose measuredPosition, Pose measuredVelocity,double[,] Jacobian)
         {
             // TODO: write PID controller, may need karman filter for noise
+
             return new double[] { 0, 0, 0, 0, 0, 0 };
         }
 

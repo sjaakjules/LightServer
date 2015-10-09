@@ -744,44 +744,6 @@ namespace LightWeight_Server
             _acceleration.Enqueue(SF.AverageRateOfChange(velocities));
         }
 
-        /*
-        public TimeCoordinate forwardKinimatics(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
-        {
-            double s1 = Math.Sin(a1 * Math.PI / 180);
-            double c1 = Math.Cos(a1 * Math.PI / 180);
-            double s2 = Math.Sin(a2 * Math.PI / 180);
-            double c2 = Math.Cos(a2 * Math.PI / 180);
-            double s3 = Math.Sin(a3 * Math.PI / 180);
-            double c3 = Math.Cos(a3 * Math.PI / 180);
-            double s4 = Math.Sin(a4 * Math.PI / 180);
-            double c4 = Math.Cos(a4 * Math.PI / 180);
-            double s5 = Math.Sin(Math.PI / 2 + a5 * Math.PI / 180);
-            double c5 = Math.Cos(Math.PI / 2 + a5 * Math.PI / 180);
-            double s6 = Math.Sin(a6 * Math.PI / 180);
-            double c6 = Math.Cos(a6 * Math.PI / 180);
-            double m11 = s6 * (s4 * (s1 * s3 + c1 * c2 * c3) - c1 * c4 * s2) + c6 * (c5 * (c4 * (s1 * s3 + c1 * c2 * c3) + c1 * s2 * s4) - s5 * (c3 * s1 - c1 * c2 * s3));
-            double m12 = c6 * (s4 * (s1 * s3 + c1 * c2 * c3) - c1 * c4 * s2) - s6 * (c5 * (c4 * (s1 * s3 + c1 * c2 * c3) + c1 * s2 * s4) - s5 * (c3 * s1 - c1 * c2 * s3));
-            double m13 = s5 * (c4 * (s1 * s3 + c1 * c2 * c3) + c1 * s2 * s4) + c5 * (c3 * s1 - c1 * c2 * s3);
-            double m14 = 25 * c1 + 560 * c1 * c2 + 515 * c3 * s1 + 35 * s1 * s3 + 35 * c1 * c2 * c3 - 515 * c1 * c2 * s3;
-            double m21 = s6 * (s4 * (c1 * s3 - c2 * c3 * s1) + c4 * s1 * s2) + c6 * (c5 * (c4 * (c1 * s3 - c2 * c3 * s1) - s1 * s2 * s4) - s5 * (c1 * c3 + c2 * s1 * s3));
-            double m22 = c6 * (s4 * (c1 * s3 - c2 * c3 * s1) + c4 * s1 * s2) - s6 * (c5 * (c4 * (c1 * s3 - c2 * c3 * s1) - s1 * s2 * s4) - s5 * (c1 * c3 + c2 * s1 * s3));
-            double m23 = s5 * (c4 * (c1 * s3 - c2 * c3 * s1) - s1 * s2 * s4) + c5 * (c1 * c3 + c2 * s1 * s3);
-            double m24 = 515 * c1 * c3 - 25 * s1 - 560 * c2 * s1 + 35 * c1 * s3 + 515 * c2 * s1 * s3 - 35 * c2 * c3 * s1;
-            double m31 = c6 * (c5 * (c2 * s4 - c3 * c4 * s2) - s2 * s3 * s5) - s6 * (c2 * c4 + c3 * s2 * s4);
-            double m32 = -s6 * (c5 * (c2 * s4 - c3 * c4 * s2) - s2 * s3 * s5) - c6 * (c2 * c4 + c3 * s2 * s4);
-            double m33 = c2 * Math.Cos(a5 * Math.PI / 180) * s4 - s2 * s3 * Math.Sin(a5 * Math.PI / 180) - c3 * c4 * Math.Cos(a5 * Math.PI / 180) * s2;
-            double m34 = 515 * s2 * s3 - 35 * c3 * s2 - 560 * s2 + 400;
-            double m41 = 0;
-            double m42 = 0;
-            double m43 = 0;
-            double m44 = 1;
-            Matrix M = new Matrix((float)m11, (float)m12, (float)m13, (float)m14, (float)m21, (float)m22, (float)m23, (float)m24, (float)m31, (float)m32, (float)m33, (float)m34, (float)m41, (float)m42, (float)m43, (float)m44);
-            return new TimeCoordinate(M.Translation.X, M.Translation.Y, M.Translation.Z, Quaternion.CreateFromRotationMatrix(Matrix.Transpose(M)), Ipoc);
-        }
-
-         * 
-         * 
-         */
 
         /// <summary>
         /// Assume Angles are in radians!
@@ -847,7 +809,6 @@ namespace LightWeight_Server
         /// <returns></returns>
         public Pose forwardKinimatics(double[] angles, Vector3 EE)
         {
-            EE = EE;
             return forwardKinimatics(angles[0] * Math.PI / 180, angles[1] * Math.PI / 180, angles[2] * Math.PI / 180, angles[3] * Math.PI / 180, angles[4] * Math.PI / 180, angles[5] * Math.PI / 180, EE);
         }
 
@@ -864,7 +825,6 @@ namespace LightWeight_Server
         /// <returns></returns>
         public Pose forwardKinimatics(double a1, double a2, double a3, double a4, double a5, double a6, Vector3 EE)
         {
-            EE = EE;
             double s1 = Math.Sin(a1);
             double c1 = Math.Cos(a1);
             double s2 = Math.Sin(a2);
@@ -919,69 +879,6 @@ namespace LightWeight_Server
             Matrix M = new Matrix((float)m11, (float)m12, (float)m13, (float)m14, (float)m21, (float)m22, (float)m23, (float)m24, (float)m31, (float)m32, (float)m33, (float)m34, (float)m41, (float)m42, (float)m43, (float)m44);
             return new Pose(Matrix.Transpose(M));
 
-            /*
-             * 
-ans =
- 
-- sin(t6)*(cos(t4)*sin(t1) + sin(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - cos(t6)*(cos(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2)))
- 
- 
-ans =
- 
-cos(t6)*(cos(t4)*sin(t1) + sin(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t6)*(cos(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2)))
- 
- 
-ans =
- 
-- sin(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - cos(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2))
- 
- 
-ans =
- 
-25*cos(t1) + 560*cos(t1)*cos(t2) - x*(sin(t6)*(cos(t4)*sin(t1) + sin(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) + cos(t6)*(cos(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2)))) + y*(cos(t6)*(cos(t4)*sin(t1) + sin(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t6)*(cos(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) - sin(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2)))) - (sin(t5)*(sin(t1)*sin(t4) - cos(t4)*(cos(t1)*sin(t2)*sin(t3 - pi/2) - cos(t1)*cos(t2)*cos(t3 - pi/2))) + cos(t5)*(cos(t1)*cos(t2)*sin(t3 - pi/2) + cos(t1)*cos(t3 - pi/2)*sin(t2)))*(z + 80) - 515*cos(t1)*cos(t2)*sin(t3 - pi/2) - 515*cos(t1)*cos(t3 - pi/2)*sin(t2) - 35*cos(t1)*sin(t2)*sin(t3 - pi/2) + 35*cos(t1)*cos(t2)*cos(t3 - pi/2)
- 
- 
-ans =
- 
-- sin(t6)*(cos(t1)*cos(t4) + sin(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) - cos(t6)*(cos(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + sin(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)))
- 
- 
-ans =
- 
-cos(t6)*(cos(t1)*cos(t4) + sin(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) - sin(t6)*(cos(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + sin(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)))
- 
- 
-ans =
- 
-cos(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)) - sin(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2)))
- 
- 
-ans =
- 
-y*(cos(t6)*(cos(t1)*cos(t4) + sin(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) - sin(t6)*(cos(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + sin(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)))) - 560*cos(t2)*sin(t1) - x*(sin(t6)*(cos(t1)*cos(t4) + sin(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + cos(t6)*(cos(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) + sin(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)))) - 25*sin(t1) - (sin(t5)*(cos(t1)*sin(t4) - cos(t4)*(cos(t2)*cos(t3 - pi/2)*sin(t1) - sin(t1)*sin(t2)*sin(t3 - pi/2))) - cos(t5)*(cos(t2)*sin(t1)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t1)*sin(t2)))*(z + 80) - 35*cos(t2)*cos(t3 - pi/2)*sin(t1) + 515*cos(t2)*sin(t1)*sin(t3 - pi/2) + 515*cos(t3 - pi/2)*sin(t1)*sin(t2) + 35*sin(t1)*sin(t2)*sin(t3 - pi/2)
- 
- 
-ans =
- 
-cos(t6)*(sin(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) + cos(t4)*cos(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) - sin(t4)*sin(t6)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))
- 
- 
-ans =
- 
-sin(t6)*(sin(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) + cos(t4)*cos(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) + cos(t6)*sin(t4)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))
- 
- 
-ans =
- 
-cos(t4)*sin(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2)) - cos(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2))
- 
- 
-ans =
- 
-515*sin(t2)*sin(t3 - pi/2) - 515*cos(t2)*cos(t3 - pi/2) - 35*cos(t2)*sin(t3 - pi/2) - 35*cos(t3 - pi/2)*sin(t2) - 560*sin(t2) - (cos(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) - cos(t4)*sin(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2)))*(z + 80) + x*(cos(t6)*(sin(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) + cos(t4)*cos(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) - sin(t4)*sin(t6)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) + y*(sin(t6)*(sin(t5)*(cos(t2)*cos(t3 - pi/2) - sin(t2)*sin(t3 - pi/2)) + cos(t4)*cos(t5)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) + cos(t6)*sin(t4)*(cos(t2)*sin(t3 - pi/2) + cos(t3 - pi/2)*sin(t2))) + 400
- 
-             * 
-             */
         }
 
         public void updateSignal(int a, int b, long Ipoc)
@@ -1201,6 +1098,7 @@ ans =
 
                 if (_isConnected && _isCommanded && _CurrentTrajectory.IsActive)
                 {
+
                     Pose commandPose = _CurrentTrajectory.reference(currentPose, currentVelocity, _maxLinearVelocity, (float)_maxAngularVelocity, _maxLinearAcceleration, _maxAngularAcceleration);
                    // Vector3 comandPos = _CurrentTrajectory.getDisplacement(currentPose.Translation, MaxDisplacement);
                    // Vector3 commandOri = _CurrentTrajectory.getOrientation(currentRotation, (float)MaxOrientationDisplacement);
