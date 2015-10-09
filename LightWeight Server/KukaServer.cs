@@ -358,6 +358,7 @@ namespace LightWeight_Server
                             break;
                     }
                 }
+                _Robot.Connect();
                 //_Robot.SaveInfo();
                 _Robot.LoadCommand();
                 //_Robot.LoadTrajectory();

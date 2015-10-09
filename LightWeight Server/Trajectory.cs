@@ -47,11 +47,14 @@ namespace LightWeight_Server
 
         public void hasStopped()
         {
+            _elapsedTime.Stop();
+
             // TODO: Add code to pause the trajectory
         }
 
         public void updateFinalPose(int trigger, Pose finalPose, Pose startPose, Pose startVelocity, Pose finalVelocity)
         {
+            Pose trajectoryPose;
             // TODO: update new Quintic and new trajectory axis, does not initialise only updates values, (called from external not kuka)
         }
 
