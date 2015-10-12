@@ -11,37 +11,135 @@ namespace LightWeight_Server
 
     public struct Pose
     {
-        double _x, _y, _z, _v;
+        double _x, _y, _z;
         float _angle;
         Quaternion _Orientation;
         Vector3 _axis;
         float[] _kukaValues;
 
-        public Pose(string[] newPose)
+        public Pose(string[] newPose, Pose CurrentPose)
         {
-            double.TryParse(newPose[0], out _v);
-            double.TryParse(newPose[0], out _x);
-            double.TryParse(newPose[0], out _y);
-            double.TryParse(newPose[0], out _z);
-            if (newPose.Length == 7)
+            int shift = newPose.Length % 3;
+            // The following If statements catch error while trying to load positions, use last position and keep loading.
+            // TODO: Add signals and more complex error handeling to send back to external server. Perhaps the string which was received for error checking?
+            if (!double.TryParse(newPose[0 + shift], out _x))
             {
-                
+                _x = CurrentPose._x;
+            }
+            if (!double.TryParse(newPose[1 + shift], out _y))
+            {
+                _y = CurrentPose._y;
+            }
+            if (!double.TryParse(newPose[2 + shift], out _z))
+            {
+                _z = CurrentPose._z;
+            }
+            double[] Axis = new double[newPose.Length - (3 + shift)];
+            bool loadedAxis = true;
+            for (int i = 3 + shift; i < newPose.Length; i++)
+            {
+                if (!double.TryParse(newPose[i], out Axis[i - (3 + shift)]))
+                {
+                    loadedAxis = false;
+                    break;
+                }
+            }
+            if (loadedAxis)
+            {
+                // only Z axis loaded
+                if (Axis.Length == 3)
+                {
+                    this._Orientation = SF.QfromZaxis(new Vector3((float)Axis[0], (float)Axis[1], (float)Axis[2]), CurrentPose.Orientation);
+                    SF.getAxisAngle(_Orientation, out _axis, out _angle);
+                    _kukaValues = new float[6];
+                    SF.getKukaAngles(_Orientation, ref _kukaValues);
+                    _kukaValues[0] = (float)_x;
+                    _kukaValues[1] = (float)_y;
+                    _kukaValues[2] = (float)_z;
+                }
+                    // Z axis and X axis loaded
+                else if (Axis.Length == 6)
+                {
+                    this._Orientation = SF.QfromZX(new Vector3((float)Axis[0], (float)Axis[1], (float)Axis[2]), new Vector3((float)Axis[3], (float)Axis[4], (float)Axis[5]));
+                    SF.getAxisAngle(_Orientation, out _axis, out _angle);
+                    _kukaValues = new float[6];
+                    SF.getKukaAngles(_Orientation, ref _kukaValues);
+                    _kukaValues[0] = (float)_x;
+                    _kukaValues[1] = (float)_y;
+                    _kukaValues[2] = (float)_z;
+                }
+                    // No rotation loaded, position movement only
+                else
+                {
+                    this._Orientation = CurrentPose.Orientation;
+                    SF.getAxisAngle(CurrentPose.Orientation, out _axis, out _angle);
+                    _kukaValues = new float[6];
+                    SF.getKukaAngles(CurrentPose.Orientation, ref _kukaValues);
+                    _kukaValues[0] = (float)_x;
+                    _kukaValues[1] = (float)_y;
+                    _kukaValues[2] = (float)_z;
+                }
+            }
+                // Failed while trying to load rotaition, use last orientation and keep moving.
+                // TODO: Add signals and more complex error handeling to send back to external server. Perhaps the string which was received for error checking?
+            else
+            {
+                this._Orientation = CurrentPose.Orientation;
+                SF.getAxisAngle(CurrentPose.Orientation, out _axis, out _angle);
+                _kukaValues = new float[6];
+                SF.getKukaAngles(CurrentPose.Orientation, ref _kukaValues);
+                _kukaValues[0] = (float)_x;
+                _kukaValues[1] = (float)_y;
+                _kukaValues[2] = (float)_z;
             }
         }
-
-        public Pose(string[] newPose, Quaternion DesiredOrientation)
+        
+        /*
+        public Pose( Pose LastPose, string[] newPose)
         {
-            if (newPose.Length == 4)
+            if (newPose.Length % 3 == 0)
             {
-
+                if (!double.TryParse(newPose[0], out _x))
+                {
+                    _x = LastPose._x;
+                }
+                if (!double.TryParse(newPose[1], out _y))
+                {
+                    _y = LastPose._y;
+                }
+                if (!double.TryParse(newPose[2], out _z))
+                {
+                    _z = LastPose._z;
+                }
             }
-        }
+            else
+            {
+                if (!double.TryParse(newPose[1], out _x))
+                {
+                    _x = LastPose._x;
+                }
+                if (!double.TryParse(newPose[2], out _y))
+                {
+                    _y = LastPose._y;
+                }
+                if (!double.TryParse(newPose[3], out _z))
+                {
+                    _z = LastPose._z;
+                }
+            }
+            this._Orientation = LastPose.Orientation;
+            SF.getAxisAngle(LastPose.Orientation, out _axis, out _angle);
+            _kukaValues = new float[6];
+            SF.getKukaAngles(LastPose.Orientation, ref _kukaValues);
+            _kukaValues[0] = (float)_x;
+            _kukaValues[1] = (float)_y;
+            _kukaValues[2] = (float)_z;
+        }*/
 
         public Pose(Matrix Pose) : this(Quaternion.CreateFromRotationMatrix(Pose), Pose.Translation) { }
 
         public Pose(Quaternion Orientation, Vector3 Position)
         {
-            this._v = 0;
             this._x = Position.X;
             this._y = Position.Y;
             this._z = Position.Z;
@@ -338,6 +436,31 @@ namespace LightWeight_Server
 
     public static class SF
     {
+        public static Quaternion QfromZX(Vector3 zAxis, Vector3 xAxis)
+        {
+            xAxis.Normalize();
+            zAxis.Normalize();
+            Vector3 yAxis = Vector3.Cross(zAxis, xAxis);
+            yAxis.Normalize();
+            return Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0, yAxis.X, yAxis.Y, yAxis.Z, 0, zAxis.X, zAxis.Y, zAxis.Z, 0, 0, 0, 0, 1));
+        }
+
+        public static Quaternion QfromZaxis(Vector3 Zaxis, Quaternion _currentOrientation)
+        {
+            Matrix _currentPose = Matrix.CreateFromQuaternion(_currentOrientation);
+            Vector3 axis = Vector3.Cross(Vector3.Normalize(_currentPose.Backward), Vector3.Normalize(Zaxis));
+            float angle = (float)Math.Asin((double)axis.Length());
+            if (Math.Abs(angle) < MathHelper.ToRadians(0.2f))
+            {
+                return _currentOrientation;
+            }
+            if (Vector3.Transform(Zaxis,Quaternion.Inverse(_currentOrientation)).Z < 0)
+            {
+                angle = Math.Sign(angle)*((float)Math.PI - Math.Abs(angle));
+            }
+            return Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle) * _currentOrientation;
+        }
+
         public static Matrix MatMultiply(Matrix M1, Matrix M2)
         {
             return new Matrix(  M1.M11 * M2.M11 + M1.M21 * M2.M12 + M1.M31 * M2.M13 + M1.M41 * M2.M14, M1.M12 * M2.M11 + M1.M22 * M2.M12 + M1.M32 * M2.M13 + M1.M42 * M2.M14, M1.M13 * M2.M11 + M1.M23 * M2.M12 + M1.M33 * M2.M13 + M1.M43 * M2.M14, M1.M14 * M2.M11 + M1.M24 * M2.M12 + M1.M34 * M2.M13 + M1.M44 * M2.M14,

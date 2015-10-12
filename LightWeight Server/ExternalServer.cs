@@ -332,29 +332,36 @@ namespace LightWeight_Server
                             if (int.TryParse(Node.Attributes["N"].Value,out N))
                             {
                                 Pose[] poseList = new Pose[N];
-                                string Pose_i = Node.Attributes[1].Value;
+                                double[] velocityList = new double[N];
+                                string Pose_i = Node.Attributes["1"].Value;
                                 string[] result = Pose_i.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                                if (result.Length == 4)
+                                poseList[0] = new Pose(result, _Robot.currentPose);
+                                // Velocity of -1 means use last known velocity.
+                                if (result.Length % 3 == 0)
                                 {
-                                    poseList[0] = new Pose(result, _Robot.currentPose.Orientation);
+                                    velocityList[0] = -1;
                                 }
-                                else
+                                else if (!double.TryParse(result[0], out velocityList[0]))
                                 {
-                                    poseList[0] = new Pose(result);
+                                    velocityList[0] = -1;
                                 }
                                 for (int i = 1; i < N; i++)
                                 {
-                                    Pose_i = Node.Attributes[i+1].Value;
+                                    Pose_i = Node.Attributes[(i+1).ToString()].Value;
                                     result = Pose_i.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                                    if (result.Length == 4)
+                                    poseList[i] = new Pose(result, poseList[i - 1]);
+                                    if (result.Length % 3 == 0)
                                     {
-                                        poseList[i] = new Pose(result, poseList[i - 1].Orientation);
+                                        velocityList[i] = -1;
                                     }
-                                    else
+                                    else if (!double.TryParse(result[0], out velocityList[i]))
                                     {
-                                        poseList[0] = new Pose(result);
+                                        velocityList[i] = -1;
                                     }
                                 }
+                                // Loaded all poses and velocities associated with the trajectory of each new pose.
+                                // If errors are encounted during the load it uses last pose as default values
+                                // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
                             }
                             break;
                         case "Position":
