@@ -59,6 +59,7 @@ namespace LightWeight_Server
         long _IPOC, _LIPOC;
 
         Stopwatch processDataTimer = new Stopwatch();
+        Stopwatch serverTime = new Stopwatch();
 
         RobotInfo _Robot;
 
@@ -260,6 +261,8 @@ namespace LightWeight_Server
             string catchStatement = "while receive data is active, reading data:";
             try
             {
+                Stopwatch serverTimer = new Stopwatch();
+                serverTimer.Start();
                 // get the object passed into the asyc function
                 StateObject connectedState = (StateObject)ar.AsyncState;
 
@@ -280,6 +283,9 @@ namespace LightWeight_Server
 
                 // Send return message to same connection that the data was received.
                 SendData(connectedState);
+                serverTime.Stop();
+                _Robot.updateServerTime(serverTimer.Elapsed.TotalMilliseconds);
+                serverTimer.Reset();
             }
             catch (SocketException se)
             {

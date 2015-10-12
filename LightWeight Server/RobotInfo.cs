@@ -35,6 +35,9 @@ namespace LightWeight_Server
         FixedSizedQueue<TimeCoordinate> _acceleration = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<TimeCoordinate> _Torque = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<double[]> _Angles = new FixedSizedQueue<double[]>(6);
+        Pose[] _T = new Pose[7];
+        Matrix[] _T0 = new Matrix[7];
+        double[,] _Jacobian = new double[6, 6];
         ConcurrentQueue<TimeCoordinate> _DesiredPose;
         Pose _newPose;
         TimeCoordinate _CurrentDesiredPose;
@@ -76,9 +79,14 @@ namespace LightWeight_Server
 
         public double[] _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
         bool _A1axis = false, _A2axis = false, _A3axis = false, _A4axis = false, _A5axis = false, _A6axis = false;
-        Stopwatch A1 = new Stopwatch(), A2 = new Stopwatch();
+        Stopwatch A1 = new Stopwatch(), A2 = new Stopwatch(), jacobianTimer = new Stopwatch();
         TimeSpan A3 = TimeSpan.Zero, A4 = TimeSpan.Zero, A5 = TimeSpan.Zero, A6 = TimeSpan.Zero;
 
+        FixedSizedQueue<double> JocTimer = new FixedSizedQueue<double>(10);
+        FixedSizedQueue<double> MaxJocTimer = new FixedSizedQueue<double>(10);
+        FixedSizedQueue<double> serverTimer = new FixedSizedQueue<double>(10);
+        FixedSizedQueue<double> MaxserverTimer = new FixedSizedQueue<double>(10);
+        double _JacobienAverTimes = 0;
         // Test variables
         bool _isRotatingX = false;
         bool _isRotatingY = false;
@@ -414,6 +422,8 @@ namespace LightWeight_Server
             _Angles.Enqueue(new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
             _CurrentDesiredPose = new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0);
             _CommandPose = new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0);
+            MaxJocTimer.Enqueue(0);
+            MaxserverTimer.Enqueue(0);
 
             /*
             setupCardinalDictionaries(_ReadPosition, homePosition);
@@ -438,6 +448,7 @@ namespace LightWeight_Server
                 _StartTipPose = _Position.LastElement.Pose;
                 _EndEffectorPose = Pose.inverse(_StartPose) * _StartTipPose ;
                 _EndEffector = _EndEffectorPose.Translation;
+                getLinkTransforms(startAngles[0] * Math.PI / 180, startAngles[1] * Math.PI / 180, startAngles[2] * Math.PI / 180, startAngles[3] * Math.PI / 180, startAngles[4] * Math.PI / 180, startAngles[5] * Math.PI / 180, _EndEffector, out _T, out _T0);
                 _isConnected = true;
             }
             if (!_isConnected)
@@ -696,9 +707,27 @@ namespace LightWeight_Server
             {
                 Console.WriteLine("no rotating");
             }
-            Console.WriteLine("Process data time: " + _processDataTimer.ToString() + "ms.");
-            Console.WriteLine("Max Process data time: " + _maxProcessDataTimer.ToString() + "ms.");
-            Console.WriteLine("Kuka cycle time: " + _loopTime.ToString() + "ms.");
+            Console.WriteLine("Process data time:      " + _processDataTimer.ToString() + "ms.");
+            Console.WriteLine("Max Process data time:  " + _maxProcessDataTimer.ToString() + "ms.");
+            Console.WriteLine("Kuka cycle time:        " + _loopTime.ToString() + "ms.");
+            Console.WriteLine("Average Jacobian time: {0}", _JacobienAverTimes);
+            Console.Write("Maximum Jacobian time: (");
+            foreach (var item in MaxJocTimer.ToArray())
+            {
+                Console.Write(" {0} ", item.ToString());
+            }
+            Console.WriteLine(")");
+            Console.WriteLine("server time:   (");
+            foreach (var item in serverTimer.ToArray())
+            {
+                Console.Write(" {0} ", item.ToString());
+            }
+            Console.WriteLine("Maximum server time:   (");
+            foreach (var item in MaxserverTimer.ToArray())
+            {
+                Console.Write(" {0} ", item.ToString());
+            }
+            Console.WriteLine(")");
 
 
         }
@@ -902,6 +931,31 @@ namespace LightWeight_Server
         public void updateRobotAngles(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
         {
             _Angles.Enqueue(new double[]{a1,a2,a3,a4,a5,a6});
+            if (_isConnected)
+            {
+                jacobianTimer.Restart();
+                getLinkTransforms(a1 * Math.PI / 180, a2 * Math.PI / 180, a3 * Math.PI / 180, a4 * Math.PI / 180, a5 * Math.PI / 180, a6 * Math.PI / 180, _EndEffector, out _T, out _T0);
+                _Jacobian = Jacobian(_T, _T0);
+                jacobianTimer.Stop();
+                double newTime = jacobianTimer.Elapsed.TotalMilliseconds;
+                JocTimer.Enqueue(newTime);
+                double[] jocTimes = JocTimer.ToArray();
+                double[] maxJoc = MaxJocTimer.ToArray();
+                _JacobienAverTimes = jocTimes.Average();
+                if (newTime > maxJoc.Average() || Math.Abs(newTime - maxJoc.Average() ) < 0.1)
+                {
+                    MaxJocTimer.Enqueue(newTime);
+                }
+            }
+        }
+
+        public void updateServerTime(double t)
+        {
+            serverTimer.Enqueue(t);
+            if (t > 4 )//|| Math.Abs(t - MaxserverTimer.ToArray().Average()) < 0.01)
+            {
+                MaxserverTimer.Enqueue(t);
+            }
         }
 
 
@@ -1101,8 +1155,8 @@ namespace LightWeight_Server
                 if (_isConnected && _isCommanded && _CurrentTrajectory.IsActive)
                 {
                     Pose CurrentPose = currentPose;
-                    _Controller.getControllerEffort(_CurrentTrajectory.getReferencePosition(CurrentPose), _CurrentTrajectory.getReferenceVelocity(CurrentPose), CurrentPose, currentVelocity, Jacobian);
-                    _CurrentTrajectory.checkFinish(CurrentPose);
+                    _Controller.getControllerEffort(_CurrentTrajectory.getReferencePosition(CurrentPose), _CurrentTrajectory.getReferenceVelocity(CurrentPose), CurrentPose, currentVelocity, _Jacobian);
+                    _CurrentTrajectory.checkFinish(CurrentPose, 1e-2);
                     Pose commandPose = _CurrentTrajectory.reference(currentPose, currentVelocity, _maxLinearVelocity, (float)_maxAngularVelocity, _maxLinearAcceleration, _maxAngularAcceleration);
                    // Vector3 comandPos = _CurrentTrajectory.getDisplacement(currentPose.Translation, MaxDisplacement);
                    // Vector3 commandOri = _CurrentTrajectory.getOrientation(currentRotation, (float)MaxOrientationDisplacement);

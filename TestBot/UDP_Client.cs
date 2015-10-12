@@ -73,6 +73,12 @@ namespace TestBot
 
         bool isConnected = false;
 
+        Vector3 _EE = new Vector3(50.3f, -10, 102.6f);
+
+        double serverSpeed = 4;
+
+        Random rnd = new Random();
+
         #region Constructor:
         /// <summary>
         /// Creates a UDP server with XML read and write via a port with threadSafe shared robot information
@@ -82,8 +88,9 @@ namespace TestBot
         public UDP_Client()
         {
             // 540, 0, 915 is kuka end effector base hence 39.5 -18.1 81.7 is tip
-            _kukaPosition = new double[] { 500.5, -18.1, 833.3, -180, 0, -180 };
+            //_kukaPosition = new double[] { 500.5, -18.1, 833.3, -180, 0, -180 };
             _kukaAngles = new double[] { 0, -90, 90, 0, 90, 0 };
+            _kukaPosition = forwardKinimatics(_kukaAngles, _EE);
             _kukaPose = MakeMatrixFromKuka(_kukaPosition);
             _kukaServerIPEP = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 6008);
 
@@ -374,6 +381,8 @@ namespace TestBot
             {
                 _kukaAngles[i] += newAngle[i];
             }
+            _kukaPosition = forwardKinimatics(_kukaAngles, _EE);
+            _kukaPose = MakeMatrixFromKuka(_kukaPosition);
             
         }
 
@@ -385,7 +394,7 @@ namespace TestBot
                 //Console.WriteLine("In in the lock in update robot");
                 Matrix changeTransform = MakeMatrixFromKuka(newCommand);
                 _kukaPose = M(changeTransform,_kukaPose);
-                getKukaAngles(_kukaPose, ref _kukaPosition);
+                getKukaAngles(_kukaPose, out _kukaPosition);
                 
                 /*
                  * 
@@ -417,7 +426,7 @@ namespace TestBot
                     UpdateXML();
                     SendData();
                 }
-                isReadyToSend.WaitOne();
+                isReadyToSend.WaitOne(4);
             }
         }
 
@@ -571,7 +580,7 @@ namespace TestBot
         {
             while (true)
             {
-                if (_loopTimer.Elapsed.TotalMilliseconds > 4)
+                if (_loopTimer.Elapsed.TotalMilliseconds > serverSpeed + rnd.Next(10)/10)
                 {
                     _loopTimer.Restart();
                     isReadyToSend.Set();
@@ -580,7 +589,7 @@ namespace TestBot
         }
 
 
-        public void getKukaAngles(Matrix pose, ref double[] kukaOut)
+        public void getKukaAngles(Matrix pose, out double[] kukaOut)
         {
             float A = 0;
             float B = 0;
@@ -600,13 +609,7 @@ namespace TestBot
                 A = (float)Math.Atan2(rotationMat.M21, rotationMat.M11);
                 C = (float)Math.Atan2(rotationMat.M32, rotationMat.M33);
             }
-
-            kukaOut[0] = (double)pose.Translation.X;
-            kukaOut[1] = (double)pose.Translation.Y;
-            kukaOut[2] = (double)pose.Translation.Z;
-            kukaOut[3] = MathHelper.ToDegrees(A);
-            kukaOut[4] = MathHelper.ToDegrees(B);
-            kukaOut[5] = MathHelper.ToDegrees(C);
+            kukaOut = new double[] {(double)pose.Translation.X,(double)pose.Translation.Y,(double)pose.Translation.Z,MathHelper.ToDegrees(A),MathHelper.ToDegrees(B),MathHelper.ToDegrees(C),};
 
         }
 
@@ -625,6 +628,93 @@ namespace TestBot
             poseout.Translation = new Vector3((float)pose[0], (float)pose[1], (float)pose[2]);
             return poseout;
         }
+
+
+        /// <summary>
+        /// Computers the forwards kinimatics using a known EndEffector displacement aligned with T67. The angles are in DEGREES, EE is in mm
+        /// </summary>
+        /// <param name="angles"></param>
+        /// <param name="EE"></param>
+        /// <returns></returns>
+        public double[] forwardKinimatics(double[] angles, Vector3 EE)
+        {
+            return forwardKinimatics(angles[0] * Math.PI / 180, angles[1] * Math.PI / 180, angles[2] * Math.PI / 180, angles[3] * Math.PI / 180, angles[4] * Math.PI / 180, angles[5] * Math.PI / 180, EE);
+        }
+
+        /// <summary>
+        /// Computers the forwards kinimatics using a known EndEffector displacement aligned with T67. The angles are in radians EE is in mm
+        /// </summary>
+        /// <param name="a1"></param>
+        /// <param name="a2"></param>
+        /// <param name="a3"></param>
+        /// <param name="a4"></param>
+        /// <param name="a5"></param>
+        /// <param name="a6"></param>
+        /// <param name="EE"></param>
+        /// <returns></returns>
+        public double[] forwardKinimatics(double a1, double a2, double a3, double a4, double a5, double a6, Vector3 EE)
+        {
+            double s1 = Math.Sin(a1);
+            double c1 = Math.Cos(a1);
+            double s2 = Math.Sin(a2);
+            double c2 = Math.Cos(a2);
+            double s23 = Math.Sin(a2 - Math.PI / 2 + a3);
+            double c23 = Math.Cos(a2 - Math.PI / 2 + a3);
+            double s3 = Math.Sin(a3);
+            double c3 = Math.Cos(a3);
+            double s3p = Math.Sin(a3 - Math.PI / 2);
+            double c3p = Math.Cos(a3 - Math.PI / 2);
+            double s4 = Math.Sin(a4);
+            double c4 = Math.Cos(a4);
+            double s45 = Math.Sin(a4 + a5);
+            double s4m5 = Math.Sin(a4 - a5);
+            double s5 = Math.Sin(a5);
+            double c5 = Math.Cos(a5);
+            double s6 = Math.Sin(a6);
+            double c6 = Math.Cos(a6);
+            double a = (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p));
+            double b1 = (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p));
+            double b2 = (c1 * c2 * s3p + c1 * c3p * s2);
+            double b = (c5 * b1 - s5 * b2);
+            double m11 = -s6 * a - c6 * b;
+            double m12 = c6 * a - s6 * b;
+            double m13 = -s5 * b1 - c5 * b2;
+            //double m14 = 25 * c1 + 560 * c1 * c2 - 515 * c1 * s2 * s3 - 80 * s1 * s4 * s5 + 515 * c1 * c2 * c3 + 35 * c1 * c2 * s3 + 35 * c1 * c3 * s2 + 80 * c1 * c2 * c3 * c5 - 80 * c1 * c5 * s2 * s3 - 80 * c1 * c2 * c4 * s3 * s5 - 80 * c1 * c3 * c4 * s2 * s5;
+            double m14 = 25 * c1 + 560 * c1 * c2 - EE.X * (s6 * (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p)) + c6 * (c5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s5 * (c1 * c2 * s3p + c1 * c3p * s2))) + EE.Y * (c6 * (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s6 * (c5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s5 * (c1 * c2 * s3p + c1 * c3p * s2))) - (s5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) + c5 * (c1 * c2 * s3p + c1 * c3p * s2)) * (EE.Z + 80) - 515 * c1 * c2 * s3p - 515 * c1 * c3p * s2 - 35 * c1 * s2 * s3p + 35 * c1 * c2 * c3p;
+
+            a = (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p));
+            b1 = (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p));
+            b2 = (c2 * s1 * s3p + c3p * s1 * s2);
+            b = (c5 * b1 + s5 * b2);
+            double m21 = -s6 * a + c6 * b;
+            double m22 = -s6 * b + c6 * a;
+            double m23 = -s5 * b1 + c5 * b2;
+            //double m24 = 515 * s1 * s2 * s3 - 560 * c2 * s1 - 35 * c2 * s1 * s3 - 35 * c3 * s1 * s2 - 80 * c1 * s4 * s5 - 25 * s1 - 515 * c2 * c3 * s1 - 80 * c2 * c3 * c5 * s1 + 80 * c5 * s1 * s2 * s3 + 80 * c2 * c4 * s1 * s3 * s5 + 80 * c3 * c4 * s1 * s2 * s5;
+            double m24 = -EE.X * (s6 * (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p)) + c6 * (c5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p)) + s5 * (c2 * s1 * s3p + c3p * s1 * s2))) - 560 * c2 * s1 - 25 * s1 + EE.Y * (c6 * (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p)) - s6 * (c5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3)) + s5 * (c2 * s1 * s3p + c3 * s1 * s2))) - (s5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p)) - c5 * (c2 * s1 * s3p + c3p * s1 * s2)) * (EE.Z + 80) - 35 * c2 * c3p * s1 + 515 * c2 * s1 * s3p + 515 * c3p * s1 * s2 + 35 * s1 * s2 * s3p;
+
+            a = (c2 * s3p + c3p * s2);
+            b1 = (c2 * c3p - s2 * s3p);
+            b = (s5 * b1 + c4 * c5 * a);
+            double m31 = -s4 * s6 * a + c6 * b;
+            double m32 = s6 * b + c6 * s4 * a;
+            double m33 = c4 * s5 * a - c5 * b1;
+            //double m34 = 40 * s23 * s45 - 35 * s23 - 560 * s2 - 515 * c23 - 80 * c23 * c5 - 40 * s4m5 * s23 + 400;
+            double m34 = 515 * s2 * s3p - 515 * c2 * c3p - 35 * c2 * s3p - 35 * c3p * s2 - 560 * s2 - (c5 * (c2 * c3p - s2 * s3p) - c4 * s5 * (c2 * s3p + c3p * s2)) * (EE.Z + 80) + EE.X * (c6 * (s5 * (c2 * c3p - s2 * s3p) + c4 * c5 * (c2 * s3p + c3p * s2)) - s4 * s6 * (c2 * s3p + c3p * s2)) + EE.Y * (s6 * (s5 * (c2 * c3p - s2 * s3p) + c4 * c5 * (c2 * s3p + c3p * s2)) + c6 * s4 * (c2 * s3p + c3p * s2)) + 400;
+
+            double m41 = 0;
+            double m42 = 0;
+            double m43 = 0;
+            double m44 = 1;
+            Matrix M = new Matrix((float)m11, (float)m12, (float)m13, (float)m14, (float)m21, (float)m22, (float)m23, (float)m24, (float)m31, (float)m32, (float)m33, (float)m34, (float)m41, (float)m42, (float)m43, (float)m44);
+            M = Matrix.Transpose(M);
+            Vector3 pos = M.Translation;
+
+            double[] kukaValues = new double[6];
+            getKukaAngles(M, out kukaValues);
+            return kukaValues;
+
+        }
+
         #endregion
     }
 

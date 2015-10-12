@@ -11,16 +11,37 @@ namespace LightWeight_Server
 
     public struct Pose
     {
-        double _x, _y, _z;
+        double _x, _y, _z, _v;
         float _angle;
         Quaternion _Orientation;
         Vector3 _axis;
         float[] _kukaValues;
 
+        public Pose(string[] newPose)
+        {
+            double.TryParse(newPose[0], out _v);
+            double.TryParse(newPose[0], out _x);
+            double.TryParse(newPose[0], out _y);
+            double.TryParse(newPose[0], out _z);
+            if (newPose.Length == 7)
+            {
+                
+            }
+        }
+
+        public Pose(string[] newPose, Quaternion DesiredOrientation)
+        {
+            if (newPose.Length == 4)
+            {
+
+            }
+        }
+
         public Pose(Matrix Pose) : this(Quaternion.CreateFromRotationMatrix(Pose), Pose.Translation) { }
 
         public Pose(Quaternion Orientation, Vector3 Position)
         {
+            this._v = 0;
             this._x = Position.X;
             this._y = Position.Y;
             this._z = Position.Z;

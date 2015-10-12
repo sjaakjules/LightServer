@@ -19,8 +19,8 @@ namespace LightWeight_Server
     {
         Stopwatch _elapsedTime = new Stopwatch();
         bool _isActive = false, _isRotating = false, _isTranslating = false, _hasCompleated = false;
-        Pose[] _finalPose, _startPose, _startVelocity, _finalVelocity, _changePose;
-        TimeSpan[] _trajectoryTime;
+        Pose _finalPose, _startPose, _startVelocity, _finalVelocity, _changePose;
+        TimeSpan _trajectoryTime;
         Quaternion _startInverse;
         int segments, currentSegment=0;
         double[][] _QuinticPerameters = new double[4][];

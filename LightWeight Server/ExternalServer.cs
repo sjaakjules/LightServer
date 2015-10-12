@@ -25,6 +25,7 @@ namespace LightWeight_Server
         XmlDocument _SendXML;
         bool _loadedPosition = false;
         bool _loadedRotation = false;
+        string[] splitter = new string[] { "," };
 
         RobotInfo _Robot;
 
@@ -326,6 +327,36 @@ namespace LightWeight_Server
                 {
                     switch (Node.Name)
                     {
+                        case "PoseList":
+                            int N = 0;
+                            if (int.TryParse(Node.Attributes["N"].Value,out N))
+                            {
+                                Pose[] poseList = new Pose[N];
+                                string Pose_i = Node.Attributes[1].Value;
+                                string[] result = Pose_i.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                                if (result.Length == 4)
+                                {
+                                    poseList[0] = new Pose(result, _Robot.currentPose.Orientation);
+                                }
+                                else
+                                {
+                                    poseList[0] = new Pose(result);
+                                }
+                                for (int i = 1; i < N; i++)
+                                {
+                                    Pose_i = Node.Attributes[i+1].Value;
+                                    result = Pose_i.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                                    if (result.Length == 4)
+                                    {
+                                        poseList[i] = new Pose(result, poseList[i - 1].Orientation);
+                                    }
+                                    else
+                                    {
+                                        poseList[0] = new Pose(result);
+                                    }
+                                }
+                            }
+                            break;
                         case "Position":
                             double[] newPosition = new double[4];
                             for (int i = 0; i < 3; i++)
