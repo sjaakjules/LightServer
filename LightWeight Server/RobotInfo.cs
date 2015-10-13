@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Mehroz;
 
 namespace LightWeight_Server
 {
@@ -24,6 +25,7 @@ namespace LightWeight_Server
         object EEposeLock = new object();
 
         Stopwatch _KukaCycleTime = new Stopwatch();
+        public Stopwatch IPOC = new Stopwatch();
 
         // Time of loop in SECONDS
         double _loopTime = 0;
@@ -103,6 +105,9 @@ namespace LightWeight_Server
 
         StringBuilder _DisplayMsg = new StringBuilder();
         int _errorMsgs = 0;
+
+        double TGetReference, TGetController, TloadTrajectory, T1, T2, T3;
+        public double PGetReference, PGetController, PloadTrajectory, P1, P2, P3, P4;
 
         public readonly double[] homePosition = new double[] { 540.5, -18.1, 833.3, 180.0, 0.0, 180.0 };
 
@@ -449,6 +454,7 @@ namespace LightWeight_Server
         {
             if (_isConnecting)
             {
+                IPOC.Start();
                 double[] startAngles = _Angles.LastElement;
                 _StartPose = forwardKinimatics(startAngles, Vector3.Zero);
                 _StartTipPose = _Position.LastElement.Pose;
@@ -717,6 +723,12 @@ namespace LightWeight_Server
             Console.WriteLine("Max Process data time:   " + _maxProcessDataTimer.ToString() + "ms.");
             Console.WriteLine("Kuka cycle time:         " + _loopTime.ToString() + "ms.");
             Console.WriteLine("Average Trajectory time: {0}", _trajectoryLoaderTime);
+            Console.WriteLine("Reference time:          {0}", PGetReference);
+            Console.WriteLine("Controller time:         {0}", PGetController);
+            Console.WriteLine("Control loop time:       {0}", P1);
+            Console.WriteLine("Inverse Wrist loop time: {0}", P2);
+            Console.WriteLine("Inverse Jacobian time:   {0}", P3);
+            Console.WriteLine("Control axis loop time:  {0}", P4);
             Console.WriteLine("Average Jacobian time:   {0}", _JacobienAverTimes);
             Console.WriteLine("Maximum Jacobian time: \n(");
             foreach (var item in MaxJocTimer.ToArray())
@@ -757,22 +769,7 @@ namespace LightWeight_Server
         {
             //updateError(x.ToString() + " : " + y.ToString() + " : " + z.ToString() + " : " + a.ToString() + " : " + b.ToString() + " : " + c.ToString());
             _KukaCycleTime.Stop();
-            if (_KukaCycleTime.ElapsedTicks == 0)
-            {
-                _loopTime = 1.0 / 250;
-            }
-            else
-            {
-                if (Math.Abs(_loopTime - 1.0 * _KukaCycleTime.ElapsedTicks / TimeSpan.TicksPerSecond) > 5.0 / 1000)
-                {
-                    _loopTime = 1.0 / 250;
-                }
-                else
-                {
-                    _loopTime = 1.0 * _KukaCycleTime.ElapsedTicks / TimeSpan.TicksPerSecond;
-                }
-
-            }
+            _loopTime = _KukaCycleTime.Elapsed.TotalMilliseconds;
             _KukaCycleTime.Restart();
 
             TimeCoordinate newPosition = new TimeCoordinate(x, y, z, a, b, c, Ipoc);
@@ -813,7 +810,11 @@ namespace LightWeight_Server
             T0 = new Matrix[] {T01,T02,T03,T04,T05,T06,T07};
         }
 
-
+        double[,] InverseJacobian(double error)
+        {
+            double[,] InvWristJacobian = SF.InverseJacobian(Mat.multiplyMatrix(_Angles.LastElement, Math.PI / 180), error);
+            return getTipJacobian(InvWristJacobian, _EndEffector);
+        }
 
         double[,] Jacobian(Pose[] T, Matrix[] T0)
         {
@@ -828,6 +829,7 @@ namespace LightWeight_Server
 			}
             for (int i = 0; i < 6; i++)
 			{
+                T0[i].Translation = Vector3.Zero;
 			    Jr[i] = Vector3.Transform(Vector3.Cross(new Vector3(0,0,1),rit[i]),T0[i]);
                 Jw[i] = new Vector3(T0[i].M31,T0[i].M32,T0[i].M33);
 			}
@@ -839,6 +841,7 @@ namespace LightWeight_Server
                                   {Jw[0].Y,Jw[1].Y,Jw[2].Y,Jw[3].Y,Jw[4].Y,Jw[5].Y},
                                   {Jw[0].Z,Jw[1].Z,Jw[2].Z,Jw[3].Z,Jw[4].Z,Jw[5].Z}};
         }
+
 
         /// <summary>
         /// Computers the forwards kinimatics using a known EndEffector displacement aligned with T67. The angles are in DEGREES, EE is in mm
@@ -944,6 +947,9 @@ namespace LightWeight_Server
                 jacobianTimer.Restart();
                 getLinkTransforms(a1 * Math.PI / 180, a2 * Math.PI / 180, a3 * Math.PI / 180, a4 * Math.PI / 180, a5 * Math.PI / 180, a6 * Math.PI / 180, _EndEffector, out _T, out _T0);
                 _Jacobian = Jacobian(_T, _T0);
+                double[,] invJoc = InverseJacobian(1e-6);
+               // Mat Jocob = new Mat(_Jacobian);
+              //  double[,] invJocob = Jocob.Inverse(1e-4).getArray;
                 jacobianTimer.Stop();
                 double newTime = jacobianTimer.Elapsed.TotalMilliseconds;
                 JocTimer.Enqueue(newTime);
@@ -1207,15 +1213,42 @@ namespace LightWeight_Server
             // The output is the transform from Base to final.
         }
 
+        double[,] getTipJacobian(double[,] InvWristJacobian, Vector3 EE)
+        {
+            double[,] InvSkewEE = new double[,] { { 1, 0, 0, 0, -EE.Z, EE.Y }, { 0, 1, 0, EE.Z, 0, -EE.X }, { 0, 0, 1, -EE.Y, EE.X, 0 }, { 0, 0, 0, 1, 0, 0 }, { 0, 0, 0, 0, 1, 0 }, { 0, 0, 0, 0, 0, 1 } };
+            return Mat.multiplyMatrix(InvWristJacobian,InvSkewEE);
+        }
+
         public void updateComandPosition()
         {
+            T1 = IPOC.Elapsed.TotalMilliseconds;
             lock (trajectoryLock)
             {
 
                 if (_isConnected && _isCommanded && _CurrentTrajectory.IsActive)
                 {
                     Pose CurrentPose = currentPose;
-                    _axisCommand = _Controller.getControllerEffort(_CurrentTrajectory.getReferencePosition(CurrentPose), _CurrentTrajectory.getReferenceVelocity(CurrentPose), CurrentPose, currentVelocity, _Jacobian);
+
+                    TGetReference = IPOC.Elapsed.TotalMilliseconds;
+                    Pose Reference = _CurrentTrajectory.getReferencePosition(CurrentPose);
+                    PGetReference = IPOC.Elapsed.TotalMilliseconds - TGetReference;
+
+                    TGetController = IPOC.Elapsed.TotalMilliseconds;
+
+                    T2 = IPOC.Elapsed.TotalMilliseconds;
+                    double[,] InvWristJacobian = SF.InverseJacobian(Mat.multiplyMatrix(_Angles.LastElement,Math.PI/180),1e-5);
+                    P2 = IPOC.Elapsed.TotalMilliseconds - T2;
+
+                    T2 = IPOC.Elapsed.TotalMilliseconds;
+                    double[,] inverseJoc = getTipJacobian(InvWristJacobian, _EndEffector);
+                    P3 = IPOC.Elapsed.TotalMilliseconds - T2;
+
+                    T2 = IPOC.Elapsed.TotalMilliseconds;
+                    _axisCommand = _Controller.getControllerEffort(Reference, _CurrentTrajectory.getReferenceVelocity(CurrentPose), CurrentPose, currentVelocity, inverseJoc);
+                    P4 = IPOC.Elapsed.TotalMilliseconds - T2;
+
+                    PGetController = IPOC.Elapsed.TotalMilliseconds - TGetController;
+
                     Pose commandPose = new Pose(_axisCommand);
                    // Pose commandPose = _CurrentTrajectory.reference(currentPose, currentVelocity, _maxLinearVelocity, (float)_maxAngularVelocity, _maxLinearAcceleration, _maxAngularAcceleration);
                    // Vector3 comandPos = _CurrentTrajectory.getDisplacement(currentPose.Translation, MaxDisplacement);
@@ -1274,7 +1307,7 @@ namespace LightWeight_Server
                 }
 
             }
-
+            P1 = IPOC.Elapsed.TotalMilliseconds - T1;
                 
                 if (A1axis && A1.Elapsed.TotalMilliseconds == 0)
                 {

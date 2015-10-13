@@ -477,23 +477,7 @@ namespace LightWeight_Server
                                 
         }
 
-        public static double[] multiplyJacobian(double[,] Jacobian, double[] taskVelocity)
-        {
-            // TODO basic matrix multiplication
-            return new double[] { 0, 0, 0, 0, 0, 0 };
-        }
 
-        public static double[] multiplyJacobian(Mat Jacobian, double[] taskVelocity)
-        {
-            try
-            {
-                return Jacobian.multiplyMatrix(taskVelocity);
-            }
-            catch (Exception)
-            {
-                return new double[] { 0, 0, 0, 0, 0, 0 };
-            }
-        }
 
         public static Vector3 getOrientationError(Matrix reference, Matrix measured)
         {
@@ -866,7 +850,117 @@ namespace LightWeight_Server
             
         }
 
+        public static double[,] InverseJacobian(double[] t, double error)
+        {
+            if (t.Length == 6)
+            {
+                return InverseJacobian(t[0], t[1], t[2], t[3], t[4], t[5], error);
+            }
+            return new double[,] { { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 } };
+        }
 
+        /// <summary>
+        /// Computes the inverse jacobian to the WRIST where if singularity occures aproximates the jacobian.
+        /// Angles are in radians!!!
+        /// </summary>
+        /// <param name="t1"></param>
+        /// <param name="t2"></param>
+        /// <param name="t3"></param>
+        /// <param name="t4"></param>
+        /// <param name="t5"></param>
+        /// <param name="t6"></param>
+        /// <param name="EE"></param>
+        /// <returns></returns>
+        static double[,] InverseJacobian(double t1, double t2, double t3, double t4, double t5, double t6, double error)
+        {
+            double[,] inverseJoc = new double[6, 6];
+            double s1 = Math.Sin(t1);
+            double c1 = Math.Cos(t1);
+            double s2 = Math.Sin(t2);
+            double s2p3 = Math.Sin(t2 + t3);
+            double c2p3 = Math.Cos(t2 + t3);
+            double c2 = Math.Cos(t2);
+            double s3 = Math.Sin(t3);
+            double c3 = Math.Cos(t3);
+            double s3p = Math.Sin(t3 - Math.PI / 2);
+            double c3p = Math.Cos(t3 - Math.PI / 2);
+            double s4 = Math.Sin(t4);
+            double c4 = Math.Cos(t4);
+            double s5 = Math.Sin(t5);
+            double c5 = Math.Cos(t5);
+            double s6 = Math.Sin(t6);
+            double c6 = Math.Cos(t6);
+            double c234 = Math.Cos(t2 + t3 + t4);
+            // These are the denominators withing the inverse Jacobian, if they tend to zero singularity is reached and velocities will tend to inf!
+            double cot5 = (Math.Abs(s5) < error) ? c5 / error : c5 / s5;
+            double singularity1 = (Math.Abs(103 * c2p3 + 7 * s2p3 + 112 * c2 + 5) < error) ? Math.Sign(103 * c2p3 + 7 * s2p3 + 112 * c2 + 5) * error : (103 * c2p3 + 7 * s2p3 + 112 * c2 + 5);
+            double singularity2 = (Math.Abs(1960 * c3 - 28840 * s3) < error) ? Math.Sign(1960 * c3 - 28840 * s3) * error : (1960 * c3 - 28840 * s3);
+            double singularity3 = (Math.Abs(7 * c3 - 103 * s3) < error) ? Math.Sign(7 * c3 - 103 * s3) * error : (7 * c3 - 103 * s3);
+            double singularity4 = (Math.Abs(3920 * c3 - 57680 * s3) < error) ? Math.Sign(3920 * c3 - 57680 * s3) * error : (3920 * c3 - 57680 * s3);
+            double Sing5 = (3605 * c2 * s5 - 175 * c3 * s5 - 53045 * s2 * s5 + 2575 * s3 * s5 + 57680 * c2 * s3 * s5 - 7210 * c2 * c3 * c3 * s5 + 52800 * c3 * c3 * s2 * s5 - 3920 * c2 * c3 * s5 + 52800 * c2 * c3 * s3 * s5 + 7210 * c3 * s2 * s3 * s5);
+            double singularity5 = (Math.Abs(Sing5) < error) ? Math.Sign(Sing5) * error : (Sing5);
+            double Sing6 = (c2p3 * c2p3 * s5 - c2p3 * c2p3 * c4 * c4 * s5 + s2p3 * c2 * s3 * s5 + s2p3 * c3 * s2 * s5 - s2p3 * c4 * c4 * s2 * s5 * s3p + c2p3 * c2 * c4 * c5 * c3p - c2p3 * c4 * c5 * s2 * s3p + s2p3 * c2 * c4 * c5 * s3p + s2p3 * c4 * c5 * c3p * s2 - c2p3 * c2 * c4 * c4 * s5 * s3p - c2p3 * c4 * c4 * c3p * s2 * s5 + s2p3 * c2 * c4 * c4 * c3p * s5 - s2p3 * c2 * c4 * c4 * s3 * s5 - s2p3 * c3 * c4 * c4 * s2 * s5);
+            double singularity6 = (Math.Abs(Sing6) < error) ? Math.Sign(Sing6) * error : (Sing6);
+            double singularity7 = (Math.Abs(7 * c3 * s5 - 103 * s3 * s5) < error) ? Math.Sign(7 * c3 * s5 - 103 * s3 * s5) * error : (7 * c3 * s5 - 103 * s3 * s5);
+            double singularity8 = ((Math.Abs(s5) < error) ? Math.Sign(s5) * error : s5);
+            double Sing9 = (5 * s5 * (721 * c2 - 35 * c3 - 10609 * s2 + 515 * s3 - 784 * c2 * c3 + 11536 * c2 * s3 - 1442 * c2 * c3 * c3 + 10560 * c3 * c3 * s2 + 1442 * c3 * s2 * s3 + 10560 * c2 * c3 * s3));
+            double singularity9 = ((Math.Abs(Sing9) < error) ? Math.Sign(Sing9) * error : Sing9);
+            double Sing10 = (3605 * c2 - 175 * c3 - 53045 * s2 + 2575 * s3 - 3920 * c2 * c3 + 57680 * c2 * s3 - 7210 * c2 * c3 * c3 + 52800 * c3 * c3 * s2 + 7210 * c3 * s2 * s3 + 52800 * c2 * c3 * s3);
+            double singularity10 = ((Math.Abs(Sing10) < error) ? Math.Sign(Sing10) * error : Sing10);
+
+            inverseJoc[0, 0] = -s1 / (5 * singularity1);
+            inverseJoc[0, 1] = -c1 / (5 * singularity1);
+            inverseJoc[0, 2] = 0;
+            inverseJoc[0, 3] = 0;
+            inverseJoc[0, 4] = 0;
+            inverseJoc[0, 5] = 0;
+            inverseJoc[1, 0] = -(103 * c1 * c2 * c3 - 103 * c1 * s2 * s3 + 7 * c1 * c2 * s3 + 7 * c1 * c3 * s2) / (2 * singularity2);
+            inverseJoc[1, 1] = (7 * c2 * s1 * s3 + 7 * c3 * s1 * s2 - 103 * s1 * s2 * s3 + 103 * c2 * c3 * s1) / (2 * singularity2);
+            inverseJoc[1, 2] = -(7 * c2p3 - 103 * s2p3) / (560 * singularity3);
+            inverseJoc[1, 3] = 0;
+            inverseJoc[1, 4] = 0;
+            inverseJoc[1, 5] = 0;
+            inverseJoc[2, 0] = (112 * c1 * c2 - 103 * c1 * s2 * s3 + 103 * c1 * c2 * c3 + 7 * c1 * c2 * s3 + 7 * c1 * c3 * s2) / singularity4;
+            inverseJoc[2, 1] = -(112 * c2 * s1 + 7 * c2 * s1 * s3 + 7 * c3 * s1 * s2 - 103 * s1 * s2 * s3 + 103 * c2 * c3 * s1) / singularity4;
+            inverseJoc[2, 2] = -(103 * s2p3 - 7 * c2p3 + 112 * s2) / (560 * singularity3);
+            inverseJoc[2, 3] = 0;
+            inverseJoc[2, 4] = 0;
+            inverseJoc[2, 5] = 0;
+            inverseJoc[3, 0] = -(103 * c2 * s1 * s5 + 112 * c1 * c2 * c2 * c5 * s4 - 103 * c2 * c3 * c3 * s1 * s5 - 7 * c3 * c3 * s1 * s2 * s5 + 5 * c1 * c2 * c5 * s4 + 103 * c4 * c5 * s1 * s2 + 103 * c1 * c2 * c2 * c3 * c5 * s4 + 7 * c2 * c3 * c3 * c4 * c5 * s1 + 7 * c1 * c2 * c2 * c5 * s3 * s4 - 103 * c3 * c3 * c4 * c5 * s1 * s2 - 7 * c2 * c3 * s1 * s3 * s5 + 103 * c3 * s1 * s2 * s3 * s5 + 7 * c1 * c2 * c3 * c5 * s2 * s4 - 103 * c2 * c3 * c4 * c5 * s1 * s3 - 103 * c1 * c2 * c5 * s2 * s3 * s4 - 7 * c3 * c4 * c5 * s1 * s2 * s3) / singularity5;
+            inverseJoc[3, 1] = (103 * c1 * c2 * c3 * c3 * s5 - 103 * c1 * c2 * s5 + 7 * c1 * c3 * c3 * s2 * s5 + 112 * c2 * c2 * c5 * s1 * s4 - 103 * c1 * c4 * c5 * s2 + 5 * c2 * c5 * s1 * s4 + 103 * c1 * c3 * c3 * c4 * c5 * s2 + 103 * c2 * c2 * c3 * c5 * s1 * s4 + 7 * c2 * c2 * c5 * s1 * s3 * s4 + 7 * c1 * c2 * c3 * s3 * s5 - 103 * c1 * c3 * s2 * s3 * s5 - 7 * c1 * c2 * c3 * c3 * c4 * c5 + 103 * c1 * c2 * c3 * c4 * c5 * s3 + 7 * c1 * c3 * c4 * c5 * s2 * s3 + 7 * c2 * c3 * c5 * s1 * s2 * s4 - 103 * c2 * c5 * s1 * s2 * s3 * s4) / singularity5;
+            inverseJoc[3, 2] = -(c5 * s2 * s4) / (5 * singularity7);
+            inverseJoc[3, 3] = (c2p3 * c1 * c4 * c4 * s5 - c2p3 * c1 * s5 + c1 * c2 * c4 * c4 * s5 * s3p + c1 * c4 * c4 * c3p * s2 * s5 - c1 * c2 * c4 * c5 * c3p + c1 * c4 * c5 * s2 * s3p + c3 * c5 * s1 * s4 * s3p - c2 * c2 * c3 * c5 * s1 * s4 * s3p - c2 * c2 * c5 * c3p * s1 * s3 * s4 + c2p3 * c2 * c5 * s1 * s4 * s3p + c2p3 * c5 * c3p * s1 * s2 * s4 + c3 * c4 * c3p * s1 * s4 * s5 + c2 * c2 * c4 * s1 * s3 * s4 * s5 * s3p + c2p3 * c2 * c4 * c3p * s1 * s4 * s5 - c2p3 * c4 * s1 * s2 * s4 * s5 * s3p - c2 * c3 * c5 * c3p * s1 * s2 * s4 + c2 * c5 * s1 * s2 * s3 * s4 * s3p - c2 * c2 * c3 * c4 * c3p * s1 * s4 * s5 + c2 * c3 * c4 * s1 * s2 * s4 * s5 * s3p + c2 * c4 * c3p * s1 * s2 * s3 * s4 * s5) / singularity6;
+            inverseJoc[3, 4] = (c2p3 * s1 * s5 - c2p3 * c4 * c4 * s1 * s5 - c2 * c4 * c4 * s1 * s5 * s3p - c4 * c4 * c3p * s1 * s2 * s5 + c2 * c4 * c5 * c3p * s1 + c1 * c3 * c5 * s4 * s3p - c4 * c5 * s1 * s2 * s3p + c2p3 * c1 * c2 * c5 * s4 * s3p + c2p3 * c1 * c5 * c3p * s2 * s4 + c1 * c3 * c4 * c3p * s4 * s5 - c1 * c2 * c2 * c3 * c5 * s4 * s3p - c1 * c2 * c2 * c5 * c3p * s3 * s4 + c2p3 * c1 * c2 * c4 * c3p * s4 * s5 - c2p3 * c1 * c4 * s2 * s4 * s5 * s3p - c1 * c2 * c3 * c5 * c3p * s2 * s4 + c1 * c2 * c5 * s2 * s3 * s4 * s3p - c1 * c2 * c2 * c3 * c4 * c3p * s4 * s5 + c1 * c2 * c2 * c4 * s3 * s4 * s5 * s3p + c1 * c2 * c3 * c4 * s2 * s4 * s5 * s3p + c1 * c2 * c4 * c3p * s2 * s3 * s4 * s5) / singularity6;
+            inverseJoc[3, 5] = s2p3 - (Math.Cos(t2 + t3 + t4) * cot5) / 2 - (Math.Cos(t2 + t3 - t4) * cot5) / 2;
+            inverseJoc[4, 0] = (112 * c1 * c2 * c2 * c4 - 103 * s1 * s2 * s4 + 5 * c1 * c2 * c4 + 103 * c1 * c2 * c2 * c3 * c4 + 7 * c1 * c2 * c2 * c4 * s3 - 7 * c2 * c3 * c3 * s1 * s4 + 103 * c3 * c3 * s1 * s2 * s4 + 7 * c1 * c2 * c3 * c4 * s2 - 103 * c1 * c2 * c4 * s2 * s3 + 103 * c2 * c3 * s1 * s3 * s4 + 7 * c3 * s1 * s2 * s3 * s4) / singularity10;
+            inverseJoc[4, 1] = -(103 * c1 * s2 * s4 + 112 * c2 * c2 * c4 * s1 + 5 * c2 * c4 * s1 + 7 * c1 * c2 * c3 * c3 * s4 + 103 * c2 * c2 * c3 * c4 * s1 - 103 * c1 * c3 * c3 * s2 * s4 + 7 * c2 * c2 * c4 * s1 * s3 + 7 * c2 * c3 * c4 * s1 * s2 - 103 * c1 * c2 * c3 * s3 * s4 - 103 * c2 * c4 * s1 * s2 * s3 - 7 * c1 * c3 * s2 * s3 * s4) / singularity10;
+            inverseJoc[4, 2] = (c4 * s2) / (5 * singularity3);
+            inverseJoc[4, 3] = c4 * s1 - c1 * c2 * s3 * s4 - c1 * c3 * s2 * s4;
+            inverseJoc[4, 4] = c1 * c4 + c2 * s1 * s3 * s4 + c3 * s1 * s2 * s4;
+            inverseJoc[4, 5] = -c2p3 * s4;
+            inverseJoc[5, 0] = -(103 * c4 * s1 * s2 + 112 * c1 * c2 * c2 * s4 + 5 * c1 * c2 * s4 + 103 * c1 * c2 * c2 * c3 * s4 + 7 * c2 * c3 * c3 * c4 * s1 + 7 * c1 * c2 * c2 * s3 * s4 - 103 * c3 * c3 * c4 * s1 * s2 + 7 * c1 * c2 * c3 * s2 * s4 - 103 * c2 * c3 * c4 * s1 * s3 - 103 * c1 * c2 * s2 * s3 * s4 - 7 * c3 * c4 * s1 * s2 * s3) / singularity9;
+            inverseJoc[5, 1] = (5 * c2 * s1 * s4 + 112 * c2 * c2 * s1 * s4 - 103 * c1 * c4 * s2 - 7 * c1 * c2 * c3 * c3 * c4 + 103 * c1 * c3 * c3 * c4 * s2 + 103 * c2 * c2 * c3 * s1 * s4 + 7 * c2 * c2 * s1 * s3 * s4 + 103 * c1 * c2 * c3 * c4 * s3 + 7 * c1 * c3 * c4 * s2 * s3 + 7 * c2 * c3 * s1 * s2 * s4 - 103 * c2 * s1 * s2 * s3 * s4) / singularity9;
+            inverseJoc[5, 2] = -(s2 * s4) / (5 * singularity7);
+            inverseJoc[5, 3] = -(s1 * s4 + c1 * c2 * c4 * s3 + c1 * c3 * c4 * s2) / singularity8;
+            inverseJoc[5, 4] = (c2 * c4 * s1 * s3 - c1 * s4 + c3 * c4 * s1 * s2) / singularity8;
+            inverseJoc[5, 5] = -(c2p3 * c4) / singularity8;
+            return inverseJoc;
+            /*
+             * 
+J =
+ 
+[ -s1*(515*c2p3 + 35*s2p3 + 560*c2 + 25), -5*c1*(103*s2p3 - 7*c2p3 + 112*s2),  5*c1*(7*c2p3 - 103*s2p3),                     0,                                                                                   0,                                                                                                                                                                                   0]
+[ -c1*(515*c2p3 + 35*s2p3 + 560*c2 + 25),  5*s1*(103*s2p3 - 7*c2p3 + 112*s2), -5*s1*(7*c2p3 - 103*s2p3),                     0,                                                                                   0,                                                                                                                                                                                   0]
+[                                                                0,           - 515*c2p3 - 35*s2p3 - 560*c2,           - 515*c2p3 - 35*s2p3,                     0,                                                                                   0,                                                                                                                                                                                   0]
+[                                                                0,                                                      s1,                                        s1, -c2p3*c1, c4*s1 - c1*c2*s3*s4 - c1*c3*s2*s4, - s5*(s1*s4 - c4*(c1*s2*s3p - c1*c2*c3p)) - c5*(c1*c2*s3p + c1*c3p*s2)]
+[                                                                0,                                                      c1,                                        c1,  c2p3*s1, c1*c4 + c2*s1*s3*s4 + c3*s1*s2*s4,   c5*(c2*s1*s3p + c3p*s1*s2) - s5*(c1*s4 - c4*(c2*c3p*s1 - s1*s2*s3p))]
+[                                                               -1,                                                            0,                                              0,          s2p3,                                                               -c2p3*s4,                                                       c4*s5*(c2*s3p + c3p*s2) - c5*(c2*c3p - s2*s3p)]
+ 
+ 
+ans =
+             */
+
+        }
     }
 
     // CONVENTIONS:

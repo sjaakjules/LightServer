@@ -581,7 +581,7 @@ namespace TestBot
         {
             while (true)
             {
-                if (_loopTimer.Elapsed.TotalMilliseconds > serverSpeed + rnd.Next(10)/10)
+                if (_loopTimer.Elapsed.TotalMilliseconds > serverSpeed )
                 {
                     _loopTimer.Restart();
                     isReadyToSend.Set();

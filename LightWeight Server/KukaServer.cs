@@ -547,7 +547,7 @@ namespace LightWeight_Server
             XmlNode comAxisNode = _SendXML.SelectSingleNode("//Sen/AKorr");
             for (int i = 0; i < 6; i++)
             {
-                comAxisNode.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.000000}", _Robot._axisCommand[i]*Math.PI/180);
+                comAxisNode.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.000000}", _Robot._axisCommand[i]);
             }
             XmlNode gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER");
             if (_Robot.gripperIsOpen)

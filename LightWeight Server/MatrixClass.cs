@@ -86,7 +86,7 @@ namespace Mehroz
 	/// 		* for two matrices or one matrix with integer or fraction or double
 	/// 		/ for matrix with integer or fraction or double
 	/// </summary>
-	public class Mat
+	public struct Mat
 	{
 		/// <summary>
 		/// Class attributes/members
@@ -160,6 +160,115 @@ namespace Mehroz
             }
         }
 
+        public static double[] multiplyMatrix(double[] M, double value)
+        {
+            int m_iRows = M.Length;
+            double[] Mout = new double[m_iRows];
+
+            for (int i = 0; i < m_iRows; i++)
+            {
+                    Mout[i] = M[i] * value;
+            }
+            return Mout;
+        }
+
+        public static double[,] multiplyMatrix(double[,] M, double value)
+        {
+            int m_iRows = M.GetLength(0);
+            int m_iCols = M.GetLength(1);
+            double[,] Mout = new double[M.GetLength(0), M.GetLength(1)];
+
+            for (int i = 0; i < m_iRows; i++)
+            {
+                for (int j = 0; j < m_iCols; j++)
+                {
+                    Mout[i, j] = M[i, j] * value;
+                }
+            }
+            return Mout;
+        }
+
+        public static double[] multiplyMatrix(double[,] M, double[] value)
+        {
+            int m_iRows = M.GetLength(0);
+            int m_iCols = M.GetLength(1);
+            if (m_iCols != value.Length)
+                throw new MatrixException("Invalid Matrix specified, not correct size");
+            double[] Mout = new double[value.Length];
+            for (int i = 0; i < m_iRows; i++)
+            {
+                for (int j = 0; j < m_iCols; j++)
+                {
+                    Mout[i] += value[j] * M[i, j];
+                }
+            }
+            return Mout;
+        }
+
+        public static double[] getRow(double[,] M, int row)
+        {
+            int m_iRows = M.GetLength(0);
+            int m_iCols = M.GetLength(1);
+            if (m_iRows < row)
+                throw new MatrixException("Invalid Matrix specified, not correct size");
+            double[] Rout = new double[m_iCols];
+            for (int i = 0; i < m_iCols; i++)
+            {
+                Rout[i] = M[row, i];
+            }
+            return Rout;
+        }
+
+        public static double[] getCol(double[,] M, int col)
+        {
+            int m_iRows = M.GetLength(0);
+            int m_iCols = M.GetLength(1);
+            if (m_iCols < col)
+                throw new MatrixException("Invalid Matrix specified, not correct size");
+            double[] Cout = new double[m_iRows];
+            for (int i = 0; i < m_iRows; i++)
+            {
+                Cout[i] = M[i, col];
+            }
+            return Cout;
+        }
+
+        public static double dotProduct(double[] V1, double[] V2)
+        {
+            int m_iRows = V1.Length;
+            int m_iCols = V2.Length;
+            if (m_iCols != m_iRows)
+                throw new MatrixException("Invalid Matrix specified, not correct size");
+            double product = 0;
+            for (int i = 0; i < m_iRows; i++)
+            {
+                product += V1[i] * V2[i];
+            }
+            return product;
+        }
+
+        public static double[,] multiplyMatrix(double[,] M, double[,] value)
+        {
+            int m_iRows = M.GetLength(0);
+            int m_iCols = M.GetLength(1);
+            int v_iRows = value.GetLength(0);
+            int v_iCols = value.GetLength(1);
+            if (m_iCols != v_iRows)
+            {
+                return multiplyMatrix(value, M);
+                throw new MatrixException("Invalid Matrix specified, not correct size");
+            }
+            double[,] Mout = new double[m_iRows, v_iCols];
+            for (int i = 0; i < m_iRows; i++)
+            {
+                for (int j = 0; j < v_iCols; j++)
+                {
+                    Mout[i, j] = Mat.dotProduct(Mat.getRow(M, i), Mat.getCol(value, j));
+                }
+            }
+            return Mout;
+        }
+
         public double[] multiplyMatrix(double[] M)
         {
             if (m_iCols != M.Length)
@@ -201,6 +310,21 @@ namespace Mehroz
 				m_iElement[iRow,iCol]=value;
 		}
 
+        public double[,] doubleArray
+        {
+            get
+            {
+                double[,] newArray = new double[m_iRows,m_iCols];
+                for (int i = 0; i < m_iRows; i++)
+                {
+                    for (int j = 0; j < m_iCols; j++)
+                    {
+                        newArray[i, j] = m_iElement[i, j];
+                    }
+                }
+                return newArray;
+            }
+        }
 		
 		/// <summary>
 		/// The function returns the current Matrix object as a string

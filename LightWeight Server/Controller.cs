@@ -66,15 +66,18 @@ namespace LightWeight_Server
             I = newI;
         }
 
-        public double[] getControllerEffort(Pose referencePosition, Pose referenceVelocity, Pose measuredPosition, Pose measuredVelocity,double[,] Jacobian)
+        public double[] getControllerEffort(Pose referencePosition, Pose referenceVelocity, Pose measuredPosition, Pose measuredVelocity,double[,] inverseJoc)
         {
             Vector3 ErrorTranslation = (referencePosition.Translation - measuredPosition.Translation);
             Vector3 ErrorOrientation = SF.getOrientationError(Matrix.CreateFromQuaternion(referencePosition.Orientation), Matrix.CreateFromQuaternion(measuredPosition.Orientation));
             Vector3 ControlTranslation = referenceVelocity.Translation + Vector3.Multiply(ErrorTranslation, (float)P);
             Vector3 ControlOrientation = Vector3.Multiply(referenceVelocity.axis,referenceVelocity.angle) + Vector3.Multiply(ErrorTranslation, (float)P);
             // TODO: write PI controller, may need karman filter for noise
-            Mat Jac = new Mat(Jacobian);
-            return SF.multiplyJacobian( Jac.InverseFast(1e-5), new double[] { ControlTranslation.X, ControlTranslation.Y, ControlTranslation.Z, ControlOrientation.X, ControlOrientation.Y, ControlOrientation.Z });
+            //double JacTimer = R.IPOC.Elapsed.TotalMilliseconds;
+            //Mat Jac = new Mat(Jacobian);
+           // R.P3 = R.IPOC.Elapsed.TotalMilliseconds - JacTimer;
+            double[] TipVeloicty = new double[] { ControlTranslation.X, ControlTranslation.Y, ControlTranslation.Z, ControlOrientation.X, ControlOrientation.Y, ControlOrientation.Z };
+            return Mat.multiplyMatrix(inverseJoc, TipVeloicty);
         }
 
 
