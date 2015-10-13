@@ -92,7 +92,7 @@ namespace LightWeight_Server
         FixedSizedQueue<double> MaxJocTimer = new FixedSizedQueue<double>(10);
         FixedSizedQueue<double> serverTimer = new FixedSizedQueue<double>(10);
         FixedSizedQueue<double> MaxserverTimer = new FixedSizedQueue<double>(10);
-        double _JacobienAverTimes = 0;
+        double _JacobienAverTimes = 0, _trajectoryLoaderTime = 0;
         // Test variables
         bool _isRotatingX = false;
         bool _isRotatingY = false;
@@ -713,22 +713,24 @@ namespace LightWeight_Server
             {
                 Console.WriteLine("no rotating");
             }
-            Console.WriteLine("Process data time:      " + _processDataTimer.ToString() + "ms.");
-            Console.WriteLine("Max Process data time:  " + _maxProcessDataTimer.ToString() + "ms.");
-            Console.WriteLine("Kuka cycle time:        " + _loopTime.ToString() + "ms.");
-            Console.WriteLine("Average Jacobian time: {0}", _JacobienAverTimes);
-            Console.Write("Maximum Jacobian time: (");
+            Console.WriteLine("Process data time:       " + _processDataTimer.ToString() + "ms.");
+            Console.WriteLine("Max Process data time:   " + _maxProcessDataTimer.ToString() + "ms.");
+            Console.WriteLine("Kuka cycle time:         " + _loopTime.ToString() + "ms.");
+            Console.WriteLine("Average Trajectory time: {0}", _trajectoryLoaderTime);
+            Console.WriteLine("Average Jacobian time:   {0}", _JacobienAverTimes);
+            Console.WriteLine("Maximum Jacobian time: \n(");
             foreach (var item in MaxJocTimer.ToArray())
             {
                 Console.Write(" {0} ", item.ToString());
             }
             Console.WriteLine(")");
-            Console.WriteLine("server time:   (");
+            Console.WriteLine("server time:   \n(");
             foreach (var item in serverTimer.ToArray())
             {
                 Console.Write(" {0} ", item.ToString());
             }
-            Console.WriteLine("Maximum server time:   (");
+            Console.WriteLine(")");
+            Console.WriteLine("Maximum server time:   \n(");
             foreach (var item in MaxserverTimer.ToArray())
             {
                 Console.Write(" {0} ", item.ToString());
@@ -996,6 +998,13 @@ namespace LightWeight_Server
                             _NewTrajectoryList.CopyTo(_TrajectoryList, 0);
                             _NewTrajectoryList = null;
                             _CurrentTrajectory = _TrajectoryList[0];
+                            _newPosesLoaded = false;
+                            _newOrientationLoaded = false;
+                            _newPositionLoaded = false;
+                            _newCommandLoaded = false;
+                            _isCommanded = true;
+                            _isCommandedPosition = true;
+                            _isCommandedOrientation = true;
                             _CurrentTrajectory.start();
                         }
                         if (_newOrientationLoaded)
@@ -1039,8 +1048,11 @@ namespace LightWeight_Server
                         _isRotating = true;
                     }
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
+                    updateError("Exception ");
+                    updateError(e.Message);
+                    updateError(e.StackTrace);
                     _newCommandLoaded = false;
                     _isCommanded = false;
                     _newOrientationLoaded = false;
@@ -1090,10 +1102,18 @@ namespace LightWeight_Server
 
          * 
          */
-        public void newPoses(int n, Pose[] new_Poses, double[] AverageVelocity)
+        public bool newPoses(int n, Pose[] new_Poses, double[] AverageVelocity)
         {
             if (!_newPosesLoaded)
             {
+                Stopwatch trajectoryLoader = new Stopwatch();
+                trajectoryLoader.Start();
+                // Check if no veloicty was specified or if mm/s or mm/ms was specified. Must used mm/ms for trajectory generation
+                AverageVelocity[0] = (AverageVelocity[0] == -1) ? _maxLinearVelocity / 2 : ((AverageVelocity[0] > 0.1) ? AverageVelocity[0] / 1000 : AverageVelocity[0]);
+                for (int i = 1; i < AverageVelocity.Length; i++)
+                {
+                    AverageVelocity[i] = (AverageVelocity[i] == -1) ? AverageVelocity[i-1] : ((AverageVelocity[i] > 0.1) ? AverageVelocity[i] / 1000 : AverageVelocity[i]);
+                }
                 _NewTrajectoryList = new Trajectory[n];
                 Vector3[] PointVelocitys = new Vector3[n + 1];
                 PointVelocitys[0] = Vector3.Zero;
@@ -1108,7 +1128,11 @@ namespace LightWeight_Server
                     _NewTrajectoryList[i] = new Trajectory(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
                 }
                 _newPosesLoaded = true;
+                trajectoryLoader.Stop();
+                _trajectoryLoaderTime = trajectoryLoader.Elapsed.TotalMilliseconds;
+                return true;
             }
+            return false;
         }
 
         public void newPosition(double x, double y, double z)
@@ -1191,23 +1215,27 @@ namespace LightWeight_Server
                 if (_isConnected && _isCommanded && _CurrentTrajectory.IsActive)
                 {
                     Pose CurrentPose = currentPose;
-                    Pose commandPose = new Pose(_Controller.getControllerEffort(_CurrentTrajectory.getReferencePosition(CurrentPose), _CurrentTrajectory.getReferenceVelocity(CurrentPose), CurrentPose, currentVelocity, _Jacobian));
+                    _axisCommand = _Controller.getControllerEffort(_CurrentTrajectory.getReferencePosition(CurrentPose), _CurrentTrajectory.getReferenceVelocity(CurrentPose), CurrentPose, currentVelocity, _Jacobian);
+                    Pose commandPose = new Pose(_axisCommand);
                    // Pose commandPose = _CurrentTrajectory.reference(currentPose, currentVelocity, _maxLinearVelocity, (float)_maxAngularVelocity, _maxLinearAcceleration, _maxAngularAcceleration);
                    // Vector3 comandPos = _CurrentTrajectory.getDisplacement(currentPose.Translation, MaxDisplacement);
                    // Vector3 commandOri = _CurrentTrajectory.getOrientation(currentRotation, (float)MaxOrientationDisplacement);
                     // Update the command position all lights green
                    // Vector3 kukaAngles = SF.getKukaAngles(commandPose.Orientation);
                     _CommandPose = new TimeCoordinate(commandPose, _Position.LastElement.Ipoc);
-                    if (_CurrentTrajectory.checkFinish(CurrentPose, 1e-2) && _currentSegment < _TrajectoryList.Length)
+                    if (_CurrentTrajectory.checkFinish(CurrentPose, 1e-2))
                     {
-                        _CurrentTrajectory = _TrajectoryList[_currentSegment];
-                        _currentSegment++;
-                    }
-                    else
-                    {
-                        _currentSegment = 1;
-                        _isCommanded = false;
-                        _CurrentTrajectory.stop();
+                        if (_currentSegment < _TrajectoryList.Length)
+                        {                            
+                            _CurrentTrajectory = _TrajectoryList[_currentSegment];
+                            _currentSegment++;
+                        }
+                        else
+                        {
+                            _currentSegment = 1;
+                            _isCommanded = false;
+                            _CurrentTrajectory.stop();
+                        }
                     }
                 }
 

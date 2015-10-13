@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Mehroz;
 
 namespace LightWeight_Server
 {
@@ -19,7 +20,7 @@ namespace LightWeight_Server
         TimeSpan _trajectoryTime;
         Vector3 _axis;
         float _finalAngle;
-        double P, I, D;
+        double P = 0.01, I, D;
 
 
         public Boolean IsActive
@@ -72,7 +73,8 @@ namespace LightWeight_Server
             Vector3 ControlTranslation = referenceVelocity.Translation + Vector3.Multiply(ErrorTranslation, (float)P);
             Vector3 ControlOrientation = Vector3.Multiply(referenceVelocity.axis,referenceVelocity.angle) + Vector3.Multiply(ErrorTranslation, (float)P);
             // TODO: write PI controller, may need karman filter for noise
-            return SF.multiplyJacobian(Jacobian, new double[] { ControlTranslation.X, ControlTranslation.Y, ControlTranslation.Z, ControlOrientation.X, ControlOrientation.Y, ControlOrientation.Z});
+            Mat Jac = new Mat(Jacobian);
+            return SF.multiplyJacobian( Jac.InverseFast(1e-5), new double[] { ControlTranslation.X, ControlTranslation.Y, ControlTranslation.Z, ControlOrientation.X, ControlOrientation.Y, ControlOrientation.Z });
         }
 
 

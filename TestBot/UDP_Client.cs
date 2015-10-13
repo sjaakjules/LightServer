@@ -301,7 +301,8 @@ namespace TestBot
             {
                 // Encode msg from state object
                 State.MessageIn = Encoding.UTF8.GetString(State.PacketIn, 0, State.PacketInSize);
-
+                Console.Clear();
+                Console.WriteLine(State.MessageIn);
                 // create xml document from state message in.
                 XmlDocument xmlIn = new XmlDocument();
                 xmlIn.LoadXml(State.MessageIn);

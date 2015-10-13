@@ -76,6 +76,7 @@
   <ItemGroup>
     <Compile Include="Controller.cs" />
     <Compile Include="ExternalServer.cs" />
+    <Compile Include="MatrixClass.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RobotInfo.cs" />

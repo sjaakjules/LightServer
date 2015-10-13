@@ -334,7 +334,7 @@ namespace LightWeight_Server
                             {
                                 Pose[] poseList = new Pose[N];
                                 double[] velocityList = new double[N];
-                                string Pose_i = Node.Attributes["1"].Value;
+                                string Pose_i = Node.Attributes["N1"].Value;
                                 string[] result = Pose_i.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
                                 poseList[0] = new Pose(result, _Robot.currentPose);
                                 // Velocity of -1 means use last known velocity.
@@ -348,7 +348,7 @@ namespace LightWeight_Server
                                 }
                                 for (int i = 1; i < N; i++)
                                 {
-                                    Pose_i = Node.Attributes[(i+1).ToString()].Value;
+                                    Pose_i = Node.Attributes["N" + (i+1).ToString()].Value;
                                     result = Pose_i.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
                                     poseList[i] = new Pose(result, poseList[i - 1]);
                                     if (result.Length % 3 == 0)
@@ -363,8 +363,7 @@ namespace LightWeight_Server
                                 // Loaded all poses and velocities associated with the trajectory of each new pose.
                                 // If errors are encounted during the load it uses last pose as default values
                                 // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
-                                _Robot.newPoses(N, poseList, velocityList);
-                                _loadedPoses = true;
+                                _loadedPoses = _Robot.newPoses(N, poseList, velocityList);
                             }
                             break;
                         case "Position":

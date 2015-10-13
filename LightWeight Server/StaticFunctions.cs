@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Mehroz;
 
 namespace LightWeight_Server
 {
@@ -15,7 +16,7 @@ namespace LightWeight_Server
         float _angle;
         Quaternion _Orientation;
         Vector3 _axis;
-        float[] _kukaValues;
+        double[] _kukaValues;
 
         public Pose(string[] newPose, Pose CurrentPose)
         {
@@ -51,8 +52,7 @@ namespace LightWeight_Server
                 {
                     this._Orientation = SF.QfromZaxis(new Vector3((float)Axis[0], (float)Axis[1], (float)Axis[2]), CurrentPose.Orientation);
                     SF.getAxisAngle(_Orientation, out _axis, out _angle);
-                    _kukaValues = new float[6];
-                    SF.getKukaAngles(_Orientation, ref _kukaValues);
+                    SF.getKukaAngles(_Orientation, out _kukaValues);
                     _kukaValues[0] = (float)_x;
                     _kukaValues[1] = (float)_y;
                     _kukaValues[2] = (float)_z;
@@ -62,8 +62,7 @@ namespace LightWeight_Server
                 {
                     this._Orientation = SF.QfromZX(new Vector3((float)Axis[0], (float)Axis[1], (float)Axis[2]), new Vector3((float)Axis[3], (float)Axis[4], (float)Axis[5]));
                     SF.getAxisAngle(_Orientation, out _axis, out _angle);
-                    _kukaValues = new float[6];
-                    SF.getKukaAngles(_Orientation, ref _kukaValues);
+                    SF.getKukaAngles(_Orientation, out _kukaValues);
                     _kukaValues[0] = (float)_x;
                     _kukaValues[1] = (float)_y;
                     _kukaValues[2] = (float)_z;
@@ -73,8 +72,7 @@ namespace LightWeight_Server
                 {
                     this._Orientation = CurrentPose.Orientation;
                     SF.getAxisAngle(CurrentPose.Orientation, out _axis, out _angle);
-                    _kukaValues = new float[6];
-                    SF.getKukaAngles(CurrentPose.Orientation, ref _kukaValues);
+                    SF.getKukaAngles(CurrentPose.Orientation, out _kukaValues);
                     _kukaValues[0] = (float)_x;
                     _kukaValues[1] = (float)_y;
                     _kukaValues[2] = (float)_z;
@@ -86,8 +84,7 @@ namespace LightWeight_Server
             {
                 this._Orientation = CurrentPose.Orientation;
                 SF.getAxisAngle(CurrentPose.Orientation, out _axis, out _angle);
-                _kukaValues = new float[6];
-                SF.getKukaAngles(CurrentPose.Orientation, ref _kukaValues);
+                SF.getKukaAngles(CurrentPose.Orientation, out _kukaValues);
                 _kukaValues[0] = (float)_x;
                 _kukaValues[1] = (float)_y;
                 _kukaValues[2] = (float)_z;
@@ -137,7 +134,7 @@ namespace LightWeight_Server
         }*/
         public Pose(double[] KukaValues)
         {
-            _kukaValues = new float[6];
+            _kukaValues = new double[6];
             KukaValues.CopyTo(_kukaValues, 0);
             this._x = KukaValues[0];
             this._y = KukaValues[1];
@@ -155,8 +152,7 @@ namespace LightWeight_Server
             this._z = Position.Z;
             this._Orientation = Orientation;
             SF.getAxisAngle(Orientation, out _axis, out _angle);
-            _kukaValues = new float[6];
-            SF.getKukaAngles(Orientation, ref _kukaValues);
+            SF.getKukaAngles(Orientation, out _kukaValues);
             _kukaValues[0] = (float)_x;
             _kukaValues[1] = (float)_y;
             _kukaValues[2] = (float)_z;
@@ -181,7 +177,7 @@ namespace LightWeight_Server
             }
         }
 
-        public float[] kukaValues
+        public double[] kukaValues
         {
             get { return _kukaValues; }
         }
@@ -446,6 +442,7 @@ namespace LightWeight_Server
 
     public static class SF
     {
+
         public static Quaternion QfromZX(Vector3 zAxis, Vector3 xAxis)
         {
             xAxis.Normalize();
@@ -484,6 +481,18 @@ namespace LightWeight_Server
         {
             // TODO basic matrix multiplication
             return new double[] { 0, 0, 0, 0, 0, 0 };
+        }
+
+        public static double[] multiplyJacobian(Mat Jacobian, double[] taskVelocity)
+        {
+            try
+            {
+                return Jacobian.multiplyMatrix(taskVelocity);
+            }
+            catch (Exception)
+            {
+                return new double[] { 0, 0, 0, 0, 0, 0 };
+            }
         }
 
         public static Vector3 getOrientationError(Matrix reference, Matrix measured)
@@ -750,6 +759,41 @@ namespace LightWeight_Server
             }
 
             return new Vector3(MathHelper.ToDegrees(A), MathHelper.ToDegrees(B), MathHelper.ToDegrees(C));
+        }
+
+        /// <summary>
+        /// Updates the float[6] array with kuka ABC angles in [X,Y,Z,A,B,C]. This only works when the rotation is less than 90 degrees 
+        /// and will return iff angle in axis/angle representation is less than 90 degrees.
+        /// </summary>
+        /// <param name="rotation"></param> quaternion representing the rotation
+        /// <returns></returns>
+        public static void getKukaAngles(Quaternion rotation, out double[] KukaAngleOut)
+        {
+            KukaAngleOut = new double[6];
+            double A = 0;
+            double B = 0;
+            double C = 0;
+
+            Matrix rotationMat = Matrix.CreateFromQuaternion(rotation);
+            rotationMat = Matrix.Transpose(rotationMat);
+
+            B = Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33));
+
+            if (Math.Abs(Math.Abs(B) - Math.PI / 2) < 1e-6)
+            {
+                // Gimbal lock situation! A and C form a line of infinate solutions.
+                C = 0;// (float)Math.PI / 5f;
+                A = Math.Atan2(Math.Sign(B) * rotationMat.M23, Math.Sign(B) * rotationMat.M13) + Math.Sign(B) * C;
+            }
+            else
+            {
+                A = Math.Atan2(rotationMat.M21, rotationMat.M11);
+                C = Math.Atan2(rotationMat.M32, rotationMat.M33);
+            }
+
+            KukaAngleOut[3] = A * 180 / Math.PI;
+            KukaAngleOut[4] = B * 180 / Math.PI;
+            KukaAngleOut[5] = C * 180 / Math.PI;
         }
 
         /// <summary>

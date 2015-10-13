@@ -48,10 +48,10 @@ namespace LightWeight_Server
             this.xmd = (float)midVelocity * Vector3.Normalize(xf - x0);
             this._trajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)midVelocity);
             SF.getAxisAngle(Quaternion.Inverse(LastPose.Orientation)*EndPose.Orientation,out _TrajectoryAxis, out _finalAngle);
-            _QuinticPerameters[1] = Quintic(x0.X, xf.X, xm.X, x0d.X, xfd.X, xmd.X, _trajectoryTime.TotalMilliseconds);
-            _QuinticPerameters[2] = Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, _trajectoryTime.TotalMilliseconds);
-            _QuinticPerameters[3] = Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, xfd.Z, xmd.Z, _trajectoryTime.TotalMilliseconds);
-            _QuinticPerameters[4] = Quintic(0, _finalAngle, _finalAngle / 2, 0, 0, _trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[0] = Quintic(x0.X, xf.X, xm.X, x0d.X, xfd.X, xmd.X, _trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[1] = Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, _trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[2] = Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, xfd.Z, xmd.Z, _trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[3] = Quintic(0, _finalAngle, _finalAngle / 2, 0, 0, _trajectoryTime.TotalMilliseconds);
             _isActive = false;
             _isTranslating = false;
             _isRotating = false;
@@ -154,8 +154,8 @@ namespace LightWeight_Server
                     _hasCompleated = true;
                     _elapsedTime.Stop();
                 }
-                Vector3 translation = new Vector3(getPosition(t, _QuinticPerameters[1]), getPosition(t, _QuinticPerameters[2]), getPosition(t, _QuinticPerameters[3]));
-                Pose ReferencePose = new Pose(Quaternion.CreateFromAxisAngle(_TrajectoryAxis, getPosition(t, _QuinticPerameters[4])), translation);
+                Vector3 translation = new Vector3(getPosition(t, _QuinticPerameters[0]), getPosition(t, _QuinticPerameters[1]), getPosition(t, _QuinticPerameters[2]));
+                Pose ReferencePose = new Pose(Quaternion.CreateFromAxisAngle(_TrajectoryAxis, getPosition(t, _QuinticPerameters[3])), translation);
 
             }
             return currentPose;
@@ -176,8 +176,8 @@ namespace LightWeight_Server
                     _hasCompleated = true;
                     _elapsedTime.Stop();
                 }
-                Vector3 translation = new Vector3(getVelocity(t, _QuinticPerameters[1]), getVelocity(t, _QuinticPerameters[2]), getVelocity(t, _QuinticPerameters[3]));
-                Pose ReferencePose = new Pose(Quaternion.CreateFromAxisAngle(_TrajectoryAxis, getVelocity(t, _QuinticPerameters[4])), translation);
+                Vector3 translation = new Vector3(getVelocity(t, _QuinticPerameters[0]), getVelocity(t, _QuinticPerameters[1]), getVelocity(t, _QuinticPerameters[2]));
+                Pose ReferencePose = new Pose(Quaternion.CreateFromAxisAngle(_TrajectoryAxis, getVelocity(t, _QuinticPerameters[3])), translation);
             }
             return CurrentVelocity;
         }
