@@ -19,18 +19,43 @@ namespace LightWeight_Server
     {
         Stopwatch _elapsedTime = new Stopwatch();
         bool _isActive = false, _isRotating = false, _isTranslating = false, _hasCompleated = false;
+
         Pose _finalPose, _startPose, _startVelocity, _finalVelocity, _changePose;
+        Vector3 x0, xf, xm, x0d, xfd, xmd;
         TimeSpan _trajectoryTime;
         Quaternion _startInverse;
-        int segments, currentSegment=0;
+
         double[][] _QuinticPerameters = new double[4][];
         Vector3 _TrajectoryAxis;
+        float _finalAngle;
 
         int newSegments;
         double[][] _NewQuinticPerameters = new double[4][];
         Vector3 _NewTrajectoryAxis;
 
         public bool IsActive { get { return _isActive; } }
+
+        // midVelocity might be -1 meaning take last Velocity
+        // next velocity might be -1 meaning take this velocity
+        // last velocity must be populated with a corrent velocity
+        public Trajectory(Pose EndPose, double midVelocity, Pose LastPose, Vector3 startVelocity, Vector3 FinalVelocity)
+        {
+            this.x0 = LastPose.Translation;
+            this.xf = EndPose.Translation;
+            this.xm = ((xf - x0) / 2) + x0;
+            this.x0d = startVelocity;
+            this.xfd = FinalVelocity;
+            this.xmd = (float)midVelocity * Vector3.Normalize(xf - x0);
+            this._trajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)midVelocity);
+            SF.getAxisAngle(Quaternion.Inverse(LastPose.Orientation)*EndPose.Orientation,out _TrajectoryAxis, out _finalAngle);
+            _QuinticPerameters[1] = Quintic(x0.X, xf.X, xm.X, x0d.X, xfd.X, xmd.X, _trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[2] = Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, _trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[3] = Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, xfd.Z, xmd.Z, _trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[4] = Quintic(0, _finalAngle, _finalAngle / 2, 0, 0, _trajectoryTime.TotalMilliseconds);
+            _isActive = false;
+            _isTranslating = false;
+            _isRotating = false;
+        }
 
         public Trajectory()
         {
@@ -48,7 +73,7 @@ namespace LightWeight_Server
         public void hasStopped()
         {
             _elapsedTime.Stop();
-
+            
             // TODO: Add code to pause the trajectory
         }
 
@@ -62,7 +87,18 @@ namespace LightWeight_Server
         {
             // TODO: Stopes and resets trajectory and loads new quintic / axis for trajectory
         }
+        public void stop()
+        {
+            _elapsedTime.Reset();
+            _isActive = false;
+        }
 
+        public void start()
+        {
+            _elapsedTime.Reset();
+            _isActive = true;
+            _elapsedTime.Start();
+        }
         public Pose[] reference()
         {
             // TODO: returns an array of reference position and velocity knowing the trajectory time which is updated and paused accordingly
@@ -147,14 +183,16 @@ namespace LightWeight_Server
         }
 
 
-        public void checkFinish(Pose currentPose, double error)
+        public bool checkFinish(Pose currentPose, double error)
         {
             if (Vector3.Distance(currentPose.Translation, _finalPose.Translation) <= error && SF.getOrientationError(Matrix.CreateFromQuaternion(_finalPose.Orientation), Matrix.CreateFromQuaternion(_changePose.Orientation)).Length() <= error)
             {
                 _isActive = false;
                 _hasCompleated = false;
                 _elapsedTime.Stop();
+                return true;
             }
+            return false;
         }
 
         float getPosition(double t, double[] a)

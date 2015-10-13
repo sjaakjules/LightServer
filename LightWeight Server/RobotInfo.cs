@@ -40,6 +40,10 @@ namespace LightWeight_Server
         double[,] _Jacobian = new double[6, 6];
         ConcurrentQueue<TimeCoordinate> _DesiredPose;
         Pose _newPose;
+        Pose[] _newPoses;
+        double[] _newVelocitys;
+        Trajectory[] _TrajectoryList, _NewTrajectoryList;
+
         TimeCoordinate _CurrentDesiredPose;
         TimeCoordinate _CommandPose;
 
@@ -54,6 +58,7 @@ namespace LightWeight_Server
 
         //Trajectory _CurrentTrajectory;
         Trajectory _CurrentTrajectory;
+        int _currentSegment = 1;
         Controller _Controller;
 
         bool _gripperIsOpen = true;
@@ -75,6 +80,7 @@ namespace LightWeight_Server
         bool _newCommandLoaded = false;
         bool _newOrientationLoaded = false;
         bool _newPositionLoaded = false;
+        bool _newPosesLoaded = false;
         bool _isVia = false;
 
         public double[] _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
@@ -984,6 +990,14 @@ namespace LightWeight_Server
                 {
                     if (_newCommandLoaded)
                     {
+                        if (_newPosesLoaded)
+                        {
+                            _TrajectoryList = new Trajectory[_NewTrajectoryList.Length];
+                            _NewTrajectoryList.CopyTo(_TrajectoryList, 0);
+                            _NewTrajectoryList = null;
+                            _CurrentTrajectory = _TrajectoryList[0];
+                            _CurrentTrajectory.start();
+                        }
                         if (_newOrientationLoaded)
                         {
 
@@ -1076,6 +1090,27 @@ namespace LightWeight_Server
 
          * 
          */
+        public void newPoses(int n, Pose[] new_Poses, double[] AverageVelocity)
+        {
+            if (!_newPosesLoaded)
+            {
+                _NewTrajectoryList = new Trajectory[n];
+                Vector3[] PointVelocitys = new Vector3[n + 1];
+                PointVelocitys[0] = Vector3.Zero;
+                PointVelocitys[n] = Vector3.Zero;
+                for (int i = 1; i < n - 1; i++)
+                {
+                    PointVelocitys[i] = (float)((AverageVelocity[i - 1] + 0.2 * AverageVelocity[i]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[i].Translation - new_Poses[i - 1].Translation) + Vector3.Normalize(new_Poses[i + 1].Translation - new_Poses[i].Translation)));
+                }
+                _NewTrajectoryList[0] = new Trajectory(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1]);
+                for (int i = 1; i < n; i++)
+                {
+                    _NewTrajectoryList[i] = new Trajectory(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
+                }
+                _newPosesLoaded = true;
+            }
+        }
+
         public void newPosition(double x, double y, double z)
         {
             lock (trajectoryLock)
@@ -1109,6 +1144,7 @@ namespace LightWeight_Server
                 zAxis.Normalize();
                 Quaternion newOrientation = Quaternion.CreateFromRotationMatrix(new Matrix(xAxis.X, xAxis.Y, xAxis.Z, 0, yAxis.X, yAxis.Y, yAxis.Z, 0, zAxis.X, zAxis.Y, zAxis.Z, 0, 0, 0, 0, 1));
                 _newPose.Orientation = new Quaternion(newOrientation.X, newOrientation.Y, newOrientation.Z, newOrientation.W);
+                _newOrientationLoaded = true;
             }
         }
 
@@ -1155,14 +1191,24 @@ namespace LightWeight_Server
                 if (_isConnected && _isCommanded && _CurrentTrajectory.IsActive)
                 {
                     Pose CurrentPose = currentPose;
-                    _Controller.getControllerEffort(_CurrentTrajectory.getReferencePosition(CurrentPose), _CurrentTrajectory.getReferenceVelocity(CurrentPose), CurrentPose, currentVelocity, _Jacobian);
-                    _CurrentTrajectory.checkFinish(CurrentPose, 1e-2);
-                    Pose commandPose = _CurrentTrajectory.reference(currentPose, currentVelocity, _maxLinearVelocity, (float)_maxAngularVelocity, _maxLinearAcceleration, _maxAngularAcceleration);
+                    Pose commandPose = new Pose(_Controller.getControllerEffort(_CurrentTrajectory.getReferencePosition(CurrentPose), _CurrentTrajectory.getReferenceVelocity(CurrentPose), CurrentPose, currentVelocity, _Jacobian));
+                   // Pose commandPose = _CurrentTrajectory.reference(currentPose, currentVelocity, _maxLinearVelocity, (float)_maxAngularVelocity, _maxLinearAcceleration, _maxAngularAcceleration);
                    // Vector3 comandPos = _CurrentTrajectory.getDisplacement(currentPose.Translation, MaxDisplacement);
                    // Vector3 commandOri = _CurrentTrajectory.getOrientation(currentRotation, (float)MaxOrientationDisplacement);
                     // Update the command position all lights green
-                    Vector3 kukaAngles = SF.getKukaAngles(commandPose.Orientation);
+                   // Vector3 kukaAngles = SF.getKukaAngles(commandPose.Orientation);
                     _CommandPose = new TimeCoordinate(commandPose, _Position.LastElement.Ipoc);
+                    if (_CurrentTrajectory.checkFinish(CurrentPose, 1e-2) && _currentSegment < _TrajectoryList.Length)
+                    {
+                        _CurrentTrajectory = _TrajectoryList[_currentSegment];
+                        _currentSegment++;
+                    }
+                    else
+                    {
+                        _currentSegment = 1;
+                        _isCommanded = false;
+                        _CurrentTrajectory.stop();
+                    }
                 }
 
 

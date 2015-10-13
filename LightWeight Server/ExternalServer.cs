@@ -25,6 +25,7 @@ namespace LightWeight_Server
         XmlDocument _SendXML;
         bool _loadedPosition = false;
         bool _loadedRotation = false;
+        bool _loadedPoses = false;
         string[] splitter = new string[] { "," };
 
         RobotInfo _Robot;
@@ -362,6 +363,8 @@ namespace LightWeight_Server
                                 // Loaded all poses and velocities associated with the trajectory of each new pose.
                                 // If errors are encounted during the load it uses last pose as default values
                                 // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
+                                _Robot.newPoses(N, poseList, velocityList);
+                                _loadedPoses = true;
                             }
                             break;
                         case "Position":
@@ -499,8 +502,9 @@ namespace LightWeight_Server
                             break;
                     }
                 }
-                if (_loadedPosition || _loadedRotation)
+                if (_loadedPosition || _loadedRotation || _loadedPoses)
                 {
+                    _loadedPoses = false;
                     _loadedPosition = false;
                     _loadedRotation = false;
                     _Robot.LoadedCommand();

@@ -135,6 +135,16 @@ namespace LightWeight_Server
             _kukaValues[1] = (float)_y;
             _kukaValues[2] = (float)_z;
         }*/
+        public Pose(double[] KukaValues)
+        {
+            _kukaValues = new float[6];
+            KukaValues.CopyTo(_kukaValues, 0);
+            this._x = KukaValues[0];
+            this._y = KukaValues[1];
+            this._z = KukaValues[2];
+            _Orientation = SF.MakeQuaternionFromKuka(KukaValues);
+            SF.getAxisAngle(_Orientation, out _axis, out _angle);
+        }
 
         public Pose(Matrix Pose) : this(Quaternion.CreateFromRotationMatrix(Pose), Pose.Translation) { }
 
