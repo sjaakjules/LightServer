@@ -7,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Mehroz;
 
 namespace LightWeight_Server
 {
@@ -44,13 +43,14 @@ namespace LightWeight_Server
         Pose _newPose;
         Pose[] _newPoses;
         double[] _newVelocitys;
-        Trajectory[] _TrajectoryList, _NewTrajectoryList;
+        TrajectoryOld[] _TrajectoryList, _NewTrajectoryList;
 
         TimeCoordinate _CurrentDesiredPose;
         TimeCoordinate _CommandPose;
 
         Pose _StartPose, _StartTipPose;
         Pose _EndEffectorPose;
+        Pose _Reference;
         Vector3 _EndEffector;
 
         // Thread safe lists for updating and storing of robot information.
@@ -59,7 +59,7 @@ namespace LightWeight_Server
         ConcurrentDictionary<String, StringBuilder> _text = new ConcurrentDictionary<string, StringBuilder>();
 
         //Trajectory _CurrentTrajectory;
-        Trajectory _CurrentTrajectory;
+        TrajectoryOld _CurrentTrajectory;
         int _currentSegment = 1;
         Controller _Controller;
 
@@ -421,7 +421,7 @@ namespace LightWeight_Server
 
         public RobotInfo()
         {
-            _CurrentTrajectory = new Trajectory();
+            _CurrentTrajectory = new TrajectoryOld();
             _Controller = new Controller(this);
             _text.TryAdd("msg", new StringBuilder());
             _text.TryAdd("Error", new StringBuilder());
@@ -460,7 +460,7 @@ namespace LightWeight_Server
                 _StartTipPose = _Position.LastElement.Pose;
                 _EndEffectorPose = Pose.inverse(_StartPose) * _StartTipPose ;
                 _EndEffector = _EndEffectorPose.Translation;
-                getLinkTransforms(startAngles[0] * Math.PI / 180, startAngles[1] * Math.PI / 180, startAngles[2] * Math.PI / 180, startAngles[3] * Math.PI / 180, startAngles[4] * Math.PI / 180, startAngles[5] * Math.PI / 180, _EndEffector, out _T, out _T0);
+                getLinkTransforms(startAngles[0], startAngles[1], startAngles[2], startAngles[3], startAngles[4], startAngles[5], _EndEffector, out _T, out _T0);
                 _isConnected = true;
             }
             if (!_isConnected)
@@ -626,7 +626,7 @@ namespace LightWeight_Server
             TimeCoordinate _DisplayAcceleration = _acceleration.LastElement;
             TimeCoordinate _DisplayTorque = _Torque.LastElement;
             TimeCoordinate _DisplayDesiredPosition = _CurrentDesiredPose;
-            TimeCoordinate _DisplayCommandPosition = _CommandPose;
+            double[] _DisplayCommandPosition = _axisCommand;
             double[] _DisplayAngle = _Angles.LastElement;
             Vector3 currentZAxis = _DisplayPosition.Pose.zAxis;
             Vector3 desiredZAxis = _DisplayDesiredPosition.Pose.zAxis;
@@ -635,14 +635,16 @@ namespace LightWeight_Server
             Console.Clear();
             Console.WriteLine("---------------------------------\n              Info:\n");
             Console.WriteLine("Number of Angles: " + _Angles.ToArray().Length.ToString());
-            Console.WriteLine("Current Angles:       (" + String.Format("{0:0.00}", _DisplayAngle[0]) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayAngle[1]) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayAngle[2]) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayAngle[3]) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayAngle[4]) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayAngle[5]) + ")");
+            Console.WriteLine("Current Angles:       (" + String.Format("{0:0.000}", _DisplayAngle[0]) + " , " +
+                                                                    String.Format("{0:0.000}", _DisplayAngle[1]) + " , " +
+                                                                    String.Format("{0:0.000}", _DisplayAngle[2]) + " , " +
+                                                                    String.Format("{0:0.000}", _DisplayAngle[3]) + " , " +
+                                                                    String.Format("{0:0.000}", _DisplayAngle[4]) + " , " +
+                                                                    String.Format("{0:0.000}", _DisplayAngle[5]) + ")");
 
-            plotPose(forwardKinimatics(_DisplayAngle,Vector3.Zero), "FK Position:     (");
+            plotPose(forwardKinimatics(_DisplayAngle, _EndEffector), "FK Position:            (");
+            plotPose(_Reference, "Reference Position:     (");
+            plotPose(currentPose, "Measured Position:      (");
             Console.WriteLine("Current Position:     (" + String.Format("{0:0.00}", _DisplayPosition.x) + " , " +
                                                                     String.Format("{0:0.00}", _DisplayPosition.y) + " , " +
                                                                     String.Format("{0:0.00}", _DisplayPosition.z) + " , " +
@@ -671,12 +673,12 @@ namespace LightWeight_Server
             Console.WriteLine("Desired Tip Vector:   (" + String.Format("{0:0.00}", desiredZAxis.X) + " , " +
                                                                         String.Format("{0:0.00}", desiredZAxis.Y) + " , " +
                                                                         String.Format("{0:0.00}", desiredZAxis.Z) + ")");
-            Console.WriteLine("Command Position:     (" + String.Format("{0:0.00}", _DisplayCommandPosition.x) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayCommandPosition.y) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayCommandPosition.z) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayCommandPosition.a) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayCommandPosition.b) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayCommandPosition.c) + ")");
+            Console.WriteLine("Command Position:     (" + String.Format("{0:0.00}", _DisplayCommandPosition[0]) + " , " +
+                                                                    String.Format("{0:0.00}", _DisplayCommandPosition[1]) + " , " +
+                                                                    String.Format("{0:0.00}", _DisplayCommandPosition[2]) + " , " +
+                                                                    String.Format("{0:0.00}", _DisplayCommandPosition[3]) + " , " +
+                                                                    String.Format("{0:0.00}", _DisplayCommandPosition[4]) + " , " +
+                                                                    String.Format("{0:0.00}", _DisplayCommandPosition[5]) + ")");
 
             plotPose(_EndEffectorPose, "End Effector Position:     (");
             /*
@@ -798,8 +800,8 @@ namespace LightWeight_Server
             Matrix T23 = Matrix.Transpose(new Matrix((float)Math.Sin(t3), (float)Math.Cos(t3), 0, 560, (float)-Math.Cos(t3), (float)Math.Sin(t3), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1));
             Matrix T34 = Matrix.Transpose(new Matrix((float)Math.Cos(t4), (float)-Math.Sin(t4), 0, 35, 0, 0, -1, 515, (float)Math.Sin(t4), (float)Math.Cos(t4), 0, 0, 0, 0, 0, 1));
             Matrix T45 = Matrix.Transpose(new Matrix((float)Math.Cos(t5), (float)-Math.Sin(t5), 0, 0, 0, 0, 1, 0, (float)-Math.Sin(t5), (float)-Math.Cos(t5), 0, 0, 0, 0, 0, 1));
-            Matrix T56 = Matrix.Transpose(new Matrix((float)Math.Cos(t6), (float)-Math.Sin(t6), 0, 0, 0, 0, -1, 0, (float)Math.Sin(t6), (float)Math.Cos(t6), 0, 0, 0, 0, 0, 1));
-            Matrix T67 = Matrix.Transpose(new Matrix(-1, 0, 0, -End.X, 0, 1, 0, End.Y, 0, 0, -1, -End.Z-80, 0, 0, 0, 1));
+            Matrix T56 = Matrix.Transpose(new Matrix((float)-Math.Cos(t6), (float)-Math.Sin(t6), 0, 0, 0, 0, 1, 0, (float)-Math.Sin(t6), (float)Math.Cos(t6), 0, 0, 0, 0, 0, 1));
+            Matrix T67 = Matrix.Transpose(new Matrix(1, 0, 0, End.X, 0, 1, 0, End.Y, 0, 0, 1, End.Z+80, 0, 0, 0, 1));
             Matrix T02 = SF.M(T01, T12);
             Matrix T03 = SF.M(T02, T23);
             Matrix T04 = SF.M(T03, T34);
@@ -812,7 +814,7 @@ namespace LightWeight_Server
 
         double[,] InverseJacobian(double error)
         {
-            double[,] InvWristJacobian = SF.InverseJacobian(Mat.multiplyMatrix(_Angles.LastElement, Math.PI / 180), error);
+            double[,] InvWristJacobian = SF.InverseJacobian(_Angles.LastElement, error);
             return getTipJacobian(InvWristJacobian, _EndEffector);
         }
 
@@ -851,7 +853,7 @@ namespace LightWeight_Server
         /// <returns></returns>
         public Pose forwardKinimatics(double[] angles, Vector3 EE)
         {
-            return forwardKinimatics(angles[0] * Math.PI / 180, angles[1] * Math.PI / 180, angles[2] * Math.PI / 180, angles[3] * Math.PI / 180, angles[4] * Math.PI / 180, angles[5] * Math.PI / 180, EE);
+            return forwardKinimatics(angles[0], angles[1], angles[2], angles[3], angles[4], angles[5], EE);
         }
 
         /// <summary>
@@ -871,56 +873,51 @@ namespace LightWeight_Server
             double c1 = Math.Cos(a1);
             double s2 = Math.Sin(a2);
             double c2 = Math.Cos(a2);
-            double s23 = Math.Sin(a2-Math.PI/2+a3);
-            double c23 = Math.Cos(a2-Math.PI/2+a3);
-            double s3 = Math.Sin(a3);
-            double c3 = Math.Cos(a3);
-            double s3p = Math.Sin(a3-Math.PI/2);
-            double c3p = Math.Cos(a3-Math.PI/2);
+            double s3p = Math.Sin(a3 - Math.PI / 2);
+            double c3p = Math.Cos(a3 - Math.PI / 2);
             double s4 = Math.Sin(a4);
             double c4 = Math.Cos(a4);
-            double s45 = Math.Sin(a4 + a5);
-            double s4m5 = Math.Sin(a4 - a5);
             double s5 = Math.Sin(a5);
             double c5 = Math.Cos(a5);
             double s6 = Math.Sin(a6);
             double c6 = Math.Cos(a6);
+
             double a = (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p));
             double b1 = (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p));
             double b2 = (c1 * c2 * s3p + c1 * c3p * s2);
             double b = (c5 * b1 - s5 * b2);
+
             double m11 = -s6 * a - c6 * b;
             double m12 = c6 * a - s6 * b;
             double m13 = -s5 * b1 - c5 * b2;
-            //double m14 = 25 * c1 + 560 * c1 * c2 - 515 * c1 * s2 * s3 - 80 * s1 * s4 * s5 + 515 * c1 * c2 * c3 + 35 * c1 * c2 * s3 + 35 * c1 * c3 * s2 + 80 * c1 * c2 * c3 * c5 - 80 * c1 * c5 * s2 * s3 - 80 * c1 * c2 * c4 * s3 * s5 - 80 * c1 * c3 * c4 * s2 * s5;
-            double m14 = 25 * c1 + 560 * c1 * c2 - EE.X * (s6 * (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p)) + c6 * (c5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s5 * (c1 * c2 * s3p + c1 * c3p * s2))) + EE.Y * (c6 * (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s6 * (c5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s5 * (c1 * c2 * s3p + c1 * c3p * s2))) - (s5 * (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p)) + c5 * (c1 * c2 * s3p + c1 * c3p * s2)) * (EE.Z + 80) - 515 * c1 * c2 * s3p - 515 * c1 * c3p * s2 - 35 * c1 * s2 * s3p + 35 * c1 * c2 * c3p;
- 
+            double m14 = 25 * c1 + 560 * c1 * c2 - EE.X * (s6 * a + c6 * b) + EE.Y * (c6 * (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s6 * b) - (s5 * b1 + c5 * b2) * (EE.Z + 80) - 515 * c1 * c2 * s3p - 515 * c1 * c3p * s2 - 35 * c1 * s2 * s3p + 35 * c1 * c2 * c3p;
+
             a = (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p));
             b1 = (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p));
             b2 = (c2 * s1 * s3p + c3p * s1 * s2);
             b = (c5 * b1 + s5 * b2);
-            double m21 = -s6 * a + c6 * b;
-            double m22 = -s6 * b + c6 * a;
-            double m23 = -s5 * b1 + c5 * b2;
-            //double m24 = 515 * s1 * s2 * s3 - 560 * c2 * s1 - 35 * c2 * s1 * s3 - 35 * c3 * s1 * s2 - 80 * c1 * s4 * s5 - 25 * s1 - 515 * c2 * c3 * s1 - 80 * c2 * c3 * c5 * s1 + 80 * c5 * s1 * s2 * s3 + 80 * c2 * c4 * s1 * s3 * s5 + 80 * c3 * c4 * s1 * s2 * s5;
-            double m24 = -EE.X * (s6 * (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p)) + c6 * (c5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p)) + s5 * (c2 * s1 * s3p + c3p * s1 * s2))) - 560 * c2 * s1 - 25 * s1 + EE.Y * (c6 * (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p)) - s6 * (c5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3)) + s5 * (c2 * s1 * s3p + c3 * s1 * s2))) - (s5 * (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p)) - c5 * (c2 * s1 * s3p + c3p * s1 * s2)) * (EE.Z + 80) - 35 * c2 * c3p * s1 + 515 * c2 * s1 * s3p + 515 * c3p * s1 * s2 + 35 * s1 * s2 * s3p;
- 
+            double m21 = -s6 * a - c6 * b;
+            double m22 = c6 * a - s6 * b;
+            double m23 = c5 * b2 - s5 * b1;
+            double m24 = EE.Y * (c6 * a - s6 * b) - 560 * c2 * s1 - EE.X * (s6 * a + c6 * b) - 25 * s1 - (s5 * b1 - c5 * b2) * (EE.Z + 80) - 35 * c2 * c3p * s1 + 515 * c2 * s1 * s3p + 515 * c3p * s1 * s2 + 35 * s1 * s2 * s3p;
+
             a = (c2 * s3p + c3p * s2);
             b1 = (c2 * c3p - s2 * s3p);
             b = (s5 * b1 + c4 * c5 * a);
-            double m31 = -s4 * s6 * a + c6 * b;
+            double m31 = c6 * b - s4 * s6 * a;
             double m32 = s6 * b + c6 * s4 * a;
             double m33 = c4 * s5 * a - c5 * b1;
-            //double m34 = 40 * s23 * s45 - 35 * s23 - 560 * s2 - 515 * c23 - 80 * c23 * c5 - 40 * s4m5 * s23 + 400;
-            double m34 = 515 * s2 * s3p - 515 * c2 * c3p - 35 * c2 * s3p - 35 * c3p * s2 - 560 * s2 - (c5 * (c2 * c3p - s2 * s3p) - c4 * s5 * (c2 * s3p + c3p * s2)) * (EE.Z + 80) + EE.X * (c6 * (s5 * (c2 * c3p - s2 * s3p) + c4 * c5 * (c2 * s3p + c3p * s2)) - s4 * s6 * (c2 * s3p + c3p * s2)) + EE.Y * (s6 * (s5 * (c2 * c3p - s2 * s3p) + c4 * c5 * (c2 * s3p + c3p * s2)) + c6 * s4 * (c2 * s3p + c3p * s2)) + 400;
- 
+            double m34 = 515 * s2 * s3p - 515 * c2 * c3p - 35 * c2 * s3p - 35 * c3p * s2 - 560 * s2 - (c5 * b1 - c4 * s5 * a) * (EE.Z + 80) + EE.X * (c6 * b - s4 * s6 * a) + EE.Y * (s6 * b + c6 * s4 * a) + 400;
+
             double m41 = 0;
             double m42 = 0;
             double m43 = 0;
             double m44 = 1;
-            Matrix M = new Matrix((float)m11, (float)m12, (float)m13, (float)m14, (float)m21, (float)m22, (float)m23, (float)m24, (float)m31, (float)m32, (float)m33, (float)m34, (float)m41, (float)m42, (float)m43, (float)m44);
-            return new Pose(Matrix.Transpose(M));
 
+
+            Matrix M = new Matrix((float)m11, (float)m12, (float)m13, (float)m14, (float)m21, (float)m22, (float)m23, (float)m24, (float)m31, (float)m32, (float)m33, (float)m34, (float)m41, (float)m42, (float)m43, (float)m44);
+            M = Matrix.Transpose(M);
+            return new Pose(M);
         }
 
         public void updateSignal(int a, int b, long Ipoc)
@@ -945,7 +942,7 @@ namespace LightWeight_Server
             if (_isConnected)
             {
                 jacobianTimer.Restart();
-                getLinkTransforms(a1 * Math.PI / 180, a2 * Math.PI / 180, a3 * Math.PI / 180, a4 * Math.PI / 180, a5 * Math.PI / 180, a6 * Math.PI / 180, _EndEffector, out _T, out _T0);
+                getLinkTransforms(a1, a2, a3, a4, a5, a6, _EndEffector, out _T, out _T0);
                 _Jacobian = Jacobian(_T, _T0);
                 double[,] invJoc = InverseJacobian(1e-6);
                // Mat Jocob = new Mat(_Jacobian);
@@ -1000,7 +997,7 @@ namespace LightWeight_Server
                     {
                         if (_newPosesLoaded)
                         {
-                            _TrajectoryList = new Trajectory[_NewTrajectoryList.Length];
+                            _TrajectoryList = new TrajectoryOld[_NewTrajectoryList.Length];
                             _NewTrajectoryList.CopyTo(_TrajectoryList, 0);
                             _NewTrajectoryList = null;
                             _CurrentTrajectory = _TrajectoryList[0];
@@ -1120,7 +1117,7 @@ namespace LightWeight_Server
                 {
                     AverageVelocity[i] = (AverageVelocity[i] == -1) ? AverageVelocity[i-1] : ((AverageVelocity[i] > 0.1) ? AverageVelocity[i] / 1000 : AverageVelocity[i]);
                 }
-                _NewTrajectoryList = new Trajectory[n];
+                _NewTrajectoryList = new TrajectoryOld[n];
                 Vector3[] PointVelocitys = new Vector3[n + 1];
                 PointVelocitys[0] = Vector3.Zero;
                 PointVelocitys[n] = Vector3.Zero;
@@ -1128,10 +1125,10 @@ namespace LightWeight_Server
                 {
                     PointVelocitys[i] = (float)((AverageVelocity[i - 1] + 0.2 * AverageVelocity[i]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[i].Translation - new_Poses[i - 1].Translation) + Vector3.Normalize(new_Poses[i + 1].Translation - new_Poses[i].Translation)));
                 }
-                _NewTrajectoryList[0] = new Trajectory(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1]);
+                _NewTrajectoryList[0] = new TrajectoryOld(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1]);
                 for (int i = 1; i < n; i++)
                 {
-                    _NewTrajectoryList[i] = new Trajectory(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
+                    _NewTrajectoryList[i] = new TrajectoryOld(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
                 }
                 _newPosesLoaded = true;
                 trajectoryLoader.Stop();
@@ -1216,7 +1213,7 @@ namespace LightWeight_Server
         double[,] getTipJacobian(double[,] InvWristJacobian, Vector3 EE)
         {
             double[,] InvSkewEE = new double[,] { { 1, 0, 0, 0, -EE.Z, EE.Y }, { 0, 1, 0, EE.Z, 0, -EE.X }, { 0, 0, 1, -EE.Y, EE.X, 0 }, { 0, 0, 0, 1, 0, 0 }, { 0, 0, 0, 0, 1, 0 }, { 0, 0, 0, 0, 0, 1 } };
-            return Mat.multiplyMatrix(InvWristJacobian,InvSkewEE);
+            return SF.multiplyMatrix(InvWristJacobian,InvSkewEE);
         }
 
         public void updateComandPosition()
@@ -1229,25 +1226,27 @@ namespace LightWeight_Server
                 {
                     Pose CurrentPose = currentPose;
 
-                    TGetReference = IPOC.Elapsed.TotalMilliseconds;
-                    Pose Reference = _CurrentTrajectory.getReferencePosition(CurrentPose);
-                    PGetReference = IPOC.Elapsed.TotalMilliseconds - TGetReference;
+                //    TGetReference = IPOC.Elapsed.TotalMilliseconds;
 
-                    TGetController = IPOC.Elapsed.TotalMilliseconds;
+                    _Reference = _CurrentTrajectory.getReferencePosition(CurrentPose);
 
-                    T2 = IPOC.Elapsed.TotalMilliseconds;
-                    double[,] InvWristJacobian = SF.InverseJacobian(Mat.multiplyMatrix(_Angles.LastElement,Math.PI/180),1e-5);
-                    P2 = IPOC.Elapsed.TotalMilliseconds - T2;
+               //     PGetReference = IPOC.Elapsed.TotalMilliseconds - TGetReference;
 
-                    T2 = IPOC.Elapsed.TotalMilliseconds;
+             //       TGetController = IPOC.Elapsed.TotalMilliseconds;
+
+             //       T2 = IPOC.Elapsed.TotalMilliseconds;
+                    double[,] InvWristJacobian = SF.InverseJacobian(_Angles.LastElement,1e-5);
+            //        P2 = IPOC.Elapsed.TotalMilliseconds - T2;
+
+             //       T2 = IPOC.Elapsed.TotalMilliseconds;
                     double[,] inverseJoc = getTipJacobian(InvWristJacobian, _EndEffector);
-                    P3 = IPOC.Elapsed.TotalMilliseconds - T2;
+            //        P3 = IPOC.Elapsed.TotalMilliseconds - T2;
 
-                    T2 = IPOC.Elapsed.TotalMilliseconds;
-                    _axisCommand = _Controller.getControllerEffort(Reference, _CurrentTrajectory.getReferenceVelocity(CurrentPose), CurrentPose, currentVelocity, inverseJoc);
-                    P4 = IPOC.Elapsed.TotalMilliseconds - T2;
+          //          T2 = IPOC.Elapsed.TotalMilliseconds;
+                    _axisCommand = _Controller.getControllerEffort(_Reference, _CurrentTrajectory.getReferenceVelocity(CurrentPose), CurrentPose, currentVelocity, inverseJoc);
+           //         P4 = IPOC.Elapsed.TotalMilliseconds - T2;
 
-                    PGetController = IPOC.Elapsed.TotalMilliseconds - TGetController;
+          //          PGetController = IPOC.Elapsed.TotalMilliseconds - TGetController;
 
                     Pose commandPose = new Pose(_axisCommand);
                    // Pose commandPose = _CurrentTrajectory.reference(currentPose, currentVelocity, _maxLinearVelocity, (float)_maxAngularVelocity, _maxLinearAcceleration, _maxAngularAcceleration);

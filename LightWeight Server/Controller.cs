@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Mehroz;
 
 namespace LightWeight_Server
 {
@@ -71,13 +70,13 @@ namespace LightWeight_Server
             Vector3 ErrorTranslation = (referencePosition.Translation - measuredPosition.Translation);
             Vector3 ErrorOrientation = SF.getOrientationError(Matrix.CreateFromQuaternion(referencePosition.Orientation), Matrix.CreateFromQuaternion(measuredPosition.Orientation));
             Vector3 ControlTranslation = referenceVelocity.Translation + Vector3.Multiply(ErrorTranslation, (float)P);
-            Vector3 ControlOrientation = Vector3.Multiply(referenceVelocity.axis,referenceVelocity.angle) + Vector3.Multiply(ErrorTranslation, (float)P);
+            Vector3 ControlOrientation = Vector3.Multiply(referenceVelocity.axis, referenceVelocity.angle) + Vector3.Multiply(ErrorOrientation, (float)P);
             // TODO: write PI controller, may need karman filter for noise
             //double JacTimer = R.IPOC.Elapsed.TotalMilliseconds;
             //Mat Jac = new Mat(Jacobian);
            // R.P3 = R.IPOC.Elapsed.TotalMilliseconds - JacTimer;
             double[] TipVeloicty = new double[] { ControlTranslation.X, ControlTranslation.Y, ControlTranslation.Z, ControlOrientation.X, ControlOrientation.Y, ControlOrientation.Z };
-            return Mat.multiplyMatrix(inverseJoc, TipVeloicty);
+            return SF.multiplyMatrix(inverseJoc, TipVeloicty);
         }
 
 

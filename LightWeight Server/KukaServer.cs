@@ -347,9 +347,9 @@ namespace LightWeight_Server
                             break;
 
                         case "AIPos":
-                            _Robot.updateRobotAngles(double.Parse(Node.Attributes["A1"].Value), double.Parse(Node.Attributes["A2"].Value),
-                                                    double.Parse(Node.Attributes["A3"].Value), double.Parse(Node.Attributes["A4"].Value),
-                                                    double.Parse(Node.Attributes["A5"].Value), double.Parse(Node.Attributes["A6"].Value), _IPOC);
+                            _Robot.updateRobotAngles(double.Parse(Node.Attributes["A1"].Value) * Math.PI / 180, double.Parse(Node.Attributes["A2"].Value) * Math.PI / 180,
+                                                    double.Parse(Node.Attributes["A3"].Value) * Math.PI / 180, double.Parse(Node.Attributes["A4"].Value) * Math.PI / 180,
+                                                    double.Parse(Node.Attributes["A5"].Value) * Math.PI / 180, double.Parse(Node.Attributes["A6"].Value) * Math.PI / 180, _IPOC);
                             break;
 
                         case "Torque":
@@ -547,7 +547,7 @@ namespace LightWeight_Server
             XmlNode comAxisNode = _SendXML.SelectSingleNode("//Sen/AKorr");
             for (int i = 0; i < 6; i++)
             {
-                comAxisNode.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.000000}", _Robot._axisCommand[i]);
+                comAxisNode.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.000000}", _Robot._axisCommand[i]*4*180/Math.PI);
             }
             XmlNode gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER");
             if (_Robot.gripperIsOpen)

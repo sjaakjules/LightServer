@@ -659,20 +659,57 @@ namespace TestBot
             double c1 = Math.Cos(a1);
             double s2 = Math.Sin(a2);
             double c2 = Math.Cos(a2);
-            double s23 = Math.Sin(a2 - Math.PI / 2 + a3);
-            double c23 = Math.Cos(a2 - Math.PI / 2 + a3);
-            double s3 = Math.Sin(a3);
-            double c3 = Math.Cos(a3);
             double s3p = Math.Sin(a3 - Math.PI / 2);
             double c3p = Math.Cos(a3 - Math.PI / 2);
             double s4 = Math.Sin(a4);
             double c4 = Math.Cos(a4);
-            double s45 = Math.Sin(a4 + a5);
-            double s4m5 = Math.Sin(a4 - a5);
             double s5 = Math.Sin(a5);
             double c5 = Math.Cos(a5);
             double s6 = Math.Sin(a6);
             double c6 = Math.Cos(a6);
+
+            double a = (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p));
+            double b1 = (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p));
+            double b2 = (c1 * c2 * s3p + c1 * c3p * s2);
+            double b = (c5 * b1 - s5 * b2);
+
+            double m11 = -s6 * a - c6 * b;
+            double m12 = c6 * a - s6 * b;
+            double m13 = -s5 * b1 - c5 * b2;
+            double m14 = 25 * c1 + 560 * c1 * c2 - EE.X * (s6 * a + c6 * b) + EE.Y * (c6 * (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p)) - s6 * b) - (s5 * b1 + c5 * b2) * (EE.Z + 80) - 515 * c1 * c2 * s3p - 515 * c1 * c3p * s2 - 35 * c1 * s2 * s3p + 35 * c1 * c2 * c3p;
+
+            a = (c1 * c4 + s4 * (c2 * c3p * s1 - s1 * s2 * s3p));
+            b1 = (c1 * s4 - c4 * (c2 * c3p * s1 - s1 * s2 * s3p));
+            b2 = (c2 * s1 * s3p + c3p * s1 * s2);
+            b = (c5 * b1 + s5 * b2);
+            double m21 = -s6 * a - c6 * b;
+            double m22 = c6 * a - s6 * b;
+            double m23 = c5 * b2 - s5 * b1;
+            double m24 = EE.Y * (c6 * a - s6 * b) - 560 * c2 * s1 - EE.X * (s6 * a + c6 * b) - 25 * s1 - (s5 * b1 - c5 * b2) * (EE.Z + 80) - 35 * c2 * c3p * s1 + 515 * c2 * s1 * s3p + 515 * c3p * s1 * s2 + 35 * s1 * s2 * s3p;
+
+            a = (c2 * s3p + c3p * s2);
+            b1 = (c2 * c3p - s2 * s3p);
+            b = (s5 * b1 + c4 * c5 * a);
+            double m31 = c6 * b - s4 * s6 * a;
+            double m32 = s6 * b + c6 * s4 * a;
+            double m33 = c4 * s5 * a - c5 * b1;
+            double m34 = 515 * s2 * s3p - 515 * c2 * c3p - 35 * c2 * s3p - 35 * c3p * s2 - 560 * s2 - (c5 * b1 - c4 * s5 * a) * (EE.Z + 80) + EE.X * (c6 * b - s4 * s6 * a) + EE.Y * (s6 * b + c6 * s4 * a) + 400;
+
+            double m41 = 0;
+            double m42 = 0;
+            double m43 = 0;
+            double m44 = 1;
+
+
+            Matrix M = new Matrix((float)m11, (float)m12, (float)m13, (float)m14, (float)m21, (float)m22, (float)m23, (float)m24, (float)m31, (float)m32, (float)m33, (float)m34, (float)m41, (float)m42, (float)m43, (float)m44);
+            M = Matrix.Transpose(M);
+            Vector3 pos = M.Translation;
+
+            double[] kukaValues = new double[6];
+            getKukaAngles(M, out kukaValues);
+            return kukaValues;
+        }
+            /*
             double a = (c4 * s1 + s4 * (c1 * s2 * s3p - c1 * c2 * c3p));
             double b1 = (s1 * s4 - c4 * (c1 * s2 * s3p - c1 * c2 * c3p));
             double b2 = (c1 * c2 * s3p + c1 * c3p * s2);
@@ -706,15 +743,10 @@ namespace TestBot
             double m42 = 0;
             double m43 = 0;
             double m44 = 1;
-            Matrix M = new Matrix((float)m11, (float)m12, (float)m13, (float)m14, (float)m21, (float)m22, (float)m23, (float)m24, (float)m31, (float)m32, (float)m33, (float)m34, (float)m41, (float)m42, (float)m43, (float)m44);
-            M = Matrix.Transpose(M);
-            Vector3 pos = M.Translation;
+             * 
+             * 
+             */
 
-            double[] kukaValues = new double[6];
-            getKukaAngles(M, out kukaValues);
-            return kukaValues;
-
-        }
 
         #endregion
     }

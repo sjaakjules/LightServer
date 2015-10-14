@@ -66,7 +66,11 @@
     <Reference Include="Microsoft.Xna.Framework, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.DirectoryServices" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Numerics" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Windows.Forms.DataVisualization" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -80,8 +84,10 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RobotInfo.cs" />
+    <Compile Include="ScreenWriter.cs" />
     <Compile Include="StaticFunctions.cs" />
     <Compile Include="Trajectory.cs" />
+    <Compile Include="TrajectoryOld.cs" />
     <Compile Include="KukaServer.cs" />
   </ItemGroup>
   <ItemGroup>

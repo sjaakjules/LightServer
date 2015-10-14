@@ -443,6 +443,108 @@ namespace LightWeight_Server
     public static class SF
     {
 
+        public static double[] multiplyMatrix(double[,] M, double[] value)
+        {
+            int m_iRows = M.GetLength(0);
+            int m_iCols = M.GetLength(1);
+            if (m_iCols != value.Length)
+                throw new MatrixException("Invalid Matrix specified, not correct size");
+            double[] Mout = new double[value.Length];
+            for (int i = 0; i < m_iRows; i++)
+            {
+                for (int j = 0; j < m_iCols; j++)
+                {
+                    Mout[i] += M[i, j] * value[j];
+                }
+            }
+            return Mout;
+        }
+
+        public static double[,] multiplyMatrix(double[,] M, double[,] value)
+        {
+            int m_iRows = M.GetLength(0);
+            int m_iCols = M.GetLength(1);
+            int v_iRows = value.GetLength(0);
+            int v_iCols = value.GetLength(1);
+            if (m_iCols != v_iRows)
+            {
+                return multiplyMatrix(value, M);
+                throw new MatrixException("Invalid Matrix specified, not correct size");
+            }
+            double[,] Mout = new double[m_iRows, v_iCols];
+            for (int i = 0; i < m_iRows; i++)
+            {
+                for (int j = 0; j < v_iCols; j++)
+                {
+                    Mout[i, j] = dotProduct(getRow(M, i), getCol(value, j));
+                }
+            }
+            return Mout;
+        }
+
+
+        public static double[] getRow(double[,] M, int row)
+        {
+            int m_iRows = M.GetLength(0);
+            int m_iCols = M.GetLength(1);
+            if (m_iRows < row)
+                throw new MatrixException("Invalid Matrix specified, not correct size");
+            double[] Rout = new double[m_iCols];
+            for (int i = 0; i < m_iCols; i++)
+            {
+                Rout[i] = M[row, i];
+            }
+            return Rout;
+        }
+
+        public static double[] getCol(double[,] M, int col)
+        {
+            int m_iRows = M.GetLength(0);
+            int m_iCols = M.GetLength(1);
+            if (m_iCols < col)
+                throw new MatrixException("Invalid Matrix specified, not correct size");
+            double[] Cout = new double[m_iRows];
+            for (int i = 0; i < m_iRows; i++)
+            {
+                Cout[i] = M[i, col];
+            }
+            return Cout;
+        }
+
+        public static double dotProduct(double[] V1, double[] V2)
+        {
+            int m_iRows = V1.Length;
+            int m_iCols = V2.Length;
+            if (m_iCols != m_iRows)
+                throw new MatrixException("Invalid Matrix specified, not correct size");
+            double product = 0;
+            for (int i = 0; i < m_iRows; i++)
+            {
+                product += V1[i] * V2[i];
+            }
+            return product;
+        }
+
+
+        /// <summary>
+        /// Exception class for Matrix class, derived from System.Exception
+        /// </summary>
+        public class MatrixException : Exception
+        {
+            public MatrixException()
+                : base()
+            { }
+
+            public MatrixException(string Message)
+                : base(Message)
+            { }
+
+            public MatrixException(string Message, Exception InnerException)
+                : base(Message, InnerException)
+            { }
+        }	// end class MatrixException
+
+
         public static Quaternion QfromZX(Vector3 zAxis, Vector3 xAxis)
         {
             xAxis.Normalize();
@@ -468,14 +570,6 @@ namespace LightWeight_Server
             return Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle) * _currentOrientation;
         }
 
-        public static Matrix MatMultiply(Matrix M1, Matrix M2)
-        {
-            return new Matrix(  M1.M11 * M2.M11 + M1.M21 * M2.M12 + M1.M31 * M2.M13 + M1.M41 * M2.M14, M1.M12 * M2.M11 + M1.M22 * M2.M12 + M1.M32 * M2.M13 + M1.M42 * M2.M14, M1.M13 * M2.M11 + M1.M23 * M2.M12 + M1.M33 * M2.M13 + M1.M43 * M2.M14, M1.M14 * M2.M11 + M1.M24 * M2.M12 + M1.M34 * M2.M13 + M1.M44 * M2.M14,
-                                M1.M11 * M2.M21 + M1.M21 * M2.M22 + M1.M31 * M2.M23 + M1.M41 * M2.M24, M1.M12 * M2.M21 + M1.M22 * M2.M22 + M1.M32 * M2.M23 + M1.M42 * M2.M24, M1.M13 * M2.M21 + M1.M23 * M2.M22 + M1.M33 * M2.M23 + M1.M43 * M2.M24, M1.M14 * M2.M21 + M1.M24 * M2.M22 + M1.M34 * M2.M23 + M1.M44 * M2.M24,
-                                M1.M11 * M2.M31 + M1.M21 * M2.M32 + M1.M31 * M2.M33 + M1.M41 * M2.M34, M1.M12 * M2.M31 + M1.M22 * M2.M32 + M1.M32 * M2.M33 + M1.M42 * M2.M34, M1.M13 * M2.M31 + M1.M23 * M2.M32 + M1.M33 * M2.M33 + M1.M43 * M2.M34, M1.M14 * M2.M31 + M1.M24 * M2.M32 + M1.M34 * M2.M33 + M1.M44 * M2.M34,
-                                M1.M11 * M2.M41 + M1.M21 * M2.M42 + M1.M31 * M2.M43 + M1.M41 * M2.M44, M1.M12 * M2.M41 + M1.M22 * M2.M42 + M1.M32 * M2.M43 + M1.M42 * M2.M44, M1.M13 * M2.M41 + M1.M23 * M2.M42 + M1.M33 * M2.M43 + M1.M43 * M2.M44, M1.M14 * M2.M41 + M1.M24 * M2.M42 + M1.M34 * M2.M43 + M1.M44 * M2.M44); 
-                                
-        }
 
 
 
@@ -945,21 +1039,6 @@ namespace LightWeight_Server
             inverseJoc[5, 4] = (c2 * c4 * s1 * s3 - c1 * s4 + c3 * c4 * s1 * s2) / singularity8;
             inverseJoc[5, 5] = -(c2p3 * c4) / singularity8;
             return inverseJoc;
-            /*
-             * 
-J =
- 
-[ -s1*(515*c2p3 + 35*s2p3 + 560*c2 + 25), -5*c1*(103*s2p3 - 7*c2p3 + 112*s2),  5*c1*(7*c2p3 - 103*s2p3),                     0,                                                                                   0,                                                                                                                                                                                   0]
-[ -c1*(515*c2p3 + 35*s2p3 + 560*c2 + 25),  5*s1*(103*s2p3 - 7*c2p3 + 112*s2), -5*s1*(7*c2p3 - 103*s2p3),                     0,                                                                                   0,                                                                                                                                                                                   0]
-[                                                                0,           - 515*c2p3 - 35*s2p3 - 560*c2,           - 515*c2p3 - 35*s2p3,                     0,                                                                                   0,                                                                                                                                                                                   0]
-[                                                                0,                                                      s1,                                        s1, -c2p3*c1, c4*s1 - c1*c2*s3*s4 - c1*c3*s2*s4, - s5*(s1*s4 - c4*(c1*s2*s3p - c1*c2*c3p)) - c5*(c1*c2*s3p + c1*c3p*s2)]
-[                                                                0,                                                      c1,                                        c1,  c2p3*s1, c1*c4 + c2*s1*s3*s4 + c3*s1*s2*s4,   c5*(c2*s1*s3p + c3p*s1*s2) - s5*(c1*s4 - c4*(c2*c3p*s1 - s1*s2*s3p))]
-[                                                               -1,                                                            0,                                              0,          s2p3,                                                               -c2p3*s4,                                                       c4*s5*(c2*s3p + c3p*s2) - c5*(c2*c3p - s2*s3p)]
- 
- 
-ans =
-             */
-
         }
     }
 
