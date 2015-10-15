@@ -44,13 +44,14 @@ namespace LightWeight_Server
         Pose[] _newPoses;
         double[] _newVelocitys;
         TrajectoryOld[] _TrajectoryList, _NewTrajectoryList;
+        TrajectoryHandler _TrajectoryHandler;
 
         TimeCoordinate _CurrentDesiredPose;
         TimeCoordinate _CommandPose;
 
         Pose _StartPose, _StartTipPose;
         Pose _EndEffectorPose;
-        Pose _Reference;
+        Pose _Reference, _referenceVelocity;
         Vector3 _EndEffector;
 
         // Thread safe lists for updating and storing of robot information.
@@ -422,7 +423,7 @@ namespace LightWeight_Server
         public RobotInfo()
         {
             _CurrentTrajectory = new TrajectoryOld();
-            _Controller = new Controller(this);
+            _Controller = new Controller();
             _text.TryAdd("msg", new StringBuilder());
             _text.TryAdd("Error", new StringBuilder());
             _text.TryAdd("Controller", new StringBuilder());
@@ -435,7 +436,7 @@ namespace LightWeight_Server
             _CommandPose = new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0);
             MaxJocTimer.Enqueue(0);
             MaxserverTimer.Enqueue(0);
-
+            _TrajectoryHandler = new TrajectoryHandler();
             /*
             setupCardinalDictionaries(_ReadPosition, homePosition);
             setupCardinalDictionaries(_DesiredPosition, homePosition);
@@ -645,6 +646,8 @@ namespace LightWeight_Server
             plotPose(forwardKinimatics(_DisplayAngle, _EndEffector), "FK Position:            (");
             plotPose(_Reference, "Reference Position:     (");
             plotPose(currentPose, "Measured Position:      (");
+            plotPose(_referenceVelocity, "Reference Velocity:     (");
+            plotPose(_velocity.LastElement.Pose, "Measured Velocity:      (");
             Console.WriteLine("Current Position:     (" + String.Format("{0:0.00}", _DisplayPosition.x) + " , " +
                                                                     String.Format("{0:0.00}", _DisplayPosition.y) + " , " +
                                                                     String.Format("{0:0.00}", _DisplayPosition.z) + " , " +
@@ -681,6 +684,8 @@ namespace LightWeight_Server
                                                                     String.Format("{0:0.00}", _DisplayCommandPosition[5]) + ")");
 
             plotPose(_EndEffectorPose, "End Effector Position:     (");
+
+            Console.WriteLine(_text["msg"].ToString());
             /*
             Console.WriteLine("Command Axis:         (" + String.Format("{0:0.0000}", displayAxis[0]) + " , " +
                                                                     String.Format("{0:0.0000}", displayAxis[1]) + " , " +
@@ -766,6 +771,41 @@ namespace LightWeight_Server
 
         }
 
+
+        void plotTrajectories(TrajectoryOld[] Trajectories)
+        {
+            try
+            {
+                _text["msg"].Clear();
+                StringBuilder msg = new StringBuilder();
+                msg.AppendLine("  Time  |     Start Pos     |     Final Pos     |     Start Vel     |    Final Vel      |   Angle   ");
+                msg.AppendLine("  [s]   |       [mm]        |       [mm]        |       [mm]        |       [mm]        |   [Deg]   ");
+                for (int i = 0; i < Trajectories.Length; i++)
+                {
+                    msg.AppendLine(String.Format("{0,-8:0.00}|{1,-19}|{2,-19}|{3,-19}|{4,-19}|   {5,-7:0.00}",    Trajectories[i]._trajectoryTime.TotalSeconds,
+                                                                                                            Trajectories[i]._startPose,
+                                                                                                            Trajectories[i]._finalPose,
+                                                                                                            Trajectories[i]._startVelocity,
+                                                                                                            Trajectories[i]._finalVelocity,
+                                                                                                            Trajectories[i]._finalAngle * 180 / Math.PI));
+                }
+                _text["msg"].AppendLine(msg.ToString());
+
+            }
+            catch (FormatException fe)
+            {
+                updateError(fe.Message);
+            }
+            catch (ArgumentNullException ne)
+            {
+                updateError(ne.Message);
+            }
+            catch (Exception e)
+            {
+                updateError(e.Message);
+            }
+        }
+
         #region Movement
         public void updateRobotPosition(long LIpoc, long Ipoc, double x, double y, double z, double a, double b, double c)
         {
@@ -773,7 +813,9 @@ namespace LightWeight_Server
             _KukaCycleTime.Stop();
             _loopTime = _KukaCycleTime.Elapsed.TotalMilliseconds;
             _KukaCycleTime.Restart();
-
+            a = (a == -180) ? 180 : a;
+            b = (a == -180) ? 180 : b;
+            c = (a == -180) ? 180 : c;
             TimeCoordinate newPosition = new TimeCoordinate(x, y, z, a, b, c, Ipoc);
             _Position.Enqueue(newPosition);
             TimeCoordinate[] positions = _Position.ToArray();
@@ -1109,6 +1151,8 @@ namespace LightWeight_Server
         {
             if (!_newPosesLoaded)
             {
+                Guid PoseList = Guid.NewGuid();
+                TrajectoryQuintic[] QuinticTrajectories = new TrajectoryQuintic[n];
                 Stopwatch trajectoryLoader = new Stopwatch();
                 trajectoryLoader.Start();
                 // Check if no veloicty was specified or if mm/s or mm/ms was specified. Must used mm/ms for trajectory generation
@@ -1118,18 +1162,24 @@ namespace LightWeight_Server
                     AverageVelocity[i] = (AverageVelocity[i] == -1) ? AverageVelocity[i-1] : ((AverageVelocity[i] > 0.1) ? AverageVelocity[i] / 1000 : AverageVelocity[i]);
                 }
                 _NewTrajectoryList = new TrajectoryOld[n];
-                Vector3[] PointVelocitys = new Vector3[n + 1];
+                Vector3[] PointVelocitys = new Vector3[n+1];
                 PointVelocitys[0] = Vector3.Zero;
-                PointVelocitys[n] = Vector3.Zero;
-                for (int i = 1; i < n - 1; i++)
+                PointVelocitys[n] = Vector3.Zero; 
+                PointVelocitys[1] = (float)((AverageVelocity[0] + 0.2 * AverageVelocity[1]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[0].Translation - currentPose.Translation) + Vector3.Normalize(new_Poses[1].Translation - new_Poses[0].Translation)));
+                
+                for (int i = 2; i < n ; i++)
                 {
-                    PointVelocitys[i] = (float)((AverageVelocity[i - 1] + 0.2 * AverageVelocity[i]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[i].Translation - new_Poses[i - 1].Translation) + Vector3.Normalize(new_Poses[i + 1].Translation - new_Poses[i].Translation)));
+                    PointVelocitys[i] = (float)((AverageVelocity[i - 1] + 0.2 * AverageVelocity[i]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[i-1].Translation - new_Poses[i - 2].Translation) + Vector3.Normalize(new_Poses[i].Translation - new_Poses[i-1].Translation)));
                 }
                 _NewTrajectoryList[0] = new TrajectoryOld(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1]);
+                QuinticTrajectories[0] = new TrajectoryQuintic(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1], PoseList);
                 for (int i = 1; i < n; i++)
                 {
                     _NewTrajectoryList[i] = new TrajectoryOld(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
+                    QuinticTrajectories[i] = new TrajectoryQuintic(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1], PoseList);
                 }
+                _TrajectoryHandler.Load(QuinticTrajectories);
+                plotTrajectories(_NewTrajectoryList);
                 _newPosesLoaded = true;
                 trajectoryLoader.Stop();
                 _trajectoryLoaderTime = trajectoryLoader.Elapsed.TotalMilliseconds;
@@ -1229,7 +1279,7 @@ namespace LightWeight_Server
                 //    TGetReference = IPOC.Elapsed.TotalMilliseconds;
 
                     _Reference = _CurrentTrajectory.getReferencePosition(CurrentPose);
-
+                    _referenceVelocity = _CurrentTrajectory.getReferenceVelocity(CurrentPose);
                //     PGetReference = IPOC.Elapsed.TotalMilliseconds - TGetReference;
 
              //       TGetController = IPOC.Elapsed.TotalMilliseconds;
@@ -1243,7 +1293,7 @@ namespace LightWeight_Server
             //        P3 = IPOC.Elapsed.TotalMilliseconds - T2;
 
           //          T2 = IPOC.Elapsed.TotalMilliseconds;
-                    _axisCommand = _Controller.getControllerEffort(_Reference, _CurrentTrajectory.getReferenceVelocity(CurrentPose), CurrentPose, currentVelocity, inverseJoc);
+                    _axisCommand = _Controller.getControllerEffort(_Reference, _referenceVelocity, CurrentPose, currentVelocity, inverseJoc);
            //         P4 = IPOC.Elapsed.TotalMilliseconds - T2;
 
           //          PGetController = IPOC.Elapsed.TotalMilliseconds - TGetController;
@@ -1258,9 +1308,13 @@ namespace LightWeight_Server
                     if (_CurrentTrajectory.checkFinish(CurrentPose, 1e-2))
                     {
                         if (_currentSegment < _TrajectoryList.Length)
-                        {                            
+                        {
+
+                            _CurrentTrajectory.stop();
                             _CurrentTrajectory = _TrajectoryList[_currentSegment];
+                            _CurrentTrajectory.start();
                             _currentSegment++;
+                            updateError("Segment Finished\nCurrent Segment: " + _currentSegment.ToString());
                         }
                         else
                         {

@@ -20,14 +20,14 @@ namespace LightWeight_Server
         Stopwatch _elapsedTime = new Stopwatch();
         bool _isActive = false, _isRotating = false, _isTranslating = false, _hasCompleated = false;
 
-        Pose _finalPose, _startPose, _startVelocity, _finalVelocity, _changePose;
+        public Pose _finalPose, _startPose, _startVelocity, _finalVelocity, _changePose;
         Vector3 x0, xf, xm, x0d, xfd, xmd;
-        TimeSpan _trajectoryTime;
+        public TimeSpan _trajectoryTime;
         Quaternion _startInverse;
 
         double[][] _QuinticPerameters = new double[4][];
         Vector3 _TrajectoryAxis;
-        float _finalAngle;
+        public float _finalAngle;
 
         int newSegments;
         double[][] _NewQuinticPerameters = new double[4][];
@@ -40,14 +40,21 @@ namespace LightWeight_Server
         // last velocity must be populated with a corrent velocity
         public TrajectoryOld(Pose EndPose, double midVelocity, Pose LastPose, Vector3 startVelocity, Vector3 FinalVelocity)
         {
+            this._QuinticPerameters = new double[4][];
+            this._startPose = LastPose;
+            this._finalPose = EndPose;
+            this._startVelocity = new Pose(Quaternion.Identity, startVelocity);
+            this._finalVelocity = new Pose(Quaternion.Identity, FinalVelocity);
             this.x0 = LastPose.Translation;
             this.xf = EndPose.Translation;
             this.xm = ((xf - x0) / 2) + x0;
             this.x0d = startVelocity;
             this.xfd = FinalVelocity;
             this.xmd = (float)midVelocity * Vector3.Normalize(xf - x0);
-            this._trajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)midVelocity);
-            SF.getAxisAngle(Quaternion.Inverse(LastPose.Orientation)*EndPose.Orientation,out _TrajectoryAxis, out _finalAngle);
+            this._trajectoryTime = TimeSpan.FromMilliseconds((double)(1.2f * (xf - x0).Length() / (float)midVelocity));
+            this._changePose = new Pose(Quaternion.Inverse(LastPose.Orientation) * EndPose.Orientation, xf - x0);
+            SF.getAxisAngle(_changePose.Orientation, out _TrajectoryAxis, out _finalAngle);
+            _TrajectoryAxis = EndPose * _TrajectoryAxis;
             _QuinticPerameters[0] = Quintic(x0.X, xf.X, xm.X, x0d.X, xfd.X, xmd.X, _trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[1] = Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, _trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[2] = Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, xfd.Z, xmd.Z, _trajectoryTime.TotalMilliseconds);

@@ -14,16 +14,40 @@ using MathNet.Numerics.LinearAlgebra;
 
 namespace LightWeight_Server
 {
-    struct Trajectory
+    interface Trajectory<T>
     {
-        readonly Pose _startPose, _startVelocity, _finalPose, _finalVelocity, _changePose;
-        readonly TimeSpan _trajectoryTime;
-        readonly double[][] _QuinticPerameters;
-        readonly Vector3 _TrajectoryAxis;
-        readonly float _finalAngle;
-        readonly Guid _segmentID;
+        Pose getReferencePosition(T obj);
+        Pose getReferenceVelocity(T obj);
+        string type { get; set; }
+    }
 
-        public Trajectory(Pose EndPose, double averageVelocty, Pose StartPose, Vector3 startVelocity, Vector3 FinalVelocity, Guid segmentID)
+    class Trajectory
+    {
+        public virtual Pose _startPose {get; private set;}
+        public virtual Pose _startVelocity {get; private set;}
+        public virtual Pose  _finalPose {get; private set;}
+        public virtual Pose _finalVelocity {get; private set;}
+        public virtual Pose _changePose {get; private set;}
+        public virtual TimeSpan _trajectoryTime { get; private set; }
+        public virtual Vector3 _TrajectoryAxis { get; private set; }
+        public virtual float _finalAngle { get; private set; }
+        public virtual readonly Guid _segmentID { get; }
+        public virtual readonly string type {get; }
+
+
+    }
+    class TrajectoryQuintic : Trajectory
+    {
+        public readonly double[][] _QuinticPerameters;
+        public override string type = TrajectoryTypes.QuinticTag;
+        public override Pose _finalPose, _startPose, _startVelocity, _finalVelocity, _changePose;
+        public override TimeSpan _trajectoryTime;
+        public override Guid _segmentID;
+        public override Vector3 _TrajectoryAxis;
+        public override float _finalAngle;
+        
+
+        public TrajectoryQuintic(Pose EndPose, double averageVelocty, Pose StartPose, Vector3 startVelocity, Vector3 FinalVelocity, Guid segmentID)
         {
             this._QuinticPerameters = new double[4][];
             this._segmentID = segmentID;
@@ -39,7 +63,8 @@ namespace LightWeight_Server
             Vector3 xmd = (float)averageVelocty * Vector3.Normalize(xf - x0);
             this._trajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)averageVelocty);
             this._changePose = new Pose(Quaternion.Inverse(StartPose.Orientation)*EndPose.Orientation, xf-x0);
-            SF.getAxisAngle(_changePose.Orientation,out _TrajectoryAxis, out _finalAngle);
+            SF.getAxisAngle(_changePose.Orientation, out _TrajectoryAxis, out _finalAngle);
+            _TrajectoryAxis = EndPose * _TrajectoryAxis;
             _QuinticPerameters[0] = Quintic(x0.X, xf.X, xm.X, x0d.X, xfd.X, xmd.X, _trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[1] = Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, _trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[2] = Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, xfd.Z, xmd.Z, _trajectoryTime.TotalMilliseconds);
@@ -49,7 +74,6 @@ namespace LightWeight_Server
         /// <summary>
         /// Gets a reference pose and will saturate at final time, give the final Pose.
         /// </summary>
-        /// <param name="currentPose"></param>
         /// <param name="t"></param>Time during trajectory in ms
         /// <returns></returns>
         public Pose getReferencePosition(double t)
@@ -66,7 +90,6 @@ namespace LightWeight_Server
         /// <summary>
         /// Gets a reference pose velocity and will saturate at final time, give the final velocity pose
         /// </summary>
-        /// <param name="CurrentVelocity"></param>
         /// <param name="t"></param>
         /// <returns></returns>
         public Pose getReferenceVelocity(double t)
@@ -134,5 +157,62 @@ namespace LightWeight_Server
             double a5 = (10 * x0 + 22 * xf - 32 * xm) / Math.Pow(tf, 5) + (2 * x0d - 8 * xfd) / Math.Pow(tf, 4);
             return new double[] { a0, a1, a2, a3, a4, a5 };
         }
+    }
+
+    struct TrajectoryTypes
+    {
+        public const string QuinticTag = "QUINTIC";
+        public const string SplineTag = "SPLINE";
+        public const string LinearTag = "LINEAR";
+    }
+
+    class TrajectoryHandler
+    {
+        bool _isActive;
+        int _nSegments, _CurrentSegment;
+        Controller _TrajectoryController;
+
+        // Constrctor
+        public TrajectoryHandler()
+        {
+            _TrajectoryController = new Controller();
+            _isActive = false;
+        }
+
+        public void Start(Pose startPose, Pose startVelocity)
+        {
+
+        }
+
+        public void Stop()
+        {
+
+        }
+
+        public void Load(object[] NewTrajectoryList)
+        {
+            for (int i = 0; i < NewTrajectoryList.Length; i++)
+            {
+                switch (((Trajectory)NewTrajectoryList[i]).type)
+                {
+                    case TrajectoryTypes.QuinticTag:
+                        throw new TrajectoryException("Quintic tag found!! HAZAAAA");
+
+                    case TrajectoryTypes.LinearTag:
+                        break;
+
+                    case TrajectoryTypes.SplineTag:
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
+        public double[] RobotChange()
+        {
+            return new double[] { 0, 0, 0, 0, 0, 0 };
+        }
+
     }
 }

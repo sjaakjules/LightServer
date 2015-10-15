@@ -5,10 +5,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Mehroz;
 
 namespace LightWeight_Server
 {
+    // CONVENTIONS of Matrix class:
+    // Identity matrix. Forwards =   0, 0,-1
+    //                  Down     =   0,-1, 0
+    //                  Left     =  -1, 0, 0
+    ///
+    // Matrix are row basis, where litrature is column basis!
+    // This requires transpose before and after any multiplication
 
     public struct Pose
     {
@@ -18,22 +24,27 @@ namespace LightWeight_Server
         Vector3 _axis;
         double[] _kukaValues;
 
-        public Pose(string[] newPose, Pose CurrentPose)
+        /// <summary>
+        /// Loads a new Pose using a string with the infomation of position, velocity and orientation. Can handle partial information.
+        /// </summary>
+        /// <param name="newPose"></param>
+        /// <param name="LastPose"></param>
+        public Pose(string[] newPose, Pose LastPose)
         {
             int shift = newPose.Length % 3;
             // The following If statements catch error while trying to load positions, use last position and keep loading.
             // TODO: Add signals and more complex error handeling to send back to external server. Perhaps the string which was received for error checking?
             if (!double.TryParse(newPose[0 + shift], out _x))
             {
-                _x = CurrentPose._x;
+                _x = LastPose._x;
             }
             if (!double.TryParse(newPose[1 + shift], out _y))
             {
-                _y = CurrentPose._y;
+                _y = LastPose._y;
             }
             if (!double.TryParse(newPose[2 + shift], out _z))
             {
-                _z = CurrentPose._z;
+                _z = LastPose._z;
             }
             double[] Axis = new double[newPose.Length - (3 + shift)];
             bool loadedAxis = true;
@@ -50,7 +61,7 @@ namespace LightWeight_Server
                 // only Z axis loaded
                 if (Axis.Length == 3)
                 {
-                    this._Orientation = SF.QfromZaxis(new Vector3((float)Axis[0], (float)Axis[1], (float)Axis[2]), CurrentPose.Orientation);
+                    this._Orientation = SF.QfromZaxis(new Vector3((float)Axis[0], (float)Axis[1], (float)Axis[2]), LastPose.Orientation);
                     SF.getAxisAngle(_Orientation, out _axis, out _angle);
                     SF.getKukaAngles(_Orientation, out _kukaValues);
                     _kukaValues[0] = (float)_x;
@@ -70,9 +81,9 @@ namespace LightWeight_Server
                     // No rotation loaded, position movement only
                 else
                 {
-                    this._Orientation = CurrentPose.Orientation;
-                    SF.getAxisAngle(CurrentPose.Orientation, out _axis, out _angle);
-                    SF.getKukaAngles(CurrentPose.Orientation, out _kukaValues);
+                    this._Orientation = LastPose.Orientation;
+                    SF.getAxisAngle(LastPose.Orientation, out _axis, out _angle);
+                    SF.getKukaAngles(LastPose.Orientation, out _kukaValues);
                     _kukaValues[0] = (float)_x;
                     _kukaValues[1] = (float)_y;
                     _kukaValues[2] = (float)_z;
@@ -82,9 +93,9 @@ namespace LightWeight_Server
                 // TODO: Add signals and more complex error handeling to send back to external server. Perhaps the string which was received for error checking?
             else
             {
-                this._Orientation = CurrentPose.Orientation;
-                SF.getAxisAngle(CurrentPose.Orientation, out _axis, out _angle);
-                SF.getKukaAngles(CurrentPose.Orientation, out _kukaValues);
+                this._Orientation = LastPose.Orientation;
+                SF.getAxisAngle(LastPose.Orientation, out _axis, out _angle);
+                SF.getKukaAngles(LastPose.Orientation, out _kukaValues);
                 _kukaValues[0] = (float)_x;
                 _kukaValues[1] = (float)_y;
                 _kukaValues[2] = (float)_z;
@@ -184,7 +195,7 @@ namespace LightWeight_Server
 
         public Vector3 zAxis
         {
-            get { return this * new Vector3(0, 0, 1); }
+            get { return Vector3.Transform(new Vector3(0, 0, 1),_Orientation); }
         }
 
         public Vector3 Velocity
@@ -205,6 +216,11 @@ namespace LightWeight_Server
         public static Pose inverse(Pose pose)
         {
             return new Pose(Quaternion.Inverse(pose.Orientation), -Vector3.Transform(pose.Translation, Quaternion.Inverse(pose.Orientation)));
+        }
+
+        public override string ToString()
+        {
+            return String.Format(" ({0,5.0},{1,5.0},{2,5.0})", this.Translation.X, this.Translation.Y, this.Translation.Z);
         }
 
         public Pose invert
@@ -440,8 +456,81 @@ namespace LightWeight_Server
 
     }
 
+    /// <summary>
+    /// Exception class for Matrix class, derived from System.Exception
+    /// </summary>
+    public class MatrixException : Exception
+    {
+        public MatrixException()
+            : base()
+        { }
+
+        public MatrixException(string Message)
+            : base(Message)
+        { }
+
+        public MatrixException(string Message, Exception InnerException)
+            : base(Message, InnerException)
+        { }
+    }
+
+    /// <summary>
+    /// Exception class for Kuka related functions, derived from System.Exception
+    /// </summary>
+    public class KukaException : Exception
+    {
+        public KukaException()
+            : base()
+        { }
+
+        public KukaException(string Message)
+            : base(Message)
+        { }
+
+        public KukaException(string Message, Exception InnerException)
+            : base(Message, InnerException)
+        { }
+    }
+
+    /// <summary>
+    /// Exception class for general orientation and rotation related functions, derived from System.Exception
+    /// </summary>
+    public class OrientationException : Exception
+    {
+        public OrientationException()
+            : base()
+        { }
+
+        public OrientationException(string Message)
+            : base(Message)
+        { }
+
+        public OrientationException(string Message, Exception InnerException)
+            : base(Message, InnerException)
+        { }
+    }
+
+    /// <summary>
+    /// Exception class for general orientation and rotation related functions, derived from System.Exception
+    /// </summary>
+    public class TrajectoryException : Exception
+    {
+        public TrajectoryException()
+            : base()
+        { }
+
+        public TrajectoryException(string Message)
+            : base(Message)
+        { }
+
+        public TrajectoryException(string Message, Exception InnerException)
+            : base(Message, InnerException)
+        { }
+    }
+
     public static class SF
     {
+        #region Matrix Functions
 
         public static double[] multiplyMatrix(double[,] M, double[] value)
         {
@@ -481,7 +570,6 @@ namespace LightWeight_Server
             }
             return Mout;
         }
-
 
         public static double[] getRow(double[,] M, int row)
         {
@@ -525,25 +613,9 @@ namespace LightWeight_Server
             return product;
         }
 
+        #endregion
 
-        /// <summary>
-        /// Exception class for Matrix class, derived from System.Exception
-        /// </summary>
-        public class MatrixException : Exception
-        {
-            public MatrixException()
-                : base()
-            { }
-
-            public MatrixException(string Message)
-                : base(Message)
-            { }
-
-            public MatrixException(string Message, Exception InnerException)
-                : base(Message, InnerException)
-            { }
-        }	// end class MatrixException
-
+        #region Orientation Functions
 
         public static Quaternion QfromZX(Vector3 zAxis, Vector3 xAxis)
         {
@@ -563,15 +635,12 @@ namespace LightWeight_Server
             {
                 return _currentOrientation;
             }
-            if (Vector3.Transform(Zaxis,Quaternion.Inverse(_currentOrientation)).Z < 0)
+            if (Vector3.Transform(Zaxis, Quaternion.Inverse(_currentOrientation)).Z < 0)
             {
-                angle = Math.Sign(angle)*((float)Math.PI - Math.Abs(angle));
+                angle = Math.Sign(angle) * ((float)Math.PI - Math.Abs(angle));
             }
             return Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle) * _currentOrientation;
         }
-
-
-
 
         public static Vector3 getOrientationError(Matrix reference, Matrix measured)
         {
@@ -595,23 +664,6 @@ namespace LightWeight_Server
             return Vector3.Zero;
         }
 
-        public static TimeCoordinate AverageRateOfChange(TimeCoordinate[] list)
-        {
-            TimeCoordinate averageRate = list[0].getRateOfChange(list[1]); ;
-
-            for (int i = 2; i < list.Length; i++)
-            {
-                averageRate += list[i - 1].getRateOfChange(list[i]);
-            }
-            return averageRate/(float)(list.Length-1);
-        }
-
-
-        public static readonly String[] cardinalKeys = new String[] { "X", "Y", "Z", "A", "B", "C" };
-        public static readonly String[] axisKeys = new String[] { "A1", "A2", "A3", "A4", "A5", "A6" };
-        public static readonly String[] rotationKeys = new String[] { "X1", "X2", "X3", "Y1", "Y2", "Y3", "Z1", "Z2", "Z3" };
-        public static readonly String[] axisVecotrKeys = new String[] { "XX", "XY", "XZ", "ZX", "ZY", "ZZ"};
-
         public static Matrix M(Matrix mat1, Matrix mat2)
         {
             return Matrix.Transpose(Matrix.Transpose(mat1) * Matrix.Transpose(mat2));
@@ -619,75 +671,8 @@ namespace LightWeight_Server
 
         static Matrix R(Matrix Rz, Matrix Ry, Matrix Rx)
         {
-            return M(M(Rz,Ry),Rx);
+            return M(M(Rz, Ry), Rx);
         }
-
-
-        /// <summary>
-        /// Creates a quaternion from Kuka coordinates, ABC in degrees
-        /// </summary>
-        /// <param name="pose"></param> A double[6] array {X, Y, Z, A, B, C} 
-        /// <returns></returns>
-        public static Quaternion MakeQuaternionFromKuka(double[] pose)
-        {
-            Quaternion Rz = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180)));
-            Quaternion Ry = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180)));
-            Quaternion Rx = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180)));
-            return (Rz * Ry * Rx);
-        }
-
-        public static Quaternion MakeQuaternionFromKuka(double A, double B, double C)
-        {
-            Quaternion Rz = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationZ((float)(A * Math.PI / 180)));
-            Quaternion Ry = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationY((float)(B * Math.PI / 180)));
-            Quaternion Rx = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationX((float)(C * Math.PI / 180)));
-            return (Rz * Ry * Rx);
-        }
-
-        public static Matrix MakeMatrixFromKuka(double[] pose)
-        {
-            Matrix Rz = Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180));
-            Matrix Ry = Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180));
-            Matrix Rx = Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180));
-            Matrix poseout = R(Rz, Ry, Rx);
-            poseout.Translation = new Vector3((float)pose[0], (float)pose[1], (float)pose[2]);
-            return poseout;
-        }
-
-        /*
-        /// <summary>
-        /// Gets the value with a while loop of a concurrentDictionary<string, double>.
-        /// </summary>
-        /// <param name="dictionary"></param> The dictionary holding the values
-        /// <param name="key"></param> The key used to get the value
-        /// <returns></returns>
-        public static double Getvalue(ConcurrentDictionary<string, double> dictionary, String key)
-        {
-            double outValue = 0;
-            bool hasGotValule = false;
-            while (!hasGotValule)
-            {
-                hasGotValule = dictionary.TryGetValue(key, out outValue);
-            }
-            return outValue;
-        }
-
-        
-        public static String getCardinalKey(int Index)
-        {
-            return cardinalKeys[Index];
-        }
-
-        public static String getAxisKey(int Index)
-        {
-            return axisKeys[Index];
-        }
-
-        public static String getrotationKeys(int Index)
-        {
-            return rotationKeys[Index];
-        }
-        */
 
         public static void getAxisAngle(Quaternion quaternion, out Vector3 outAxis, out float outAngle)
         {
@@ -744,7 +729,7 @@ namespace LightWeight_Server
                 else
                 {
                     outAngle = 0;
-                    outAxis = new Vector3(0,0,1);
+                    outAxis = new Vector3(0, 0, 1);
                 }
 
             }
@@ -802,6 +787,58 @@ namespace LightWeight_Server
             }
         }
 
+        #endregion
+
+        #region Kuka Functions
+
+
+        public static readonly String[] cardinalKeys = new String[] { "X", "Y", "Z", "A", "B", "C" };
+        public static readonly String[] axisKeys = new String[] { "A1", "A2", "A3", "A4", "A5", "A6" };
+        public static readonly String[] rotationKeys = new String[] { "X1", "X2", "X3", "Y1", "Y2", "Y3", "Z1", "Z2", "Z3" };
+        public static readonly String[] axisVecotrKeys = new String[] { "XX", "XY", "XZ", "ZX", "ZY", "ZZ" };
+
+        public static TimeCoordinate AverageRateOfChange(TimeCoordinate[] list)
+        {
+            TimeCoordinate averageRate = list[0].getRateOfChange(list[1]); ;
+
+            for (int i = 2; i < list.Length; i++)
+            {
+                averageRate += list[i - 1].getRateOfChange(list[i]);
+            }
+            return averageRate / (float)(list.Length - 1);
+        }
+
+
+        /// <summary>
+        /// Creates a quaternion from Kuka coordinates, ABC in degrees
+        /// </summary>
+        /// <param name="pose"></param> A double[6] array {X, Y, Z, A, B, C} 
+        /// <returns></returns>
+        public static Quaternion MakeQuaternionFromKuka(double[] pose)
+        {
+            Quaternion Rz = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180)));
+            Quaternion Ry = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180)));
+            Quaternion Rx = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180)));
+            return (Rz * Ry * Rx);
+        }
+
+        public static Quaternion MakeQuaternionFromKuka(double A, double B, double C)
+        {
+            Quaternion Rz = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationZ((float)(A * Math.PI / 180)));
+            Quaternion Ry = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationY((float)(B * Math.PI / 180)));
+            Quaternion Rx = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationX((float)(C * Math.PI / 180)));
+            return (Rz * Ry * Rx);
+        }
+
+        public static Matrix MakeMatrixFromKuka(double[] pose)
+        {
+            Matrix Rz = Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180));
+            Matrix Ry = Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180));
+            Matrix Rx = Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180));
+            Matrix poseout = R(Rz, Ry, Rx);
+            poseout.Translation = new Vector3((float)pose[0], (float)pose[1], (float)pose[2]);
+            return poseout;
+        }
 
 
         public static void getKukaAngles(TimeCoordinate Pose, ref float[] KukaAngleOut)
@@ -941,17 +978,32 @@ namespace LightWeight_Server
             kukaOut[3] = MathHelper.ToDegrees(A);
             kukaOut[4] = MathHelper.ToDegrees(B);
             kukaOut[5] = MathHelper.ToDegrees(C);
-            
+
         }
 
+        /// <summary>
+        /// Computes the inverse jacobian to the WRIST where if singularity occures the result aproximates the jacobian.
+        /// </summary>
+        /// <param name="t"></param> 6 angles in radians.
+        /// <param name="error"></param> Error for singularity detection, 1e-6 specified if greater than 1e-2.
+        /// <returns></returns>
         public static double[,] InverseJacobian(double[] t, double error)
         {
             if (t.Length == 6)
             {
+                if (t.Max() > Math.PI || t.Min() < -Math.PI)
+                {
+                    throw new KukaException(string.Format("Angles given are out of bounds, -pi<t<pi. Max angle is: {0}. Min angle is: {1}", t.Max(), t.Min()));
+                }
+                error = (Math.Abs(error) < 1e-2) ? 1e-6 : Math.Abs(error);
                 return InverseJacobian(t[0], t[1], t[2], t[3], t[4], t[5], error);
             }
-            return new double[,] { { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 } };
+            else
+            {
+                throw new KukaException(string.Format("Incorrect number of angles supplied. Need 6 angles but {0} were given.", t.Length));
+            }
         }
+
 
         /// <summary>
         /// Computes the inverse jacobian to the WRIST where if singularity occures aproximates the jacobian.
@@ -1040,13 +1092,10 @@ namespace LightWeight_Server
             inverseJoc[5, 5] = -(c2p3 * c4) / singularity8;
             return inverseJoc;
         }
-    }
 
-    // CONVENTIONS:
-    // Identity matrix. Forwards =   0, 0,-1
-    //                  Down     =   0,-1, 0
-    //                  Left     =  -1, 0, 0
-    ///
-    // Matrix are row basis, where litrature is column basis!
-    // This requires transpose before and after any multiplication
+
+    }
+        #endregion
+
+
 }

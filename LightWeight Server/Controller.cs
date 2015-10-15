@@ -19,7 +19,7 @@ namespace LightWeight_Server
         TimeSpan _trajectoryTime;
         Vector3 _axis;
         float _finalAngle;
-        double P = 0.01, I, D;
+        double P = 0.1, I, D;
 
 
         public Boolean IsActive
@@ -46,7 +46,7 @@ namespace LightWeight_Server
         }
 
 
-        public Controller(RobotInfo robot)
+        public Controller()
         {
             _isActive = false;
             _isMoving = false;
@@ -70,7 +70,7 @@ namespace LightWeight_Server
             Vector3 ErrorTranslation = (referencePosition.Translation - measuredPosition.Translation);
             Vector3 ErrorOrientation = SF.getOrientationError(Matrix.CreateFromQuaternion(referencePosition.Orientation), Matrix.CreateFromQuaternion(measuredPosition.Orientation));
             Vector3 ControlTranslation = referenceVelocity.Translation + Vector3.Multiply(ErrorTranslation, (float)P);
-            Vector3 ControlOrientation = Vector3.Multiply(referenceVelocity.axis, referenceVelocity.angle) + Vector3.Multiply(ErrorOrientation, (float)P);
+            Vector3 ControlOrientation = Vector3.Multiply(referenceVelocity.axis, referenceVelocity.angle);// +Vector3.Multiply(ErrorOrientation, (float)P);
             // TODO: write PI controller, may need karman filter for noise
             //double JacTimer = R.IPOC.Elapsed.TotalMilliseconds;
             //Mat Jac = new Mat(Jacobian);
