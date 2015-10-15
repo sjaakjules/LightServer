@@ -87,6 +87,7 @@
     <Compile Include="ScreenWriter.cs" />
     <Compile Include="StaticFunctions.cs" />
     <Compile Include="Trajectory.cs" />
+    <Compile Include="TrajectoryHandler.cs" />
     <Compile Include="TrajectoryOld.cs" />
     <Compile Include="KukaServer.cs" />
   </ItemGroup>

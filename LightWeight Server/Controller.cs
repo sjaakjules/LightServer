@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,8 +11,11 @@ namespace LightWeight_Server
 {
     class Controller
     {
+        StringBuilder DataWriter = new StringBuilder();
+
         //object movementLock = new object();
         Stopwatch _elapsedTime = new Stopwatch();
+        Stopwatch _DataTime = new Stopwatch();
         bool _isActive = false;
         public bool _isRotating, _isMoving;
         Matrix _finalPose, _startPose;
@@ -52,6 +56,7 @@ namespace LightWeight_Server
             _isMoving = false;
             _isRotating = false;
             _finalPose = Matrix.Identity;
+            _DataTime.Start();
         }
 
         public void updateP(double newP)
@@ -70,12 +75,18 @@ namespace LightWeight_Server
             Vector3 ErrorTranslation = (referencePosition.Translation - measuredPosition.Translation);
             Vector3 ErrorOrientation = SF.getOrientationError(Matrix.CreateFromQuaternion(referencePosition.Orientation), Matrix.CreateFromQuaternion(measuredPosition.Orientation));
             Vector3 ControlTranslation = referenceVelocity.Translation + Vector3.Multiply(ErrorTranslation, (float)P);
-            Vector3 ControlOrientation = Vector3.Multiply(referenceVelocity.axis, referenceVelocity.angle);// +Vector3.Multiply(ErrorOrientation, (float)P);
+            Vector3 ControlOrientation = Vector3.Multiply(referenceVelocity.axis, referenceVelocity.angle) +Vector3.Multiply(ErrorOrientation, (float)P);
             // TODO: write PI controller, may need karman filter for noise
             //double JacTimer = R.IPOC.Elapsed.TotalMilliseconds;
             //Mat Jac = new Mat(Jacobian);
            // R.P3 = R.IPOC.Elapsed.TotalMilliseconds - JacTimer;
             double[] TipVeloicty = new double[] { ControlTranslation.X, ControlTranslation.Y, ControlTranslation.Z, ControlOrientation.X, ControlOrientation.Y, ControlOrientation.Z };
+            SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, DataWriter);
+            StreamWriter Datafile = new StreamWriter("ControllerData.csv", true);
+            Datafile.WriteLine(DataWriter);
+            DataWriter.Clear();
+            Datafile.Flush();
+            Datafile.Close();
             return SF.multiplyMatrix(inverseJoc, TipVeloicty);
         }
 

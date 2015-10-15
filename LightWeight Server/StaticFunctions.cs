@@ -16,13 +16,15 @@ namespace LightWeight_Server
     // Matrix are row basis, where litrature is column basis!
     // This requires transpose before and after any multiplication
 
-    public struct Pose
+    public struct Pose : IFormattable
     {
         double _x, _y, _z;
         float _angle;
         Quaternion _Orientation;
         Vector3 _axis;
         double[] _kukaValues;
+
+        public static Pose Zero { get { return new Pose(Quaternion.Identity, Vector3.Zero); } }
 
         /// <summary>
         /// Loads a new Pose using a string with the infomation of position, velocity and orientation. Can handle partial information.
@@ -102,47 +104,6 @@ namespace LightWeight_Server
             }
         }
         
-        /*
-        public Pose( Pose LastPose, string[] newPose)
-        {
-            if (newPose.Length % 3 == 0)
-            {
-                if (!double.TryParse(newPose[0], out _x))
-                {
-                    _x = LastPose._x;
-                }
-                if (!double.TryParse(newPose[1], out _y))
-                {
-                    _y = LastPose._y;
-                }
-                if (!double.TryParse(newPose[2], out _z))
-                {
-                    _z = LastPose._z;
-                }
-            }
-            else
-            {
-                if (!double.TryParse(newPose[1], out _x))
-                {
-                    _x = LastPose._x;
-                }
-                if (!double.TryParse(newPose[2], out _y))
-                {
-                    _y = LastPose._y;
-                }
-                if (!double.TryParse(newPose[3], out _z))
-                {
-                    _z = LastPose._z;
-                }
-            }
-            this._Orientation = LastPose.Orientation;
-            SF.getAxisAngle(LastPose.Orientation, out _axis, out _angle);
-            _kukaValues = new float[6];
-            SF.getKukaAngles(LastPose.Orientation, ref _kukaValues);
-            _kukaValues[0] = (float)_x;
-            _kukaValues[1] = (float)_y;
-            _kukaValues[2] = (float)_z;
-        }*/
         public Pose(double[] KukaValues)
         {
             _kukaValues = new double[6];
@@ -171,6 +132,64 @@ namespace LightWeight_Server
 
         public Pose(TimeCoordinate Pose) : this(Pose.Orientation, Pose.Translation) { }
 
+        public override string ToString()
+        {
+            return string.Format("{0,0.00},{1,0.00},{2,0.00},{3,0.00},{4,0.00},{5,0.00},{6,0.00},", this._x, this._y, this._z, this.angle, this.axis.X, this.axis.Y, this.axis.Z);
+        }
+
+        public override int GetHashCode()
+        {
+            return ShiftAndWrap(_x.GetHashCode(), 2) ^ _y.GetHashCode();
+        }
+
+        public bool Equals(Pose pose2, double error)
+        {
+            if (Vector3.Distance(this.Translation, pose2.Translation) == error && SF.isOrientationAligned(this.Orientation, pose2.Orientation, error))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        private int ShiftAndWrap(int value, int positions)
+        {
+            positions = positions & 0x1F;
+
+            // Save the existing bit pattern, but interpret it as an unsigned integer.
+            uint number = BitConverter.ToUInt32(BitConverter.GetBytes(value), 0);
+            // Preserve the bits to be discarded.
+            uint wrapped = number >> (32 - positions);
+            // Shift and wrap the discarded bits.
+            return BitConverter.ToInt32(BitConverter.GetBytes((number << positions) | wrapped), 0);
+        }
+
+        public override bool Equals(object o)
+        {
+            if (Vector3.Distance(this.Translation, ((Pose)o).Translation) == 1e-6 && SF.isOrientationAligned(this.Orientation, ((Pose)o).Orientation, 1e-6))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public static bool operator ==(Pose pose1, Pose pose2)
+        {
+            if (Vector3.Distance( pose1.Translation,pose2.Translation) == 1e-6 && pose1.Orientation.Equals(pose2.Orientation))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public static bool operator !=(Pose pose1, Pose pose2)
+        {
+            if (Vector3.Distance(pose1.Translation, pose2.Translation) == 1e-6 && pose1.Orientation.Equals(pose2.Orientation))
+            {
+                return false;
+            }
+            return true;
+        }
+         
 
         public Vector3 Translation
         {
@@ -217,8 +236,8 @@ namespace LightWeight_Server
         {
             return new Pose(Quaternion.Inverse(pose.Orientation), -Vector3.Transform(pose.Translation, Quaternion.Inverse(pose.Orientation)));
         }
-
-        public override string ToString()
+        
+        public string ToString(string str, IFormatProvider something)
         {
             return String.Format(" ({0,5.0},{1,5.0},{2,5.0})", this.Translation.X, this.Translation.Y, this.Translation.Z);
         }
@@ -530,6 +549,16 @@ namespace LightWeight_Server
 
     public static class SF
     {
+        #region Printing Functions
+
+
+        public static void updateDataFile(Pose refPos, Pose refVel, Pose actPos, Pose actVel, double time, StringBuilder tableRow)
+        {
+            tableRow.AppendLine(string.Format("{0,0.0},{1},{2},{3},{4};", time, refPos, actPos, refVel, actVel));
+        }
+
+        #endregion
+
         #region Matrix Functions
 
         public static double[] multiplyMatrix(double[,] M, double[] value)
@@ -640,6 +669,15 @@ namespace LightWeight_Server
                 angle = Math.Sign(angle) * ((float)Math.PI - Math.Abs(angle));
             }
             return Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle) * _currentOrientation;
+        }
+
+        public static bool isOrientationAligned(Quaternion Q1, Quaternion Q2, double error)
+        {
+            if (getOrientationError(Matrix.CreateFromQuaternion(Q1),Matrix.CreateFromQuaternion(Q2)).Length() < error)
+            {
+                return true;
+            }
+            return false;
         }
 
         public static Vector3 getOrientationError(Matrix reference, Matrix measured)
