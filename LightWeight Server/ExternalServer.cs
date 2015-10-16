@@ -51,18 +51,15 @@ namespace LightWeight_Server
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement, se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement,ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
+                _Robot.updateError("Generic error " + catchStatement,e);
             }
             // Binds the socket to local IP.
             bindSocket();
@@ -99,23 +96,20 @@ namespace LightWeight_Server
             try
             {
                 _UdpSocket.Bind((EndPoint)_localEP);
-                _Robot.updateError("External Server IP bound: " + _UdpSocket.LocalEndPoint.ToString());
+                _Robot.updateError("External Server IP bound: " + _UdpSocket.LocalEndPoint.ToString(), new Exception("External Server: "));
                 Console.WriteLine("External Server IP bound: " + _UdpSocket.LocalEndPoint.ToString());
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement, se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
+                _Robot.updateError("Generic error " + catchStatement, e);
             }
         }
 
@@ -146,20 +140,17 @@ namespace LightWeight_Server
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement, se);
                 return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
                 return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
+                _Robot.updateError("Generic error " + catchStatement, e);
                 return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
         }
@@ -187,18 +178,15 @@ namespace LightWeight_Server
                 }
                 catch (SocketException se)
                 {
-                    _Robot.updateError("SocketException " + catchStatement);
-                    _Robot.updateError(se.Message);
+                    _Robot.updateError("SocketException " + catchStatement, se);
                 }
                 catch (ObjectDisposedException ob)
                 {
-                    _Robot.updateError("ObjectDisposedException " + catchStatement);
-                    _Robot.updateError(ob.Message);
+                    _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
                 }
                 catch (Exception e)
                 {
-                    _Robot.updateError("Generic error " + catchStatement);
-                    _Robot.updateError(e.Message);
+                    _Robot.updateError("Generic error " + catchStatement, e);
                 }
 
                 // pause This thread until a packet has been returned.
@@ -236,18 +224,15 @@ namespace LightWeight_Server
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement, se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
+                _Robot.updateError("Generic error " + catchStatement, e);
             }
         }
 
@@ -262,18 +247,15 @@ namespace LightWeight_Server
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement, se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
+                _Robot.updateError("Generic error " + catchStatement, e);
             }
         }
 
@@ -288,23 +270,20 @@ namespace LightWeight_Server
                 }
                 else
                 {
-                    _Robot.updateError("Couldn't write message");
+                    _Robot.updateError("Couldn't write message", new Exception("External Server:"));
                 }
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement, se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
+                _Robot.updateError("Generic error " + catchStatement, e);
             }
 
         }
@@ -385,7 +364,7 @@ namespace LightWeight_Server
                             {
                                 _Robot.newPosition(newPosition[0], newPosition[1], newPosition[2]);
                                 _loadedPosition = true;
-                                _Robot.updateError("Position loaded");
+                                _Robot.updateError("Position loaded", new Exception("External server: "));
                             }
                             break;
 
@@ -410,7 +389,7 @@ namespace LightWeight_Server
                                                    (float)newRotation[3], (float)newRotation[4], (float)newRotation[5],
                                                    (float)newRotation[6], (float)newRotation[7], (float)newRotation[8]);
                                 _loadedRotation = true;
-                                _Robot.updateError("Rotation loaded");
+                                _Robot.updateError("Rotation loaded", new Exception("External server: "));
                             }
                             break;
 
@@ -434,7 +413,7 @@ namespace LightWeight_Server
                             {
                                 _Robot.newConOrientation((float)newOrientation[0], (float)newOrientation[1], (float)newOrientation[2]);
                                 _loadedRotation = true;
-                                _Robot.updateError("Rotation loaded");
+                                _Robot.updateError("Rotation loaded", new Exception("External server: "));
                             }
                             break;
 
@@ -459,7 +438,7 @@ namespace LightWeight_Server
                             {
                                 _Robot.newConOrientation((float)newXZOrientation[0], (float)newXZOrientation[1], (float)newXZOrientation[2], (float)newXZOrientation[3], (float)newXZOrientation[4], (float)newXZOrientation[5]);
                                 _loadedRotation = true;
-                                _Robot.updateError("Rotation loaded");
+                                _Robot.updateError("Rotation loaded", new Exception("External server: "));
                             }
                             break;
 
@@ -507,26 +486,22 @@ namespace LightWeight_Server
                     _loadedPosition = false;
                     _loadedRotation = false;
                     _Robot.LoadedCommand();
-                    _Robot.updateError("Loaded both rotation and position");
+                    _Robot.updateError("Loaded both rotation and position", new Exception("external server:"));
                 }
                 UpdateXML(State);
 
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement, se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
-                _Robot.updateError(e.StackTrace);
+                _Robot.updateError("Generic error " + catchStatement, e);
             }
         }
 

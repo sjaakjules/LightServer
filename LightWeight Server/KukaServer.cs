@@ -90,18 +90,15 @@ namespace LightWeight_Server
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement,se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement,ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
+                _Robot.updateError("Generic error " + catchStatement,e);
             }
             // Binds the socket to local IP.
             bindSocket();
@@ -138,23 +135,20 @@ namespace LightWeight_Server
             try
             {
                 _UdpSocket.Bind((EndPoint)_localEP);
-                _Robot.updateError("Kuka Server IP bound: " + _UdpSocket.LocalEndPoint.ToString());
+                _Robot.updateError("Kuka Server IP bound: " + _UdpSocket.LocalEndPoint.ToString(), new Exception("Kuka server:"));
                 Console.WriteLine("Kuka server IP bound: " + _UdpSocket.LocalEndPoint.ToString());
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement, se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement,ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
+                _Robot.updateError("Generic error " + catchStatement,e);
             }
         }
 
@@ -191,20 +185,17 @@ namespace LightWeight_Server
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement,se);
                 return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement,ob);
                 return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
+                _Robot.updateError("Generic error " + catchStatement,e);
                 return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
         }
@@ -233,20 +224,17 @@ namespace LightWeight_Server
                 }
                 catch (SocketException se)
                 {
-                    _Robot.updateError("Socket Exception " + catchStatement);
-                    _Robot.updateError(se.Message);
+                    _Robot.updateError("Socket Exception " + catchStatement,se);
                     //_Robot.Disconnect();
                     haveReceived.Set();
                 }
                 catch (ObjectDisposedException ob)
                 {
-                    _Robot.updateError("ObjectDisposedException " + catchStatement);
-                    _Robot.updateError(ob.Message);
+                    _Robot.updateError("ObjectDisposedException " + catchStatement,ob);
                 }
                 catch (Exception e)
                 {
-                    _Robot.updateError("Generic error " + catchStatement);
-                    _Robot.updateError(e.Message);
+                    _Robot.updateError("Generic error " + catchStatement,e);
                 }
                 // pause This thread until a packet has been returned.
 
@@ -289,18 +277,15 @@ namespace LightWeight_Server
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement,se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement,ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
+                _Robot.updateError("Generic error " + catchStatement,e);
             }
 
 
@@ -325,13 +310,13 @@ namespace LightWeight_Server
                     // Was succsessful, check if order is correct
                     if (_LIPOC > _IPOC)
                     {
-                        _Robot.updateError("Error, packet order incorrect: New IPOC: " + _IPOC + " Old IPOC: " + _LIPOC);
+                        _Robot.updateError("Error, packet order incorrect: New IPOC: " + _IPOC + " Old IPOC: " + _LIPOC, new Exception("Kuka server:"));
                     }
                     State.IPOC = _IPOC;
                 }
                 else
                 {
-                    _Robot.updateError("Error not reading IPOC: ");
+                    _Robot.updateError("Error not reading IPOC: ", new Exception("Kuka server:"));
                 }
 
                 XmlNodeList parentNode = xmlIn.ChildNodes;
@@ -381,19 +366,15 @@ namespace LightWeight_Server
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement,se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement,ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
-                _Robot.updateError(e.StackTrace);
+                _Robot.updateError("Generic error " + catchStatement,e);
             }
         }
 
@@ -408,23 +389,20 @@ namespace LightWeight_Server
                 }
                 else
                 {
-                    _Robot.updateError("Couldn't write message");
+                    _Robot.updateError("Couldn't write message", new Exception("Kuka server:"));
                 }
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement,se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement,ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
+                _Robot.updateError("Generic error " + catchStatement,e);
             }
             // Save state of the kuka server
             //_Robot.DataHistory.Push(state);
@@ -442,18 +420,15 @@ namespace LightWeight_Server
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement);
-                _Robot.updateError(se.Message);
+                _Robot.updateError("SocketException " + catchStatement,se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement);
-                _Robot.updateError(ob.Message);
+                _Robot.updateError("ObjectDisposedException " + catchStatement,ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement);
-                _Robot.updateError(e.Message);
+                _Robot.updateError("Generic error " + catchStatement,e);
             }
         }
 

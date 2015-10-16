@@ -15,6 +15,12 @@ using System.Diagnostics;
 
 namespace LightWeight_Server
 {
+    struct TrajectoryTypes
+    {
+        public const string QuinticTag = "QUINTIC";
+        public const string SplineTag = "SPLINE";
+        public const string LinearTag = "LINEAR";
+    }
 
     abstract class Trajectory
     {
@@ -205,11 +211,5 @@ namespace LightWeight_Server
         }
     }
 
-    struct TrajectoryTypes
-    {
-        public const string QuinticTag = "QUINTIC";
-        public const string SplineTag = "SPLINE";
-        public const string LinearTag = "LINEAR";
-    }
 
 }

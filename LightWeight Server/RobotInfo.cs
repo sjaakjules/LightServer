@@ -12,6 +12,7 @@ namespace LightWeight_Server
 {
     class RobotInfo
     {
+        object TrajectoryPrintLock = new object();
         object trajectoryLock = new object();
         object RobotInfoLock = new object();
         object gripperLock = new object();
@@ -237,7 +238,6 @@ namespace LightWeight_Server
                 }
                 if (value > 13)
                 {
-                    updateError("Took too long!!! :(");
                 }
                 _processDataTimer = value;
             }
@@ -426,7 +426,7 @@ namespace LightWeight_Server
         public RobotInfo()
         {
             _CurrentTrajectory = new TrajectoryOld();
-            _Controller = new Controller();
+            _Controller = new Controller(this);
             _text.TryAdd("msg", new StringBuilder());
             _text.TryAdd("Error", new StringBuilder());
             _text.TryAdd("Controller", new StringBuilder());
@@ -534,9 +534,11 @@ namespace LightWeight_Server
 
         #region ScreenDisplay
 
-        public void updateError(string newError)
+        public void updateError(string newError, Exception Error)
         {
             _text["Error"].AppendLine(newError);
+            _text["Error"].AppendLine(Error.Message);
+            _text["Error"].AppendLine(Error.StackTrace);
         }
 
         // Dedicated loop thread
@@ -616,7 +618,7 @@ namespace LightWeight_Server
                 {
                     Console.WriteLine("Error printing to Screen");
                     Console.WriteLine(e.Message);
-                    _errorMsgs++;
+                    //_errorMsgs++;
                 }
 
             }
@@ -698,7 +700,10 @@ namespace LightWeight_Server
 
             plotPose(_EndEffectorPose, "End Effector Position:     (");
 
-            Console.WriteLine(_text["msg"].ToString());
+            lock (TrajectoryPrintLock)
+            {
+                Console.WriteLine(_text["msg"].ToString());
+            }
             /*
             Console.WriteLine("Command Axis:         (" + String.Format("{0:0.0000}", displayAxis[0]) + " , " +
                                                                     String.Format("{0:0.0000}", displayAxis[1]) + " , " +
@@ -785,37 +790,41 @@ namespace LightWeight_Server
         }
 
 
-        void plotTrajectories(TrajectoryOld[] Trajectories)
+        void plotTrajectories(Trajectory[] Trajectories)
         {
             try
             {
-                _text["msg"].Clear();
                 StringBuilder msg = new StringBuilder();
                 msg.AppendLine("  Time  |     Start Pos     |     Final Pos     |     Start Vel     |    Final Vel      |   Angle   ");
                 msg.AppendLine("  [s]   |       [mm]        |       [mm]        |       [mm]        |       [mm]        |   [Deg]   ");
                 for (int i = 0; i < Trajectories.Length; i++)
                 {
-                    msg.AppendLine(String.Format("{0,-8:0.00}|{1,-19}|{2,-19}|{3,-19}|{4,-19}|   {5,-7:0.00}",    Trajectories[i]._trajectoryTime.TotalSeconds,
-                                                                                                            Trajectories[i]._startPose.ToDisplayString(),
-                                                                                                            Trajectories[i]._finalPose.ToDisplayString(),
-                                                                                                            Trajectories[i]._startVelocity.ToDisplayString(),
-                                                                                                            Trajectories[i]._finalVelocity.ToDisplayString(),
-                                                                                                            Trajectories[i]._finalAngle * 180 / Math.PI));
+                    msg.AppendLine(String.Format("{0,-8:0.00}|{1,9:G}|{2,9:G}|{3,10:G}|{4,10:G}|{5,-7:0.00}", Trajectories[i].trajectoryTime.TotalSeconds,
+                                                                                                            Trajectories[i].startPose,
+                                                                                                            Trajectories[i].finalPose,
+                                                                                                            Trajectories[i].startVelocity,
+                                                                                                            Trajectories[i].finalVelocity,
+                                                                                                            Trajectories[i].finalAngle * 180 / Math.PI));
                 }
-                _text["msg"].AppendLine(msg.ToString());
+                lock (TrajectoryPrintLock)
+                {
+                    _text["msg"].Clear();
+                    _text["msg"].AppendLine(msg.ToString());
+                    
+                }
 
             }
             catch (FormatException fe)
             {
-                updateError(fe.Message);
+                updateError(fe.Message,fe);
             }
             catch (ArgumentNullException ne)
             {
-                updateError(ne.Message);
+                updateError(ne.Message,ne);
             }
             catch (Exception e)
             {
-                updateError(e.Message);
+                updateError(e.Message,e);
             }
         }
 
@@ -1051,7 +1060,7 @@ namespace LightWeight_Server
                     {
                         if (_newPosesLoaded)
                         {
-                            _TrajectoryHandler.UpdateTrajectories(currentPose, currentVelocity);
+                            _TrajectoryHandler.LodeBuffer(currentPose, currentVelocity);
                           //  _TrajectoryList = new TrajectoryOld[_NewTrajectoryList.Length];
                            // _NewTrajectoryList.CopyTo(_TrajectoryList, 0);
                           //  _NewTrajectoryList = null;
@@ -1108,9 +1117,7 @@ namespace LightWeight_Server
                 }
                 catch (Exception e)
                 {
-                    updateError("Exception ");
-                    updateError(e.Message);
-                    updateError(e.StackTrace);
+                    updateError("Exception " + e.Message, e);
                     _newCommandLoaded = false;
                     _isCommanded = false;
                     _newOrientationLoaded = false;
@@ -1194,8 +1201,8 @@ namespace LightWeight_Server
                     //_NewTrajectoryList[i] = new TrajectoryOld(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
                     QuinticTrajectories[i] = new TrajectoryQuintic(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1], PoseList);
                 }
+                plotTrajectories(QuinticTrajectories);
                 _TrajectoryHandler.Load(QuinticTrajectories);
-                plotTrajectories(_NewTrajectoryList);
                 _newPosesLoaded = true;
                 trajectoryLoader.Stop();
                 _trajectoryLoaderTime = trajectoryLoader.Elapsed.TotalMilliseconds;
@@ -1204,7 +1211,7 @@ namespace LightWeight_Server
             }
             catch (Exception e)
             {
-                updateError("Error loading: " + e.Message);
+                updateError("Error loading: " + e.Message, e);
             }
             return false;
         }
@@ -1303,7 +1310,7 @@ namespace LightWeight_Server
             lock (trajectoryLock)
             {
 
-                if (_isConnected && _isCommanded && _CurrentTrajectory.IsActive)
+                if (_isConnected && _isCommanded && _TrajectoryHandler.IsActive)
                 {
                     double[] axisComand = _TrajectoryHandler.RobotChange(currentPose, currentVelocity, _InverseJacobian);
                     _axisCommand = checkLimits(axisComand);

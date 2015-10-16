@@ -16,7 +16,7 @@ namespace LightWeight_Server
     // Matrix are row basis, where litrature is column basis!
     // This requires transpose before and after any multiplication
 
-    public struct Pose  
+    public struct Pose : IFormattable
     {
         double _x, _y, _z;
         float _angle;
@@ -132,10 +132,6 @@ namespace LightWeight_Server
 
         public Pose(TimeCoordinate Pose) : this(Pose.Orientation, Pose.Translation) { }
 
-        public override string ToString()
-        {
-            return string.Format("{0,0.00},{1,0.00},{2,0.00},{3,0.00},{4,0.00},{5,0.00},{6,0.00},", this._x, this._y, this._z, this.angle, this.axis.X, this.axis.Y, this.axis.Z);
-        }
 
         public override int GetHashCode()
         {
@@ -236,11 +232,52 @@ namespace LightWeight_Server
         {
             return new Pose(Quaternion.Inverse(pose.Orientation), -Vector3.Transform(pose.Translation, Quaternion.Inverse(pose.Orientation)));
         }
-        
-        public string ToDisplayString()
+
+        public string ToString(string format, IFormatProvider formatProvider)
         {
-            return String.Format(" ({0,5.0},{1,5.0},{2,5.0})", this.Translation.X, this.Translation.Y, this.Translation.Z);
+
+            if (format == null) format = "G";
+
+            if (formatProvider != null)
+            {
+                ICustomFormatter formatter = formatProvider.GetFormat(this.GetType()) as ICustomFormatter;
+                if (formatter != null)
+                    return formatter.Format(format, this, formatProvider);
+            }
+
+            switch (format)
+            {
+
+                case "data": return string.Format("{0},{1},{2},{3},{4},{5},{6}", this._x, this._y, this._z, this.angle, this.axis.X, this.axis.Y, this.axis.Z);
+
+                case "p":
+
+                case "G":
+
+                default: return String.Format("({0,5:0},{1,5:0},{2,5:0})", this.Translation.X, this.Translation.Y, this.Translation.Z);
+
+            }
+
         }
+
+
+        public override string ToString()
+        {
+            return ToString("G", null);
+        }
+
+
+
+        public string ToString(string format)
+        {
+            return ToString(format, null);
+        }
+
+        public string ToString(IFormatProvider formatProvider)
+        {
+            return ToString(null, formatProvider);
+        }
+        
 
         public Pose invert
         {
@@ -554,7 +591,7 @@ namespace LightWeight_Server
 
         public static void updateDataFile(Pose refPos, Pose refVel, Pose actPos, Pose actVel, double time, StringBuilder tableRow)
         {
-            tableRow.AppendLine(string.Format("{0,0.0},{1},{2},{3},{4};", time, refPos, actPos, refVel, actVel));
+            tableRow.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data};", time, refPos, actPos, refVel, actVel));
         }
 
         #endregion
@@ -1029,7 +1066,7 @@ namespace LightWeight_Server
         {
             if (t.Length == 6)
             {
-                if (t.Max() > Math.PI || t.Min() < -Math.PI)
+                if (t.Max() > 2*Math.PI || Math.Abs(t.Min()) < - 2*Math.PI)
                 {
                     throw new KukaException(string.Format("Angles given are out of bounds, -pi<t<pi. Max angle is: {0}. Min angle is: {1}", t.Max(), t.Min()));
                 }

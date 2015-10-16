@@ -12,18 +12,20 @@ namespace LightWeight_Server
     class Controller
     {
         StringBuilder DataWriter = new StringBuilder();
-
+        string dataWriterFile = "ControllerData";
+        int dataWriterAttempts = 0;
+        StreamWriter Datafile;
         //object movementLock = new object();
         Stopwatch _elapsedTime = new Stopwatch();
         Stopwatch _DataTime = new Stopwatch();
-        bool _isActive = false;
+        bool _isActive = false, _hasMadeFile = false;
         public bool _isRotating, _isMoving;
         Matrix _finalPose, _startPose;
         Quaternion _startOrientation, _lastOrientation;
         TimeSpan _trajectoryTime;
         Vector3 _axis;
         float _finalAngle;
-        double P = 0.1, I, D;
+        double P = 0.01, I, D;
 
 
         public Boolean IsActive
@@ -50,12 +52,28 @@ namespace LightWeight_Server
         }
 
 
-        public Controller()
+        public Controller(RobotInfo ThisRobot)
         {
             _isActive = false;
             _isMoving = false;
             _isRotating = false;
             _finalPose = Matrix.Identity;
+            //this._x, this._y, this._z, this.angle, this.axis.X, this.axis.Y, this.axis.Z
+            DataWriter.AppendFormat("time,ref_rx,ref_ry,ref_rz,ref_ra,ref_rax,ref_ray,ref_raz,act_rx,act_ry,act_rz,act_ra,act_rax,act_ray,act_raz,ref_vx,ref_vy,ref_vz,ref_va,ref_vax,ref_vay,ref_vaz,act_vx,act_vy,act_vz,act_va,act_vax,act_vay,act_vaz;");
+            try
+            {
+                Datafile = new StreamWriter(dataWriterFile + ".csv");
+            }
+            catch (Exception)
+            {
+                dataWriterFile = dataWriterFile + Guid.NewGuid().ToString("N");
+                Datafile = new StreamWriter(dataWriterFile + ".csv");
+            }
+            Datafile.WriteLine(DataWriter);
+            DataWriter.Clear();
+            Datafile.Flush();
+            Datafile.Close();
+
             _DataTime.Start();
         }
 
@@ -82,7 +100,7 @@ namespace LightWeight_Server
            // R.P3 = R.IPOC.Elapsed.TotalMilliseconds - JacTimer;
             double[] TipVeloicty = new double[] { ControlTranslation.X, ControlTranslation.Y, ControlTranslation.Z, ControlOrientation.X, ControlOrientation.Y, ControlOrientation.Z };
             SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, DataWriter);
-            StreamWriter Datafile = new StreamWriter("ControllerData.csv", true);
+            StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true);
             Datafile.WriteLine(DataWriter);
             DataWriter.Clear();
             Datafile.Flush();
