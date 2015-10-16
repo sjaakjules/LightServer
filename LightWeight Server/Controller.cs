@@ -25,7 +25,7 @@ namespace LightWeight_Server
         TimeSpan _trajectoryTime;
         Vector3 _axis;
         float _finalAngle;
-        double P = 0.01, I, D;
+        double P = 0.05, I, D;
 
 
         public Boolean IsActive

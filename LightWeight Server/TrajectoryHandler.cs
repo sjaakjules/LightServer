@@ -164,7 +164,7 @@ namespace LightWeight_Server
                 Pose ReferencePose = _ActiveTrajectories[_CurrentSegment].getReferencePosition(_TrajectoryTime.Elapsed.TotalMilliseconds);
                 Pose ReferenceVelocity = _ActiveTrajectories[_CurrentSegment].getReferenceVelocity(_TrajectoryTime.Elapsed.TotalMilliseconds);
                 double[] AxisCommand = TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, inverseJacobian);
-                if (currentPose.Equals(ReferencePose, 1e-2))
+                if (currentPose.Equals(ReferencePose, 1))
                 {
                     _CurrentSegment++;
                     if (_CurrentSegment == _nSegments)
