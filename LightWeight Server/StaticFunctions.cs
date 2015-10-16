@@ -16,7 +16,7 @@ namespace LightWeight_Server
     // Matrix are row basis, where litrature is column basis!
     // This requires transpose before and after any multiplication
 
-    public struct Pose : IFormattable
+    public struct Pose  
     {
         double _x, _y, _z;
         float _angle;
@@ -237,7 +237,7 @@ namespace LightWeight_Server
             return new Pose(Quaternion.Inverse(pose.Orientation), -Vector3.Transform(pose.Translation, Quaternion.Inverse(pose.Orientation)));
         }
         
-        public string ToString(string str, IFormatProvider something)
+        public string ToDisplayString()
         {
             return String.Format(" ({0,5.0},{1,5.0},{2,5.0})", this.Translation.X, this.Translation.Y, this.Translation.Z);
         }
@@ -1025,7 +1025,7 @@ namespace LightWeight_Server
         /// <param name="t"></param> 6 angles in radians.
         /// <param name="error"></param> Error for singularity detection, 1e-6 specified if greater than 1e-2.
         /// <returns></returns>
-        public static double[,] InverseJacobian(double[] t, double error)
+        public static double[,] InverseJacobianWrist(double[] t, double error)
         {
             if (t.Length == 6)
             {

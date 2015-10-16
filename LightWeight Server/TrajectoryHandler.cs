@@ -19,6 +19,8 @@ namespace LightWeight_Server
         Trajectory[] _bufferTrajectories;
         Controller TrajectoryController;
 
+        RobotInfo _ThisRobot;
+
         bool BufferLoaded
         {
             get
@@ -38,9 +40,10 @@ namespace LightWeight_Server
         }
 
         // Constrctor
-        public TrajectoryHandler()
+        public TrajectoryHandler(RobotInfo robot)
         {
-
+            _ThisRobot = robot;
+            _TrajectoryTime = new Stopwatch();
             TrajectoryController = new Controller();
             _ActiveTrajectories = new Trajectory[] { new TrajectoryQuintic(Pose.Zero, Guid.NewGuid()) };
             _nSegments = 0;
@@ -50,8 +53,9 @@ namespace LightWeight_Server
 
         public TrajectoryHandler(Pose currentPose)
         {
+            _TrajectoryTime = new Stopwatch();
             TrajectoryController = new Controller();
-
+            _ActiveTrajectories = new Trajectory[] { new TrajectoryQuintic(currentPose, Guid.NewGuid()) };
             _nSegments = 0;
             _CurrentSegment = 0;
             _isActive = false;
@@ -59,12 +63,20 @@ namespace LightWeight_Server
 
         public void Start(Pose startPose, Pose startVelocity)
         {
+            try
+            {
+                
             if (!(startPose == _ActiveTrajectories[0].startPose))
             {
                 _ActiveTrajectories[0].updateStartPosition(startPose, startVelocity);
             }
             _isActive = true;
             _TrajectoryTime.Restart();
+            }
+            catch (Exception e )
+            {
+                _ThisRobot.updateError("error in start" + e.Message);
+            }
         }
 
         public void ReStart(Pose CurrentPose, Pose CurrentVelocity)
@@ -94,6 +106,31 @@ namespace LightWeight_Server
 
         }
 
+        public void UpdateTrajectories(Pose currentPose, Pose CurrentVelocity)
+        {
+            // Check and load from buffer
+            lock (BufferLock)
+            {
+                if (BufferLoaded)
+                {
+                    _nSegments = _bufferTrajectories.Length;
+                    _CurrentSegment = 0;
+                    if (!(currentPose == _bufferTrajectories[0].startPose))
+                    {
+                        _bufferTrajectories[0].updateStartPosition(currentPose, CurrentVelocity);
+                    }
+                    _ActiveTrajectories = new Trajectory[_nSegments];
+                    for (int i = 0; i < _nSegments; i++)
+                    {
+                        _ActiveTrajectories[i] = _bufferTrajectories[i];
+                    }
+                    _bufferTrajectories = null;
+                    BufferLoaded = false;
+                    Start(currentPose, CurrentVelocity);
+                }
+            }
+        }
+
         public void Load(Trajectory[] NewTrajectoryList)
         {
             _bufferTrajectories = new Trajectory[NewTrajectoryList.Length];
@@ -113,26 +150,7 @@ namespace LightWeight_Server
             if (_isActive)
             {
                 // Check and load from buffer
-                lock (BufferLock)
-                {
-                    if (BufferLoaded)
-                    {
-                        _nSegments = _bufferTrajectories.Length;
-                        _CurrentSegment = 0;
-                        if (!(currentPose == _bufferTrajectories[0].startPose))
-                        {
-                            _bufferTrajectories[0].updateStartPosition(currentPose, CurrentVelocity);
-                        }
-                        _ActiveTrajectories = new Trajectory[_nSegments];
-                        for (int i = 0; i < _nSegments; i++)
-                        {
-                            _ActiveTrajectories[i] = _bufferTrajectories[i];
-                        }
-                        _bufferTrajectories = null;
-                        BufferLoaded = false;
-                        Start(currentPose, CurrentVelocity);
-                    }
-                }
+                UpdateTrajectories( currentPose,  CurrentVelocity);
                 Pose ReferencePose = _ActiveTrajectories[_CurrentSegment].getReferencePosition(_TrajectoryTime.Elapsed.TotalMilliseconds);
                 Pose ReferenceVelocity = _ActiveTrajectories[_CurrentSegment].getReferenceVelocity(_TrajectoryTime.Elapsed.TotalMilliseconds);
                 double[] AxisCommand = TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, inverseJacobian);

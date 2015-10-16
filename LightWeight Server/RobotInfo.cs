@@ -39,6 +39,7 @@ namespace LightWeight_Server
         Pose[] _T = new Pose[7];
         Matrix[] _T0 = new Matrix[7];
         double[,] _Jacobian = new double[6, 6];
+        double[,] _InverseJacobian = new double[6, 6];
         ConcurrentQueue<TimeCoordinate> _DesiredPose;
         Pose _newPose;
         Pose[] _newPoses;
@@ -66,14 +67,16 @@ namespace LightWeight_Server
 
         bool _gripperIsOpen = true;
 
-        readonly double _MaxCartesianChange = 0.8;
+        // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
+        readonly double _MaxCartesianChange = 1;
         readonly double _MaxAngularChange = 0.1;
+        readonly double _MaxAxisChange = 1;
 
         double _maxLinearVelocity = .12; // in mm/ms
         double _maxAngularVelocity = .012; // in mm/ms
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
-
+        
         bool _isConnected = false;
         bool _isConnecting = false;
         bool _isCommanded = false;
@@ -436,7 +439,7 @@ namespace LightWeight_Server
             _CommandPose = new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0);
             MaxJocTimer.Enqueue(0);
             MaxserverTimer.Enqueue(0);
-            _TrajectoryHandler = new TrajectoryHandler();
+            _TrajectoryHandler = new TrajectoryHandler(this);
             /*
             setupCardinalDictionaries(_ReadPosition, homePosition);
             setupCardinalDictionaries(_DesiredPosition, homePosition);
@@ -463,6 +466,7 @@ namespace LightWeight_Server
                 _EndEffector = _EndEffectorPose.Translation;
                 getLinkTransforms(startAngles[0], startAngles[1], startAngles[2], startAngles[3], startAngles[4], startAngles[5], _EndEffector, out _T, out _T0);
                 _isConnected = true;
+                _isConnecting = false;
             }
             if (!_isConnected)
             {
@@ -551,6 +555,7 @@ namespace LightWeight_Server
                     StreamWriter file = new StreamWriter("ErrorMsg" + _errorMsgs.ToString() + ".txt");
 
                     file.WriteLine(_DisplayMsg);
+                    
                     file.Flush();
                     file.Close();
 
@@ -570,7 +575,15 @@ namespace LightWeight_Server
 
                     if (_isConnected)
                     {
-                        updateMsg();
+                        try
+                        {
+                            updateMsg();
+                        }
+                        catch (Exception)
+                        {
+                            
+                            throw;
+                        }
                         /*
                         hasMsg = false;
                         while (!hasMsg)
@@ -783,10 +796,10 @@ namespace LightWeight_Server
                 for (int i = 0; i < Trajectories.Length; i++)
                 {
                     msg.AppendLine(String.Format("{0,-8:0.00}|{1,-19}|{2,-19}|{3,-19}|{4,-19}|   {5,-7:0.00}",    Trajectories[i]._trajectoryTime.TotalSeconds,
-                                                                                                            Trajectories[i]._startPose,
-                                                                                                            Trajectories[i]._finalPose,
-                                                                                                            Trajectories[i]._startVelocity,
-                                                                                                            Trajectories[i]._finalVelocity,
+                                                                                                            Trajectories[i]._startPose.ToDisplayString(),
+                                                                                                            Trajectories[i]._finalPose.ToDisplayString(),
+                                                                                                            Trajectories[i]._startVelocity.ToDisplayString(),
+                                                                                                            Trajectories[i]._finalVelocity.ToDisplayString(),
                                                                                                             Trajectories[i]._finalAngle * 180 / Math.PI));
                 }
                 _text["msg"].AppendLine(msg.ToString());
@@ -856,8 +869,8 @@ namespace LightWeight_Server
 
         double[,] InverseJacobian(double error)
         {
-            double[,] InvWristJacobian = SF.InverseJacobian(_Angles.LastElement, error);
-            return getTipJacobian(InvWristJacobian, _EndEffector);
+            double[,] InvWristJacobian = SF.InverseJacobianWrist(_Angles.LastElement, error);
+            return getTipInverseJacobian(InvWristJacobian, _EndEffector);
         }
 
         double[,] Jacobian(Pose[] T, Matrix[] T0)
@@ -986,9 +999,8 @@ namespace LightWeight_Server
                 jacobianTimer.Restart();
                 getLinkTransforms(a1, a2, a3, a4, a5, a6, _EndEffector, out _T, out _T0);
                 _Jacobian = Jacobian(_T, _T0);
-                double[,] invJoc = InverseJacobian(1e-6);
-               // Mat Jocob = new Mat(_Jacobian);
-              //  double[,] invJocob = Jocob.Inverse(1e-4).getArray;
+                _InverseJacobian = InverseJacobian(1e-6);
+
                 jacobianTimer.Stop();
                 double newTime = jacobianTimer.Elapsed.TotalMilliseconds;
                 JocTimer.Enqueue(newTime);
@@ -1039,10 +1051,11 @@ namespace LightWeight_Server
                     {
                         if (_newPosesLoaded)
                         {
-                            _TrajectoryList = new TrajectoryOld[_NewTrajectoryList.Length];
-                            _NewTrajectoryList.CopyTo(_TrajectoryList, 0);
-                            _NewTrajectoryList = null;
-                            _CurrentTrajectory = _TrajectoryList[0];
+                            _TrajectoryHandler.UpdateTrajectories(currentPose, currentVelocity);
+                          //  _TrajectoryList = new TrajectoryOld[_NewTrajectoryList.Length];
+                           // _NewTrajectoryList.CopyTo(_TrajectoryList, 0);
+                          //  _NewTrajectoryList = null;
+                           // _CurrentTrajectory = _TrajectoryList[0];
                             _newPosesLoaded = false;
                             _newOrientationLoaded = false;
                             _newPositionLoaded = false;
@@ -1050,7 +1063,7 @@ namespace LightWeight_Server
                             _isCommanded = true;
                             _isCommandedPosition = true;
                             _isCommandedOrientation = true;
-                            _CurrentTrajectory.start();
+                        //   _CurrentTrajectory.start();
                         }
                         if (_newOrientationLoaded)
                         {
@@ -1149,19 +1162,22 @@ namespace LightWeight_Server
          */
         public bool newPoses(int n, Pose[] new_Poses, double[] AverageVelocity)
         {
+            try
+            {
+                
             if (!_newPosesLoaded)
             {
                 Guid PoseList = Guid.NewGuid();
                 TrajectoryQuintic[] QuinticTrajectories = new TrajectoryQuintic[n];
                 Stopwatch trajectoryLoader = new Stopwatch();
                 trajectoryLoader.Start();
-                // Check if no veloicty was specified or if mm/s or mm/ms was specified. Must used mm/ms for trajectory generation
+               //  Check if no veloicty was specified or if mm/s or mm/ms was specified. Must used mm/ms for trajectory generation
                 AverageVelocity[0] = (AverageVelocity[0] == -1) ? _maxLinearVelocity / 2 : ((AverageVelocity[0] > 0.1) ? AverageVelocity[0] / 1000 : AverageVelocity[0]);
                 for (int i = 1; i < AverageVelocity.Length; i++)
                 {
                     AverageVelocity[i] = (AverageVelocity[i] == -1) ? AverageVelocity[i-1] : ((AverageVelocity[i] > 0.1) ? AverageVelocity[i] / 1000 : AverageVelocity[i]);
                 }
-                _NewTrajectoryList = new TrajectoryOld[n];
+                //_NewTrajectoryList = new TrajectoryOld[n];
                 Vector3[] PointVelocitys = new Vector3[n+1];
                 PointVelocitys[0] = Vector3.Zero;
                 PointVelocitys[n] = Vector3.Zero; 
@@ -1171,11 +1187,11 @@ namespace LightWeight_Server
                 {
                     PointVelocitys[i] = (float)((AverageVelocity[i - 1] + 0.2 * AverageVelocity[i]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[i-1].Translation - new_Poses[i - 2].Translation) + Vector3.Normalize(new_Poses[i].Translation - new_Poses[i-1].Translation)));
                 }
-                _NewTrajectoryList[0] = new TrajectoryOld(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1]);
+                //_NewTrajectoryList[0] = new TrajectoryOld(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1]);
                 QuinticTrajectories[0] = new TrajectoryQuintic(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1], PoseList);
                 for (int i = 1; i < n; i++)
                 {
-                    _NewTrajectoryList[i] = new TrajectoryOld(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
+                    //_NewTrajectoryList[i] = new TrajectoryOld(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
                     QuinticTrajectories[i] = new TrajectoryQuintic(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1], PoseList);
                 }
                 _TrajectoryHandler.Load(QuinticTrajectories);
@@ -1184,6 +1200,11 @@ namespace LightWeight_Server
                 trajectoryLoader.Stop();
                 _trajectoryLoaderTime = trajectoryLoader.Elapsed.TotalMilliseconds;
                 return true;
+            }
+            }
+            catch (Exception e)
+            {
+                updateError("Error loading: " + e.Message);
             }
             return false;
         }
@@ -1260,10 +1281,20 @@ namespace LightWeight_Server
             // The output is the transform from Base to final.
         }
 
-        double[,] getTipJacobian(double[,] InvWristJacobian, Vector3 EE)
+        double[,] getTipInverseJacobian(double[,] InvWristJacobian, Vector3 EE)
         {
             double[,] InvSkewEE = new double[,] { { 1, 0, 0, 0, -EE.Z, EE.Y }, { 0, 1, 0, EE.Z, 0, -EE.X }, { 0, 0, 1, -EE.Y, EE.X, 0 }, { 0, 0, 0, 1, 0, 0 }, { 0, 0, 0, 0, 1, 0 }, { 0, 0, 0, 0, 0, 1 } };
             return SF.multiplyMatrix(InvWristJacobian,InvSkewEE);
+        }
+
+        double[] checkLimits(double[] axisComand)
+        {
+            double[] saturatedComand = new double[axisComand.Length];
+            for (int i = 0; i < axisComand.Length; i++)
+            {
+                saturatedComand[i] = (Math.Abs(axisComand[i]) > _MaxAxisChange) ? Math.Sign(axisComand[i]) * _MaxAxisChange : axisComand[i];
+            }
+            return saturatedComand;
         }
 
         public void updateComandPosition()
@@ -1274,6 +1305,10 @@ namespace LightWeight_Server
 
                 if (_isConnected && _isCommanded && _CurrentTrajectory.IsActive)
                 {
+                    double[] axisComand = _TrajectoryHandler.RobotChange(currentPose, currentVelocity, _InverseJacobian);
+                    _axisCommand = checkLimits(axisComand);
+                    _CommandPose = new TimeCoordinate(new Pose(_axisCommand), _Position.LastElement.Ipoc);
+                    /*
                     Pose CurrentPose = currentPose;
 
                 //    TGetReference = IPOC.Elapsed.TotalMilliseconds;
@@ -1323,6 +1358,8 @@ namespace LightWeight_Server
                             _CurrentTrajectory.stop();
                         }
                     }
+                     * 
+                     */
                 }
 
 
@@ -1409,6 +1446,7 @@ namespace LightWeight_Server
         public void flushCommands()
         {
             _CommandPose = new TimeCoordinate(0, 0, 0, 0, 0, 0, _Position.LastElement.Ipoc);
+            _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
         }
 
         #endregion

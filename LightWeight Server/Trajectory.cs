@@ -105,6 +105,7 @@ namespace LightWeight_Server
             Vector3 xm = ((xf - x0) / 2) + x0;
             Vector3 x0d = StartVelocity.Translation;
             Vector3 xfd = finalVelocity.Translation;
+            averageVelocity = (averageVelocity == 0) ? (Vector3.Distance(xf, x0)) / 0.01 : averageVelocity;
             Vector3 xmd = (float)averageVelocity * Vector3.Normalize(xf - x0);
             trajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)averageVelocity);
             changePose = new Pose(Quaternion.Inverse(StartPose.Orientation) * finalPose.Orientation, xf - x0);
