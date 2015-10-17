@@ -510,6 +510,17 @@ namespace LightWeight_Server
             }
         }
 
+        public T[] ThreadSafeToArray
+        {
+            get
+            {
+                lock (syncObject)
+                {
+                    return base.ToArray();
+                }
+            }
+        }
+
     }
 
     /// <summary>

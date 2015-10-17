@@ -650,7 +650,7 @@ namespace LightWeight_Server
 
             Console.Clear();
             Console.WriteLine("---------------------------------\n              Info:\n");
-            Console.WriteLine("Number of Angles: " + _Angles.ToArray().Length.ToString());
+            Console.WriteLine("Number of Angles: " + _Angles.ThreadSafeToArray.Length.ToString());
             Console.WriteLine("Current Angles:       (" + String.Format("{0:0.000}", _DisplayAngle[0]) + " , " +
                                                                     String.Format("{0:0.000}", _DisplayAngle[1]) + " , " +
                                                                     String.Format("{0:0.000}", _DisplayAngle[2]) + " , " +
@@ -756,19 +756,19 @@ namespace LightWeight_Server
             Console.WriteLine("Control axis loop time:  {0}", P4);
             Console.WriteLine("Average Jacobian time:   {0}", _JacobienAverTimes);
             Console.WriteLine("Maximum Jacobian time: \n(");
-            foreach (var item in MaxJocTimer.ToArray())
+            foreach (var item in MaxJocTimer.ThreadSafeToArray)
             {
                 Console.Write(" {0} ", item.ToString());
             }
             Console.WriteLine(")");
             Console.WriteLine("server time:   \n(");
-            foreach (var item in serverTimer.ToArray())
+            foreach (var item in serverTimer.ThreadSafeToArray)
             {
                 Console.Write(" {0} ", item.ToString());
             }
             Console.WriteLine(")");
             Console.WriteLine("Maximum server time:   \n(");
-            foreach (var item in MaxserverTimer.ToArray())
+            foreach (var item in MaxserverTimer.ThreadSafeToArray)
             {
                 Console.Write(" {0} ", item.ToString());
             }
@@ -840,9 +840,9 @@ namespace LightWeight_Server
             c = (a == -180) ? 180 : c;
             TimeCoordinate newPosition = new TimeCoordinate(x, y, z, a, b, c, Ipoc);
             _Position.Enqueue(newPosition);
-            TimeCoordinate[] positions = _Position.ToArray();
+            TimeCoordinate[] positions = _Position.ThreadSafeToArray;
             _velocity.Enqueue(SF.AverageRateOfChange(positions));
-            TimeCoordinate[] velocities = _velocity.ToArray();
+            TimeCoordinate[] velocities = _velocity.ThreadSafeToArray;
             _acceleration.Enqueue(SF.AverageRateOfChange(velocities));
         }
 
@@ -1013,8 +1013,8 @@ namespace LightWeight_Server
                 jacobianTimer.Stop();
                 double newTime = jacobianTimer.Elapsed.TotalMilliseconds;
                 JocTimer.Enqueue(newTime);
-                double[] jocTimes = JocTimer.ToArray();
-                double[] maxJoc = MaxJocTimer.ToArray();
+                double[] jocTimes = JocTimer.ThreadSafeToArray;
+                double[] maxJoc = MaxJocTimer.ThreadSafeToArray;
                 _JacobienAverTimes = jocTimes.Average();
                 if (newTime > maxJoc.Average() || Math.Abs(newTime - maxJoc.Average() ) < 0.1)
                 {

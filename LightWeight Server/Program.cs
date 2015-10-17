@@ -20,13 +20,15 @@ namespace LightWeight_Server
             Thread KukaServerThread = new Thread(KukaServer.ConstantReceive);
 
             ExternalServer externalServer = new ExternalServer(5008, ConnectedKuka);
-            Thread externalServerThread = new Thread(externalServer.ConstantReceive);
+            Thread externalReceiveThread = new Thread(externalServer.ConstantReceive);
+            Thread externalSendThread = new Thread(externalServer.ConstantSendData);
 
             Thread errorWriter = new Thread(ConnectedKuka.UpdateScreen);
 
             // Start the server listening on its own thread
             KukaServerThread.Start();
-            externalServerThread.Start();
+            externalReceiveThread.Start();
+            externalSendThread.Start();
             errorWriter.Start();
 
             Console.WriteLine("press O to open, P to close");

@@ -72,6 +72,7 @@ namespace TestBot
         string[] AxisKey = new string[] { "A1", "A2", "A3", "A4", "A5", "A6" };
 
         bool isConnected = false;
+        int loopCount = 0;
 
         Vector3 _EE = new Vector3(50.3f, -10, 102.6f);
 
@@ -418,16 +419,22 @@ namespace TestBot
 
         public void ConstantSend()
         {
+            _loopTimer.Start();
             while (true)
             {
-                isReadyToSend.Reset();
-                lock (positionLock)
+
+              //  isReadyToSend.Reset();
+                if (_loopTimer.Elapsed.TotalMilliseconds > serverSpeed)
                 {
-                    //Console.WriteLine("in the lock in the sender");
-                    UpdateXML();
-                    SendData();
+                    lock (positionLock)
+                    {
+                        //Console.WriteLine("in the lock in the sender");
+                        UpdateXML();
+                        SendData();
+                    }
+                    _loopTimer.Restart();
                 }
-                isReadyToSend.WaitOne(4);
+               // isReadyToSend.WaitOne(4);
             }
         }
 

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -27,6 +28,12 @@ namespace LightWeight_Server
         bool _loadedRotation = false;
         bool _loadedPoses = false;
         string[] splitter = new string[] { "," };
+        FixedSizedQueue<IPEndPoint> ClientIEP;
+        int _SendRefreshRate = 30; // Refresh rate of send data, Hz
+
+        Stopwatch _sendTimer = new Stopwatch();
+
+        
 
         RobotInfo _Robot;
 
@@ -40,7 +47,8 @@ namespace LightWeight_Server
         {
             _Robot = robot;
             _Port = port;
-
+            ClientIEP = new FixedSizedQueue<IPEndPoint>(1000);
+            _sendTimer.Start();
             SetupXML();
 
             // Create Socket
@@ -168,7 +176,7 @@ namespace LightWeight_Server
 
                 // Creates new State object which will have information for this dataGram communication.
                 StateObject newState = new StateObject();
-                newState.Socket = _UdpSocket;
+                newState.socket = _UdpSocket;
 
                 string catchStatement = "while trying to begin receiving data:";
                 try
@@ -205,12 +213,26 @@ namespace LightWeight_Server
                 StateObject connectedState = (StateObject)ar.AsyncState;
 
                 // end the receive and storing size of data in state
-                connectedState.PacketInSize = connectedState.Socket.EndReceiveFrom(ar, ref connectedState.clientEP);
+                connectedState.PacketInSize = connectedState.socket.EndReceiveFrom(ar, ref connectedState.clientEP);
                 // Initialize the state buffer with the received data size and copy buffer to state
                 connectedState.PacketIn = new byte[connectedState.PacketInSize];
                 Array.Copy(_buffer, connectedState.PacketIn, connectedState.PacketInSize);
                 // Retrieve EP information and store in state
                 connectedState.clientIpEP = (IPEndPoint)connectedState.clientEP;
+                bool hasAdded = false;
+                IPEndPoint[] ClintList = ClientIEP.ThreadSafeToArray;
+                foreach (var Client in ClintList)
+                {
+                    if (Client == connectedState.clientIpEP)
+                    {
+                        hasAdded = true;
+                        break;
+                    }
+                }
+                if (!hasAdded)
+                {
+                    ClientIEP.Enqueue(new IPEndPoint(connectedState.clientIpEP.Address, connectedState.clientIpEP.Port));
+                }
 
                 // Reset the global buffer to null ready to be initialised in next receive loop once packet as been sent.
                 _buffer = null;
@@ -220,7 +242,7 @@ namespace LightWeight_Server
 
                 haveReceived.Set();
                 // Send return message to same connection that the data was received.
-                SendData(connectedState);
+                //SendData(connectedState);
             }
             catch (SocketException se)
             {
@@ -243,7 +265,7 @@ namespace LightWeight_Server
             {
                 //Console.WriteLine("Take that!");
                 StateObject state = (StateObject)ar.AsyncState;
-                int bytesSent = state.Socket.EndSendTo(ar);
+                int bytesSent = state.socket.EndSendTo(ar);
             }
             catch (SocketException se)
             {
@@ -259,31 +281,47 @@ namespace LightWeight_Server
             }
         }
 
-        private void SendData(StateObject state)
+        public void ConstantSendData()
         {
-            string catchStatement = "while trying to send the data:";
-            try
+            while (true)
             {
-                if (state.hasLoadedMessageOut)
+                if (_sendTimer.Elapsed.TotalMilliseconds > (1000.0/_SendRefreshRate) && ClientIEP.Count > 0)
                 {
-                    state.Socket.BeginSendTo(state.PacketOut, 0, state.PacketOut.Length, SocketFlags.None, state.clientEP, new AsyncCallback(FinishSendTo), state);
+                    IPEndPoint[] clientList = ClientIEP.ThreadSafeToArray;
+                    foreach (var Client in clientList)
+                    {
+                        StateObject state = new StateObject();
+                        state.socket = _UdpSocket;
+                        state.clientEP = (EndPoint)Client;
+                        state.clientIpEP = Client;
+                        UpdateXML(state);
+                        string catchStatement = "while trying to send the data:";
+                        try
+                        {
+                            if (state.hasLoadedMessageOut)
+                            {
+                                state.socket.BeginSendTo(state.PacketOut, 0, state.PacketOut.Length, SocketFlags.None, state.clientEP, new AsyncCallback(FinishSendTo), state);
+                            }
+                            else
+                            {
+                                _Robot.updateError("Couldn't write message", new Exception("External Server:"));
+                            }
+                        }
+                        catch (SocketException se)
+                        {
+                            _Robot.updateError("SocketException " + catchStatement, se);
+                        }
+                        catch (ObjectDisposedException ob)
+                        {
+                            _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
+                        }
+                        catch (Exception e)
+                        {
+                            _Robot.updateError("Generic error " + catchStatement, e);
+                        }
+                    }
+                    _sendTimer.Restart();
                 }
-                else
-                {
-                    _Robot.updateError("Couldn't write message", new Exception("External Server:"));
-                }
-            }
-            catch (SocketException se)
-            {
-                _Robot.updateError("SocketException " + catchStatement, se);
-            }
-            catch (ObjectDisposedException ob)
-            {
-                _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
-            }
-            catch (Exception e)
-            {
-                _Robot.updateError("Generic error " + catchStatement, e);
             }
 
         }
@@ -488,7 +526,6 @@ namespace LightWeight_Server
                     _Robot.LoadedCommand();
                     _Robot.updateError("Loaded both rotation and position", new Exception("external server:"));
                 }
-                UpdateXML(State);
 
             }
             catch (SocketException se)

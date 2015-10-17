@@ -17,7 +17,7 @@ namespace LightWeight_Server
     public class StateObject
     {
         // Client  socket.
-        public Socket Socket = null;
+        public Socket socket = null;
         // Client EP.
         public EndPoint clientEP = null;
         // Client IPEP.
@@ -42,6 +42,7 @@ namespace LightWeight_Server
         public double[] cartPos = new double[6];
         // trigger that the message is loaded into the state holder
         public bool hasLoadedMessageOut;
+
     }
 
     class KukaServer
@@ -213,7 +214,7 @@ namespace LightWeight_Server
 
                 // Creates new State object which will have information for this dataGram communication.
                 StateObject newState = new StateObject();
-                newState.Socket = _UdpSocket;
+                newState.socket = _UdpSocket;
 
                 string catchStatement = "while trying to begin receiving data:";
                 try
@@ -255,7 +256,7 @@ namespace LightWeight_Server
                 StateObject connectedState = (StateObject)ar.AsyncState;
 
                 // end the receive and storing size of data in state
-                connectedState.PacketInSize = connectedState.Socket.EndReceiveFrom(ar, ref connectedState.clientEP);
+                connectedState.PacketInSize = connectedState.socket.EndReceiveFrom(ar, ref connectedState.clientEP);
                 // Initialize the state buffer with the received data size and copy buffer to state
                 connectedState.PacketIn = new byte[connectedState.PacketInSize];
                 Array.Copy(_buffer, connectedState.PacketIn, connectedState.PacketInSize);
@@ -385,7 +386,7 @@ namespace LightWeight_Server
             {
                 if (state.hasLoadedMessageOut)
                 {
-                    state.Socket.BeginSendTo(state.PacketOut, 0, state.PacketOut.Length, SocketFlags.None, state.clientEP, new AsyncCallback(FinishSendTo), state);
+                    state.socket.BeginSendTo(state.PacketOut, 0, state.PacketOut.Length, SocketFlags.None, state.clientEP, new AsyncCallback(FinishSendTo), state);
                 }
                 else
                 {
@@ -416,7 +417,7 @@ namespace LightWeight_Server
             {
                 //_Robot.updateError("Take that!");
                 StateObject state = (StateObject)ar.AsyncState;
-                int bytesSent = state.Socket.EndSendTo(ar);
+                int bytesSent = state.socket.EndSendTo(ar);
             }
             catch (SocketException se)
             {
