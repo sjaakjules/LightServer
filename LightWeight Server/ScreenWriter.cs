@@ -6,49 +6,298 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace LightWeight_Server
 {
+    
     class ScreenWriter
     {
         object dataWriteLock = new object();
+        object ErrorWriteLock = new object();
+        object telemetryLock = new object();
+        object ScreenLock = new object();
 
         bool _isConnected;
-        double[] _angles = new double[6];
-        Pose _Position, _Velocity, _Acceleration, _DesiredPose;
-        Vector3 _EndEffector;
-        Dictionary<Guid, StringBuilder> DataStrings;
-        Dictionary<Guid, string> FileName;
-        readonly Guid DataLogger;
+
+        public int _nConnectedRobots, _nConnectedExternalServers;
+
+        ConcurrentDictionary<string, double[]> _angles=new ConcurrentDictionary<string,double[]>();
+        ConcurrentDictionary<string, Pose> _Position = new ConcurrentDictionary<string, Pose>(), 
+                                            _Velocity = new ConcurrentDictionary<string, Pose>(), 
+                                            _Acceleration = new ConcurrentDictionary<string, Pose>(),
+                                            _DesiredPosition = new ConcurrentDictionary<string, Pose>(),
+                                            _ReferencePosition = new ConcurrentDictionary<string, Pose>(), 
+                                            _ReferenceVelcoity = new ConcurrentDictionary<string, Pose>();
+        ConcurrentDictionary<string, Vector3> _EndEffector = new ConcurrentDictionary<string,Vector3>(), 
+                                            _currentZaxis= new ConcurrentDictionary<string,Vector3>(), 
+                                            _desiredZaxis= new ConcurrentDictionary<string,Vector3>();
+        ConcurrentDictionary<string, StringBuilder> _ControllerData = new ConcurrentDictionary<string,StringBuilder>();
+        ConcurrentDictionary<string, string> _RobotName = new ConcurrentDictionary<string, string>();
+        RobotInfo[] _ConnectedRobots;
+
+        StringBuilder _ErrorWriter= new StringBuilder(), _Debugger= new StringBuilder(), _DisplayMsg= new StringBuilder();
+
+        //ConcurrentDictionary<string, Stopwatch> _Timers = new ConcurrentDictionary<string,Stopwatch>();
+
+        TimeSpan A3 = TimeSpan.Zero, A4 = TimeSpan.Zero, A5 = TimeSpan.Zero, A6 = TimeSpan.Zero;
         
-         
+
+        
+        
+        Stopwatch _rotatingTimer = new Stopwatch();
+
+        double TGetReference, TGetController, TloadTrajectory, T1, T2, T3;
+        public double PGetReference, PGetController, PloadTrajectory, P1, P2, P3, P4;
+
+        public bool IsConnected
+        {
+            set
+            {
+                lock (ScreenLock)
+                {
+                    _isConnected = value;
+                }
+            }
+        }
 
         public ScreenWriter()
         {
-            DataLogger = Guid.NewGuid();
-            DataStrings.Add(DataLogger, new StringBuilder());
+
+            Console.WriteLine("Type the number of connected robots...");
+            // Selects the first IP in the list and writes it to screen
+            while (true)
+            {
+                string numbers = Console.ReadLine();
+                if (int.TryParse(numbers, out _nConnectedRobots))
+                {
+                    Console.WriteLine("number of robots: {0}", _nConnectedRobots);
+                    break;
+                }
+                else
+                {
+                    Console.WriteLine("Type numbers only followed by enter.");
+                }
+            }
+            using (StreamWriter file = new StreamWriter("ErrorMsg" + ".txt"))
+            {
+                lock (ErrorWriteLock)
+                {
+                    file.WriteLine("Error Log: {0} {1}", System.DateTime.Now.Date.ToShortTimeString(), System.DateTime.Now.ToShortTimeString());
+                    file.WriteLine(_ErrorWriter);
+                    _ErrorWriter.Clear();
+                }
+            }
+            _ConnectedRobots = new RobotInfo[_nConnectedRobots];
             // Initialises the screen variables.
         }
 
-
-        public void Loop()
+        public void ConnectRobot(RobotInfo newRobot, int number)
         {
-            foreach (KeyValuePair<Guid, StringBuilder> item in DataStrings)
+            _ConnectedRobots[number] = newRobot;
+            _RobotName.TryAdd(newRobot._RobotID.ToString(), "Robot " + number.ToString());
+            SetupTelemetryInfo(newRobot);
+        }
+
+        public void updateError(string newError, Exception Error)
+        {
+            lock (ErrorWriteLock)
             {
-                StreamWriter file = new StreamWriter(FileName[item.Key],true);
-                if (item.Key.Equals(DataLogger))
-                {
-                    lock (dataWriteLock)
-                    {
-                        file.WriteLine(DataStrings[item.Key]);
-                        DataStrings[item.Key].Clear();
-                    }
-                }
-                file.Flush();
-                file.Close();
+                _ErrorWriter.AppendLine(newError);
+                _ErrorWriter.AppendLine(Error.Message);
+                _ErrorWriter.AppendLine(Error.StackTrace);
             }
         }
+        
+        // Dedicated loop thread
+        public void UpdateScreen()
+        {
+            while (true)
+            {
+                try
+                {
+                    using (StreamWriter file = new StreamWriter("ErrorMsg" + ".txt", true))
+                    {
+                        lock (ErrorWriteLock)
+                        {
+                            if (_ErrorWriter.Length != 0)
+                            {
+                                
+                            file.WriteLine(_ErrorWriter);
+                            _ErrorWriter.Clear();
+                            }
+                        }
+                    }
+                    lock (ScreenLock)
+                    {
+                        if (_isConnected)
+                        {
+                            foreach (var robot in _ConnectedRobots)
+                            {
+                                try
+                                {
+                                    _DisplayMsg.AppendLine(_RobotName[robot._RobotID.ToString()] + " info:");
+                                    updateTelemetryInfo(robot);
+                                    updateMsg(robot);
+                                }
+                                catch (Exception e)
+                                {
+                                    updateError("Error writing to screen", e);
+                                }
+                            }
+                            Console.Clear();
+                            Console.WriteLine(_DisplayMsg);
+                            _DisplayMsg.Clear();
+                        }
+                        else
+                        {
+                            Console.Clear();
+                            Console.WriteLine("---------------------------------\n   Not Connected to Kuka Robot");
+                        }
+                    }
+                    System.Threading.Thread.Sleep(100);
+                }
+                catch (Exception e)
+                {
+                    updateError("Error printing to Screen", e);
+                }
+            }
+        }
+
+
+        void SetupTelemetryInfo(RobotInfo robot)
+        {
+            _angles.TryAdd(robot._RobotID.ToString(),robot.currentAxisAngle);
+            _Position.TryAdd(robot._RobotID.ToString(),robot.currentPose);
+            _Velocity.TryAdd(robot._RobotID.ToString(),robot.currentVelocity);
+            _Acceleration.TryAdd(robot._RobotID.ToString(),robot.currentAcceleration);
+            _DesiredPosition.TryAdd(robot._RobotID.ToString(),robot.currentDesiredPositon);
+            _ReferencePosition.TryAdd(robot._RobotID.ToString(),robot.currentReferencePosition);
+            _ReferenceVelcoity.TryAdd(robot._RobotID.ToString(), robot.currentReferenceVelocity);
+            _EndEffector.TryAdd(robot._RobotID.ToString(), robot.EndEffector);
+            _currentZaxis.TryAdd(robot._RobotID.ToString(), robot.currentPose.zAxis);
+            _desiredZaxis.TryAdd(robot._RobotID.ToString(), robot.currentDesiredPositon.zAxis);
+            _ControllerData.TryAdd(robot._RobotID.ToString(), new StringBuilder());
+
+        }
+
+        void updateTelemetryInfo(RobotInfo robot)
+        {
+            _angles[robot._RobotID.ToString()] = robot.currentAxisAngle;
+            _Position[robot._RobotID.ToString()] = robot.currentPose;
+            _Velocity[robot._RobotID.ToString()] = robot.currentVelocity;
+            _Acceleration[robot._RobotID.ToString()] = robot.currentAcceleration;
+            _DesiredPosition[robot._RobotID.ToString()] = robot.currentDesiredPositon;
+            _ReferencePosition[robot._RobotID.ToString()] = robot.currentReferencePosition;
+            _ReferenceVelcoity[robot._RobotID.ToString()] = robot.currentReferenceVelocity;
+            _EndEffector[robot._RobotID.ToString()] = robot.EndEffector;
+        }
+
+        void updateMsg(RobotInfo robot)
+        {
+            _DisplayMsg.AppendLine("---------------------------------\n");
+            plotVector(_EndEffector[robot._RobotID.ToString()], "End Effector", _DisplayMsg);
+            plotPose(_DesiredPosition[robot._RobotID.ToString()], "Desired Position", _DisplayMsg);
+            plotPose(_Position[robot._RobotID.ToString()], "Position", _DisplayMsg);
+            plotPose(_ReferencePosition[robot._RobotID.ToString()], "Reference Position", _DisplayMsg);
+            plotPose(_Velocity[robot._RobotID.ToString()], "Velocity", _DisplayMsg);
+            plotPose(_ReferenceVelcoity[robot._RobotID.ToString()], "Reference Velocity", _DisplayMsg);
+            plotDoubles(_angles[robot._RobotID.ToString()], "Axis Angles", _DisplayMsg);
+            plotVector(_Position[robot._RobotID.ToString()].zAxis, "Current Z-Axis", _DisplayMsg);
+            plotVector(_DesiredPosition[robot._RobotID.ToString()].zAxis, "Desired Z-Axis", _DisplayMsg);
+            
+            /*
+            Console.WriteLine("Process data time:       " + _processDataTimer.ToString() + "ms.");
+            Console.WriteLine("Max Process data time:   " + _maxProcessDataTimer.ToString() + "ms.");
+            Console.WriteLine("Kuka cycle time:         " + _loopTime.ToString() + "ms.");
+            Console.WriteLine("Average Trajectory time: {0}", _trajectoryLoaderTime);
+            Console.WriteLine("Reference time:          {0}", PGetReference);
+            Console.WriteLine("Controller time:         {0}", PGetController);
+            Console.WriteLine("Control loop time:       {0}", P1);
+            Console.WriteLine("Inverse Wrist loop time: {0}", P2);
+            Console.WriteLine("Inverse Jacobian time:   {0}", P3);
+            Console.WriteLine("Control axis loop time:  {0}", P4);
+            Console.WriteLine("Average Jacobian time:   {0}", _JacobienAverTimes);
+            Console.WriteLine("Maximum Jacobian time: \n(");
+            foreach (var item in MaxJocTimer.ThreadSafeToArray)
+            {
+                Console.Write(" {0} ", item.ToString());
+            }
+            Console.WriteLine(")");
+            Console.WriteLine("server time:   \n(");
+            foreach (var item in serverTimer.ThreadSafeToArray)
+            {
+                Console.Write(" {0} ", item.ToString());
+            }
+            Console.WriteLine(")");
+            Console.WriteLine("Maximum server time:   \n(");
+            foreach (var item in MaxserverTimer.ThreadSafeToArray)
+            {
+                Console.Write(" {0} ", item.ToString());
+            }
+            Console.WriteLine(")");
+             * 
+             */
+
+
+        }
+
+        void plotDoubles(double[] array, string Heading, StringBuilder collection)
+        {
+
+            collection.AppendLine(String.Format("{0,-20}: ({1:0.000},{2:0.000},{3:0.000},{4:0.000},{5:0.000},{6:0.000})", Heading,
+                                                                    array[0],
+                                                                    array[1],
+                                                                    array[2],
+                                                                    array[3],
+                                                                    array[4],
+                                                                    array[5]));
+        }
+
+        void plotVector(Vector3 Vector, string Heading, StringBuilder collection)
+        {
+            collection.AppendLine(String.Format("{0:-20}: ({1:0.0},{2:0.0},{3:0.0})", Heading, Vector.X, Vector.Y, Vector.Z));
+        }
+
+        void plotPose(Pose pose, string Heading, StringBuilder collection)
+        {
+            collection.AppendLine(String.Format("{0:-20}: {1:Display}", Heading,pose));
+        }
+
+
+        void plotTrajectories(Trajectory[] Trajectories)
+        {
+            try
+            {
+                StringBuilder msg = new StringBuilder();
+                msg.AppendLine("  Time  |     Start Pos     |     Final Pos     |     Start Vel     |    Final Vel      |   Angle   ");
+                msg.AppendLine("  [s]   |       [mm]        |       [mm]        |       [mm]        |       [mm]        |   [Deg]   ");
+                for (int i = 0; i < Trajectories.Length; i++)
+                {
+                    msg.AppendLine(String.Format("{0,-8:0.00}|{1,9:G}|{2,9:G}|{3,10:G}|{4,10:G}|{5,-7:0.00}", Trajectories[i].trajectoryTime.TotalSeconds,
+                                                                                                            Trajectories[i].startPose,
+                                                                                                            Trajectories[i].finalPose,
+                                                                                                            Trajectories[i].startVelocity,
+                                                                                                            Trajectories[i].finalVelocity,
+                                                                                                            Trajectories[i].finalAngle * 180 / Math.PI));
+                }
+
+            }
+            catch (FormatException fe)
+            {
+                updateError(fe.Message,fe);
+            }
+            catch (ArgumentNullException ne)
+            {
+                updateError(ne.Message,ne);
+            }
+            catch (Exception e)
+            {
+                updateError(e.Message,e);
+            }
+        }
+
 
         /// <summary>
         /// Constructs the information to be updated giving unique ID used to populate information later.
@@ -74,10 +323,6 @@ namespace LightWeight_Server
             return false;
         }
 
-        private void UpdateScreen()
-        {
-            // Clears and updates screen with new information
-        }
 
         /// <summary>
         /// Public funtion to update Debug log when catch statement are triggered.

@@ -250,11 +250,11 @@ namespace LightWeight_Server
 
                 case "data": return string.Format("{0},{1},{2},{3},{4},{5},{6}", this._x, this._y, this._z, this.angle, this.axis.X, this.axis.Y, this.axis.Z);
 
-                case "p":
+                case "Display": return string.Format("({0:0.000},{1:0.000},{2:0.000},{3:0.000},{4:0.000},{5:0.000})", this._x, this._y, this._z, this._kukaValues[3], this._kukaValues[4], this._kukaValues[5]);
 
                 case "G":
 
-                default: return String.Format("({0,5:0},{1,5:0},{2,5:0})", this.Translation.X, this.Translation.Y, this.Translation.Z);
+                default: return String.Format("({0,5},{1,5},{2,5})", this._x, this._y, this._z);
 
             }
 

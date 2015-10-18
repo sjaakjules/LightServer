@@ -13,23 +13,31 @@ namespace LightWeight_Server
     {
         static int Main(string[] args)
         {
+            ScreenWriter GUI = new ScreenWriter();
+            RobotInfo[] ConnectedRobots = new RobotInfo[GUI._nConnectedRobots];
+            KukaServer[] KukaServer = new KukaServer[GUI._nConnectedRobots];
+            Thread[] KukaServerThread = new Thread[GUI._nConnectedRobots];
+            for (int i = 0; i < GUI._nConnectedRobots; i++)
+            {
+                ConnectedRobots[i] = new RobotInfo(Guid.NewGuid(), GUI,i);
+                KukaServer[i] = new KukaServer(6008, ConnectedRobots[i]);
+                KukaServerThread[i] = new Thread(KukaServer[i].ConstantReceive);
+            }
 
-            RobotInfo ConnectedKuka = new RobotInfo();
-
-            KukaServer KukaServer = new KukaServer(6008, ConnectedKuka);
-            Thread KukaServerThread = new Thread(KukaServer.ConstantReceive);
-
-            ExternalServer externalServer = new ExternalServer(5008, ConnectedKuka);
+            ExternalServer externalServer = new ExternalServer(5008, ConnectedRobots, GUI);
             Thread externalReceiveThread = new Thread(externalServer.ConstantReceive);
             Thread externalSendThread = new Thread(externalServer.ConstantSendData);
 
-            Thread errorWriter = new Thread(ConnectedKuka.UpdateScreen);
+            Thread GUI_Writer = new Thread(GUI.UpdateScreen);
 
             // Start the server listening on its own thread
-            KukaServerThread.Start();
+            for (int i = 0; i < GUI._nConnectedRobots; i++)
+            {
+                KukaServerThread[i].Start();
+            }
             externalReceiveThread.Start();
             externalSendThread.Start();
-            errorWriter.Start();
+            GUI_Writer.Start();
 
             Console.WriteLine("press O to open, P to close");
 
@@ -38,37 +46,22 @@ namespace LightWeight_Server
                     switch (System.Console.ReadKey(true).Key)
                     {
                         case ConsoleKey.P:
-                            ConnectedKuka.gripperIsOpen = false;
+                            ConnectedRobots[0].gripperIsOpen = false;
                             break;
                         case ConsoleKey.O:
-                            ConnectedKuka.gripperIsOpen = true;
-                            break;
-                        case ConsoleKey.X:
-                            ConnectedKuka.rotateX = true;
-                            break;
-                        case ConsoleKey.Y:
-                            ConnectedKuka.rotateY = true;
-                            break;
-                        case ConsoleKey.Z:
-                            ConnectedKuka.rotateZ = true;
+                            ConnectedRobots[0].gripperIsOpen = true;
                             break;
                         case ConsoleKey.OemPlus:
-                            ConnectedKuka.LinearVelocity = ConnectedKuka.LinearVelocity + 0.01;
+                            ConnectedRobots[0].LinearVelocity = ConnectedRobots[0].LinearVelocity + 0.01;
                             break;
                         case ConsoleKey.OemMinus:
-                            ConnectedKuka.LinearVelocity = ConnectedKuka.LinearVelocity - 0.01;
+                            ConnectedRobots[0].LinearVelocity = ConnectedRobots[0].LinearVelocity - 0.01;
                             break;
                         case ConsoleKey.D0:
-                            ConnectedKuka.AngularVelocity = ConnectedKuka.AngularVelocity + 0.001;
+                            ConnectedRobots[0].AngularVelocity = ConnectedRobots[0].AngularVelocity + 0.001;
                             break;
                         case ConsoleKey.D9:
-                            ConnectedKuka.AngularVelocity = ConnectedKuka.AngularVelocity - 0.001;
-                            break;
-                        case ConsoleKey.D1:
-                            ConnectedKuka.A1axis = true;
-                            break;
-                        case ConsoleKey.D2:
-                            ConnectedKuka.A2axis = true;
+                            ConnectedRobots[0].AngularVelocity = ConnectedRobots[0].AngularVelocity - 0.001;
                             break;
 
                     }

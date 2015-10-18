@@ -11,6 +11,7 @@ namespace LightWeight_Server
     class TrajectoryHandler
     {
         object BufferLock = new object();
+        object DesiredPoseLock = new object();
 
         Stopwatch _TrajectoryTime;
         bool _isActive, _BufferLoaded;
@@ -18,33 +19,35 @@ namespace LightWeight_Server
         Trajectory[] _ActiveTrajectories;
         Trajectory[] _bufferTrajectories;
         Controller TrajectoryController;
+        FixedSizedQueue<Pose> _ReferencePose, _ReferenceVelocity;
+        Pose _desiredPose= Pose.Zero;
+        
 
         public bool IsActive { get { return _isActive; } }
-
-        RobotInfo _ThisRobot;
-
-        bool BufferLoaded
+        public Pose ReferencePose { get { return _ReferencePose.LastElement; } }
+        public Pose ReferenceVelocity { get { return _ReferenceVelocity.LastElement; } }
+        public Pose DesiredPose
         {
             get
             {
-                lock (BufferLock)
+                lock (DesiredPoseLock)
                 {
-                    return _BufferLoaded;
-                }
-            }
-            set
-            {
-                lock (BufferLock)
-                {
-                    _BufferLoaded = value;
-                }
+                    return _desiredPose;
+                } 
             }
         }
+
+        RobotInfo _ThisRobot;
+
 
         // Constrctor
         public TrajectoryHandler(RobotInfo robot)
         {
             _ThisRobot = robot;
+            _ReferencePose = new FixedSizedQueue<Pose>(10);
+            _ReferenceVelocity = new FixedSizedQueue<Pose>(10);
+            _ReferencePose.Enqueue(Pose.Zero);
+            _ReferenceVelocity.Enqueue(Pose.Zero);
             _TrajectoryTime = new Stopwatch();
             TrajectoryController = new Controller(_ThisRobot);
             _ActiveTrajectories = new Trajectory[] { new TrajectoryQuintic(Pose.Zero, Guid.NewGuid()) };
@@ -53,31 +56,23 @@ namespace LightWeight_Server
             _isActive = false;
         }
 
-        public TrajectoryHandler(Pose currentPose)
-        {
-            _TrajectoryTime = new Stopwatch();
-            TrajectoryController = new Controller(_ThisRobot);
-            _ActiveTrajectories = new Trajectory[] { new TrajectoryQuintic(currentPose, Guid.NewGuid()) };
-            _nSegments = 0;
-            _CurrentSegment = 0;
-            _isActive = false;
-        }
 
         public void Start(Pose startPose, Pose startVelocity)
         {
             try
             {
-                
-            if (!(startPose == _ActiveTrajectories[0].startPose))
-            {
-                _ActiveTrajectories[0].updateStartPosition(startPose, startVelocity);
+                _CurrentSegment = 0;
+                if (!(startPose == _ActiveTrajectories[0].startPose))
+                {
+                    _ActiveTrajectories[0].updateStartPosition(startPose, startVelocity);
+                }
+                _desiredPose = _ActiveTrajectories[_CurrentSegment].finalPose;
+                _isActive = true;
+                _TrajectoryTime.Restart();
             }
-            _isActive = true;
-            _TrajectoryTime.Restart();
-            }
-            catch (Exception e )
+            catch (Exception e)
             {
-                _ThisRobot.updateError("error in start" ,e);
+                _ThisRobot.updateError("error in start", e);
             }
         }
 
@@ -87,6 +82,7 @@ namespace LightWeight_Server
             {
                 _ActiveTrajectories[_CurrentSegment].updateStartPosition(CurrentPose, CurrentVelocity);
             }
+            _desiredPose = _ActiveTrajectories[_CurrentSegment].finalPose;
             _isActive = true;
             _TrajectoryTime.Restart();
         }
@@ -113,7 +109,7 @@ namespace LightWeight_Server
             // Check and load from buffer
             lock (BufferLock)
             {
-                if (BufferLoaded)
+                if (_BufferLoaded)
                 {
                     _nSegments = _bufferTrajectories.Length;
                     _CurrentSegment = 0;
@@ -127,7 +123,7 @@ namespace LightWeight_Server
                         _ActiveTrajectories[i] = _bufferTrajectories[i];
                     }
                     _bufferTrajectories = null;
-                    BufferLoaded = false;
+                    _BufferLoaded = false;
                     Start(currentPose, CurrentVelocity);
                 }
             }
@@ -163,6 +159,8 @@ namespace LightWeight_Server
                 LodeBuffer( currentPose,  CurrentVelocity);
                 Pose ReferencePose = _ActiveTrajectories[_CurrentSegment].getReferencePosition(_TrajectoryTime.Elapsed.TotalMilliseconds);
                 Pose ReferenceVelocity = _ActiveTrajectories[_CurrentSegment].getReferenceVelocity(_TrajectoryTime.Elapsed.TotalMilliseconds);
+                _ReferencePose.Enqueue(ReferencePose);
+                _ReferenceVelocity.Enqueue(ReferenceVelocity);
                 double[] AxisCommand = TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, inverseJacobian);
                 if (currentPose.Equals(ReferencePose, 1))
                 {
@@ -171,6 +169,10 @@ namespace LightWeight_Server
                     {
                         Stop(currentPose);
                         Reset();
+                    }
+                    else
+                    {
+                        _desiredPose = _ActiveTrajectories[_CurrentSegment].finalPose;
                     }
                 }
                 return AxisCommand;

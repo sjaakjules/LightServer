@@ -35,7 +35,8 @@ namespace LightWeight_Server
 
         
 
-        RobotInfo _Robot;
+        RobotInfo[] _Robot;
+        ScreenWriter _GUI;
 
         #region Constructor:
         /// <summary>
@@ -43,9 +44,10 @@ namespace LightWeight_Server
         /// </summary>
         /// <param name="port"></param> The port which communication occurs on
         /// <param name="robot"></param> The robot information to be updated and read from
-        public ExternalServer(int port, RobotInfo robot)
+        public ExternalServer(int port, RobotInfo[] robot, ScreenWriter Gui)
         {
             _Robot = robot;
+            _GUI = Gui;
             _Port = port;
             ClientIEP = new FixedSizedQueue<IPEndPoint>(1000);
             _sendTimer.Start();
@@ -59,15 +61,15 @@ namespace LightWeight_Server
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement, se);
+                _GUI.updateError("SocketException " + catchStatement, se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement,ob);
+                _GUI.updateError("ObjectDisposedException " + catchStatement,ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement,e);
+                _GUI.updateError("Generic error " + catchStatement,e);
             }
             // Binds the socket to local IP.
             bindSocket();
@@ -104,20 +106,20 @@ namespace LightWeight_Server
             try
             {
                 _UdpSocket.Bind((EndPoint)_localEP);
-                _Robot.updateError("External Server IP bound: " + _UdpSocket.LocalEndPoint.ToString(), new Exception("External Server: "));
+                _GUI.updateError("External Server IP bound: " + _UdpSocket.LocalEndPoint.ToString(), new Exception("External Server: "));
                 Console.WriteLine("External Server IP bound: " + _UdpSocket.LocalEndPoint.ToString());
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement, se);
+                _GUI.updateError("SocketException " + catchStatement, se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
+                _GUI.updateError("ObjectDisposedException " + catchStatement, ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement, e);
+                _GUI.updateError("Generic error " + catchStatement, e);
             }
         }
 
@@ -148,17 +150,17 @@ namespace LightWeight_Server
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement, se);
+                _GUI.updateError("SocketException " + catchStatement, se);
                 return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
+                _GUI.updateError("ObjectDisposedException " + catchStatement, ob);
                 return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement, e);
+                _GUI.updateError("Generic error " + catchStatement, e);
                 return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
         }
@@ -186,15 +188,15 @@ namespace LightWeight_Server
                 }
                 catch (SocketException se)
                 {
-                    _Robot.updateError("SocketException " + catchStatement, se);
+                    _GUI.updateError("SocketException " + catchStatement, se);
                 }
                 catch (ObjectDisposedException ob)
                 {
-                    _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
+                    _GUI.updateError("ObjectDisposedException " + catchStatement, ob);
                 }
                 catch (Exception e)
                 {
-                    _Robot.updateError("Generic error " + catchStatement, e);
+                    _GUI.updateError("Generic error " + catchStatement, e);
                 }
 
                 // pause This thread until a packet has been returned.
@@ -246,15 +248,15 @@ namespace LightWeight_Server
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement, se);
+                _GUI.updateError("SocketException " + catchStatement, se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
+                _GUI.updateError("ObjectDisposedException " + catchStatement, ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement, e);
+                _GUI.updateError("Generic error " + catchStatement, e);
             }
         }
 
@@ -269,15 +271,15 @@ namespace LightWeight_Server
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement, se);
+                _GUI.updateError("SocketException " + catchStatement, se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
+                _GUI.updateError("ObjectDisposedException " + catchStatement, ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement, e);
+                _GUI.updateError("Generic error " + catchStatement, e);
             }
         }
 
@@ -304,20 +306,20 @@ namespace LightWeight_Server
                             }
                             else
                             {
-                                _Robot.updateError("Couldn't write message", new Exception("External Server:"));
+                                _GUI.updateError("Couldn't write message", new Exception("External Server:"));
                             }
                         }
                         catch (SocketException se)
                         {
-                            _Robot.updateError("SocketException " + catchStatement, se);
+                            _GUI.updateError("SocketException " + catchStatement, se);
                         }
                         catch (ObjectDisposedException ob)
                         {
-                            _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
+                            _GUI.updateError("ObjectDisposedException " + catchStatement, ob);
                         }
                         catch (Exception e)
                         {
-                            _Robot.updateError("Generic error " + catchStatement, e);
+                            _GUI.updateError("Generic error " + catchStatement, e);
                         }
                     }
                     _sendTimer.Restart();
@@ -353,7 +355,7 @@ namespace LightWeight_Server
                                 double[] velocityList = new double[N];
                                 string Pose_i = Node.Attributes["N1"].Value;
                                 string[] result = Pose_i.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                                poseList[0] = new Pose(result, _Robot.currentPose);
+                                poseList[0] = new Pose(result, _Robot[0].currentPose);
                                 // Velocity of -1 means use last known velocity.
                                 if (result.Length % 3 == 0)
                                 {
@@ -380,7 +382,7 @@ namespace LightWeight_Server
                                 // Loaded all poses and velocities associated with the trajectory of each new pose.
                                 // If errors are encounted during the load it uses last pose as default values
                                 // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
-                                _loadedPoses = _Robot.newPoses(N, poseList, velocityList);
+                                _loadedPoses = _Robot[0].newPoses(N, poseList, velocityList);
                             }
                             break;
                         case "Position":
@@ -400,9 +402,9 @@ namespace LightWeight_Server
                             }
                             if (newPosition[3] == 3)
                             {
-                                _Robot.newPosition(newPosition[0], newPosition[1], newPosition[2]);
+                                _Robot[0].newPosition(newPosition[0], newPosition[1], newPosition[2]);
                                 _loadedPosition = true;
-                                _Robot.updateError("Position loaded", new Exception("External server: "));
+                                _GUI.updateError("Position loaded", new Exception("External server: "));
                             }
                             break;
 
@@ -423,11 +425,11 @@ namespace LightWeight_Server
                             }
                             if (newRotation[9] == 9)
                             {
-                                _Robot.newRotation((float)newRotation[0], (float)newRotation[1], (float)newRotation[2],
+                                _Robot[0].newRotation((float)newRotation[0], (float)newRotation[1], (float)newRotation[2],
                                                    (float)newRotation[3], (float)newRotation[4], (float)newRotation[5],
                                                    (float)newRotation[6], (float)newRotation[7], (float)newRotation[8]);
                                 _loadedRotation = true;
-                                _Robot.updateError("Rotation loaded", new Exception("External server: "));
+                                _GUI.updateError("Rotation loaded", new Exception("External server: "));
                             }
                             break;
 
@@ -449,9 +451,9 @@ namespace LightWeight_Server
                             }
                             if (newOrientation[dataPoints] == dataPoints)
                             {
-                                _Robot.newConOrientation((float)newOrientation[0], (float)newOrientation[1], (float)newOrientation[2]);
+                                _Robot[0].newConOrientation((float)newOrientation[0], (float)newOrientation[1], (float)newOrientation[2]);
                                 _loadedRotation = true;
-                                _Robot.updateError("Rotation loaded", new Exception("External server: "));
+                                _GUI.updateError("Rotation loaded", new Exception("External server: "));
                             }
                             break;
 
@@ -474,9 +476,9 @@ namespace LightWeight_Server
                             }
                             if (newXZOrientation[dataPoint] == dataPoint)
                             {
-                                _Robot.newConOrientation((float)newXZOrientation[0], (float)newXZOrientation[1], (float)newXZOrientation[2], (float)newXZOrientation[3], (float)newXZOrientation[4], (float)newXZOrientation[5]);
+                                _Robot[0].newConOrientation((float)newXZOrientation[0], (float)newXZOrientation[1], (float)newXZOrientation[2], (float)newXZOrientation[3], (float)newXZOrientation[4], (float)newXZOrientation[5]);
                                 _loadedRotation = true;
-                                _Robot.updateError("Rotation loaded", new Exception("External server: "));
+                                _GUI.updateError("Rotation loaded", new Exception("External server: "));
                             }
                             break;
 
@@ -484,7 +486,7 @@ namespace LightWeight_Server
                             bool isVia;
                             if (bool.TryParse(Node.InnerText, out isVia))
                             {
-                                _Robot.isVia = isVia;
+                                _Robot[0].isVia = isVia;
                             }
                             break;
 
@@ -492,7 +494,7 @@ namespace LightWeight_Server
                             double newSpeed = 0;
                             if (double.TryParse(Node.InnerText, out newSpeed))
                             {
-                                _Robot.LinearVelocity = newSpeed;
+                                _Robot[0].LinearVelocity = newSpeed;
                             }
                             break;
 
@@ -500,18 +502,18 @@ namespace LightWeight_Server
                             double newVelocity = 0;
                             if (double.TryParse(Node.InnerText, out newVelocity))
                             {
-                                _Robot.AngularVelocity = newVelocity;
+                                _Robot[0].AngularVelocity = newVelocity;
                             }
                             break;
 
                         case "Gripper":
                             if (int.Parse(Node.InnerText) == 0)
                             {
-                                _Robot.gripperIsOpen = false;
+                                _Robot[0].gripperIsOpen = false;
                             }
                             else
                             {
-                                _Robot.gripperIsOpen = true;
+                                _Robot[0].gripperIsOpen = true;
                             }
                             break;
                         default:
@@ -523,22 +525,22 @@ namespace LightWeight_Server
                     _loadedPoses = false;
                     _loadedPosition = false;
                     _loadedRotation = false;
-                    _Robot.LoadedCommand();
-                    _Robot.updateError("Loaded both rotation and position", new Exception("external server:"));
+                    _Robot[0].LoadedCommand();
+                    _GUI.updateError("Loaded both rotation and position", new Exception("external server:"));
                 }
 
             }
             catch (SocketException se)
             {
-                _Robot.updateError("SocketException " + catchStatement, se);
+                _GUI.updateError("SocketException " + catchStatement, se);
             }
             catch (ObjectDisposedException ob)
             {
-                _Robot.updateError("ObjectDisposedException " + catchStatement, ob);
+                _GUI.updateError("ObjectDisposedException " + catchStatement, ob);
             }
             catch (Exception e)
             {
-                _Robot.updateError("Generic error " + catchStatement, e);
+                _GUI.updateError("Generic error " + catchStatement, e);
             }
         }
 
@@ -642,7 +644,7 @@ namespace LightWeight_Server
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    currentPosition.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot.currentPose.kukaValues[i]);
+                    currentPosition.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot[0].currentPose.kukaValues[i]);
                 }
             }
 
@@ -651,7 +653,7 @@ namespace LightWeight_Server
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    currentVelocity.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot.currentVelocity.kukaValues[i]);
+                    currentVelocity.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot[0].currentVelocity.kukaValues[i]);
                 }
             }
 
@@ -660,7 +662,7 @@ namespace LightWeight_Server
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    currentAcceleration.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot.currentAcceleration.kukaValues[i]);
+                    currentAcceleration.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot[0].currentAcceleration.kukaValues[i]);
                 }
             }
 

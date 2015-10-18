@@ -31,35 +31,45 @@ namespace LightWeight_Server
         double _loopTime = 0;
         double _processDataTimer = 0;
         double _maxProcessDataTimer = 0;
+        Stopwatch _ConnectionTimer = new Stopwatch();
+        double _JacobienAverTimes = 0, _trajectoryLoaderTime = 0;
+        Stopwatch A1 = new Stopwatch(), A2 = new Stopwatch(), jacobianTimer = new Stopwatch();
+        FixedSizedQueue<double> JocTimer = new FixedSizedQueue<double>(10);
+        FixedSizedQueue<double> MaxJocTimer = new FixedSizedQueue<double>(10);
+        FixedSizedQueue<double> serverTimer = new FixedSizedQueue<double>(10);
+        FixedSizedQueue<double> MaxserverTimer = new FixedSizedQueue<double>(10);
 
         FixedSizedQueue<TimeCoordinate> _Position = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<TimeCoordinate> _acceleration = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<TimeCoordinate> _Torque = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<double[]> _Angles = new FixedSizedQueue<double[]>(6);
+        FixedSizedQueue<Pose> _ReferencePosition = new FixedSizedQueue<Pose>(6);
+        FixedSizedQueue<Pose> _ReferenceVelocity = new FixedSizedQueue<Pose>(6);
+
+        public readonly Guid _RobotID;
+        ScreenWriter _GUI;
+
         Pose[] _T = new Pose[7];
         Matrix[] _T0 = new Matrix[7];
         double[,] _Jacobian = new double[6, 6];
         double[,] _InverseJacobian = new double[6, 6];
-        ConcurrentQueue<TimeCoordinate> _DesiredPose;
+
         Pose _newPose;
         Pose[] _newPoses;
         double[] _newVelocitys;
         TrajectoryOld[] _TrajectoryList, _NewTrajectoryList;
         TrajectoryHandler _TrajectoryHandler;
 
-        TimeCoordinate _CurrentDesiredPose;
         TimeCoordinate _CommandPose;
 
         Pose _StartPose, _StartTipPose;
         Pose _EndEffectorPose;
-        Pose _Reference, _referenceVelocity;
         Vector3 _EndEffector;
 
         // Thread safe lists for updating and storing of robot information.
         // public ConcurrentStack<StateObject> DataHistory;
 
-        ConcurrentDictionary<String, StringBuilder> _text = new ConcurrentDictionary<string, StringBuilder>();
 
         //Trajectory _CurrentTrajectory;
         TrajectoryOld _CurrentTrajectory;
@@ -91,141 +101,11 @@ namespace LightWeight_Server
         bool _isVia = false;
 
         public double[] _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
-        bool _A1axis = false, _A2axis = false, _A3axis = false, _A4axis = false, _A5axis = false, _A6axis = false;
-        Stopwatch A1 = new Stopwatch(), A2 = new Stopwatch(), jacobianTimer = new Stopwatch();
-        TimeSpan A3 = TimeSpan.Zero, A4 = TimeSpan.Zero, A5 = TimeSpan.Zero, A6 = TimeSpan.Zero;
-
-        FixedSizedQueue<double> JocTimer = new FixedSizedQueue<double>(10);
-        FixedSizedQueue<double> MaxJocTimer = new FixedSizedQueue<double>(10);
-        FixedSizedQueue<double> serverTimer = new FixedSizedQueue<double>(10);
-        FixedSizedQueue<double> MaxserverTimer = new FixedSizedQueue<double>(10);
-        double _JacobienAverTimes = 0, _trajectoryLoaderTime = 0;
-        // Test variables
-        bool _isRotatingX = false;
-        bool _isRotatingY = false;
-        bool _isRotatingZ = false;
-        bool _isRotating = false;
-        Stopwatch _rotatingTimer = new Stopwatch();
-        Stopwatch _ConnectionTimer = new Stopwatch();
-
-        StringBuilder _DisplayMsg = new StringBuilder();
-        int _errorMsgs = 0;
-
-        double TGetReference, TGetController, TloadTrajectory, T1, T2, T3;
-        public double PGetReference, PGetController, PloadTrajectory, P1, P2, P3, P4;
 
         public readonly double[] homePosition = new double[] { 540.5, -18.1, 833.3, 180.0, 0.0, 180.0 };
 
 
         #region Properties
-
-        public bool A1axis
-        {
-            get
-            {
-                lock (axisRotateLock)
-                {
-                    return _A1axis;
-                }
-            }
-            set
-            {
-                lock (axisRotateLock)
-                {
-                    _A1axis = value;
-                }
-            }
-        }
-
-        public bool A2axis
-        {
-            get
-            {
-                lock (axisRotateLock)
-                {
-                    return _A2axis;
-                }
-            }
-            set
-            {
-                lock (axisRotateLock)
-                {
-                    _A2axis = value;
-                }
-            }
-        }
-
-        bool A3axis
-        {
-            get
-            {
-                lock (axisRotateLock)
-                {
-                    return _A3axis;
-                }
-            }
-            set
-            {
-                lock (axisRotateLock)
-                {
-                    _A3axis = value;
-                }
-            }
-        }
-
-        bool A4axis
-        {
-            get
-            {
-                lock (axisRotateLock)
-                {
-                    return _A4axis;
-                }
-            }
-            set
-            {
-                lock (axisRotateLock)
-                {
-                    _A4axis = value;
-                }
-            }
-        }
-
-        bool A5axis
-        {
-            get
-            {
-                lock (axisRotateLock)
-                {
-                    return _A5axis;
-                }
-            }
-            set
-            {
-                lock (axisRotateLock)
-                {
-                    _A5axis = value;
-                }
-            }
-        }
-
-        bool A6axis
-        {
-            get
-            {
-                lock (axisRotateLock)
-                {
-                    return _A6axis;
-                }
-            }
-            set
-            {
-                lock (axisRotateLock)
-                {
-                    _A6axis = value;
-                }
-            }
-        }
 
         public double ProcessDataTimer
         {
@@ -236,46 +116,26 @@ namespace LightWeight_Server
                 {
                     _maxProcessDataTimer = value;
                 }
-                if (value > 13)
-                {
-                }
                 _processDataTimer = value;
             }
         }
 
-        public TimeCoordinate commandPose
-        {
-            get { return _CommandPose; }
-        }
-        /*
-        // inb degrees
-        public double[] currentDoublePose { get { return SF.getCardinalDoubleArray(_ReadPosition); } }
 
-        Matrix currentPose
-        {
-            get
-            {
-                return SF.MakeMatrixFromKuka(currentDoublePose);
-            }
-        }
+        public Pose currentPose { get { return _Position.LastElement.Pose; } }
 
-        public Quaternion currentRotation { get { return SF.MakeQuaternionFromKuka(currentDoublePose); } }
-        */
+        public Pose currentVelocity { get { return _velocity.LastElement.Pose; } }
 
-        public Pose currentPose
-        {
-            get { return _Position.LastElement.Pose; }
-        }
+        public Pose currentAcceleration { get { return _acceleration.LastElement.Pose; } }
 
-        public Pose currentVelocity
-        {
-            get { return _velocity.LastElement.Pose; }
-        }
+        public double[] currentAxisAngle { get { return _Angles.LastElement; } }
 
-        public Pose currentAcceleration
-        {
-            get { return _acceleration.LastElement.Pose; }
-        }
+        public Vector3 EndEffector { get { return _EndEffector; } }
+
+        public Pose currentDesiredPositon { get { return _TrajectoryHandler.DesiredPose; } }
+
+        public Pose currentReferencePosition { get { return _ReferencePosition.LastElement; } }
+
+        public Pose currentReferenceVelocity { get { return _ReferenceVelocity.LastElement; } }
 
         public double LinearVelocity
         {
@@ -363,39 +223,6 @@ namespace LightWeight_Server
             }
         }
 
-        public bool rotateX
-        {
-            get
-            {
-                return _isRotatingX;
-            }
-            set
-            {
-                _isRotatingX = value;
-            }
-        }
-        public bool rotateY
-        {
-            get
-            {
-                return _isRotatingY;
-            }
-            set
-            {
-                _isRotatingY = value;
-            }
-        }
-        public bool rotateZ
-        {
-            get
-            {
-                return _isRotatingZ;
-            }
-            set
-            {
-                _isRotatingZ = value;
-            }
-        }
 
         public bool isVia
         {
@@ -423,35 +250,24 @@ namespace LightWeight_Server
 
         #endregion
 
-        public RobotInfo()
+        public RobotInfo(Guid id, ScreenWriter GUI, int RobotNumber)
         {
+            this._RobotID = id;
+            this._GUI = GUI;
+            _TrajectoryHandler = new TrajectoryHandler(this);
             _CurrentTrajectory = new TrajectoryOld();
             _Controller = new Controller(this);
-            _text.TryAdd("msg", new StringBuilder());
-            _text.TryAdd("Error", new StringBuilder());
-            _text.TryAdd("Controller", new StringBuilder());
             _Position.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0));
             _velocity.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0));
             _acceleration.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
             _Torque.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
             _Angles.Enqueue(new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
-            _CurrentDesiredPose = new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0);
             _CommandPose = new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0);
+            _ReferencePosition.Enqueue(Pose.Zero);
+            _ReferenceVelocity.Enqueue(Pose.Zero);
             MaxJocTimer.Enqueue(0);
             MaxserverTimer.Enqueue(0);
-            _TrajectoryHandler = new TrajectoryHandler(this);
-            /*
-            setupCardinalDictionaries(_ReadPosition, homePosition);
-            setupCardinalDictionaries(_DesiredPosition, homePosition);
-            setupCardinalDictionaries(_LastPosition);
-            setupCardinalDictionaries(_Velocity);
-            setupCardinalDictionaries(_LastVelocity);
-            setupCardinalDictionaries(_acceleration);
-            setupCardinalDictionaries(_CommandedPosition);
-
-            setupAxisDictionaries(_Torque);
-            */
-            _text["Error"].Append("---------------------------------\n             Errors:\n");
+            GUI.ConnectRobot(this, RobotNumber);
         }
 
         public void Connect()
@@ -466,13 +282,14 @@ namespace LightWeight_Server
                 _EndEffector = _EndEffectorPose.Translation;
                 getLinkTransforms(startAngles[0], startAngles[1], startAngles[2], startAngles[3], startAngles[4], startAngles[5], _EndEffector, out _T, out _T0);
                 _isConnected = true;
+                _GUI.IsConnected = true;
                 _isConnecting = false;
             }
             if (!_isConnected)
             {
-                _ConnectionTimer.Restart();
                 _isConnecting = true;
             }
+            
         }
 
 
@@ -486,19 +303,7 @@ namespace LightWeight_Server
                     _isConnected = false;
                     _KukaCycleTime.Reset();
                     _processDataTimer = 0;
-                    _maxProcessDataTimer = 0; bool hasMsg = false;
-                    StringBuilder finalError = new StringBuilder();
-                    while (!hasMsg)
-                    {
-                        hasMsg = _text.TryGetValue("Error", out finalError);
-                    }
-                    _errorMsgs++;
-                    StreamWriter errormsg = new StreamWriter("Error_" + _errorMsgs.ToString() + ".txt");
-                    errormsg.Write(finalError.ToString());
-                    errormsg.Flush();
-                    errormsg.Close();
-                    _text["Error"].Clear();
-                    _text["Error"].Append("---------------------------------\n             Errors:\n");
+                    _maxProcessDataTimer = 0; 
 
                 }
                 catch (Exception e)
@@ -509,323 +314,10 @@ namespace LightWeight_Server
             }
         }
 
-        /*
-        void resetKukaInfo()
-        {
-            if (!_isCommanded)
-            {
-                gripperIsOpen = true;
-                setupCardinalDictionaries(_ReadPosition, _homePosition);
-                setupCardinalDictionaries(_DesiredPosition, _homePosition);
-                _maxSpeed = 0.5;
-                loopTime = 0;
-                processDataTimer = 0;
-                maxProcessDataTimer = 0;
-            }
-            else
-            {
-                loopTime = 0;
-                processDataTimer = 0;
-                maxProcessDataTimer = 0;
-                setupCardinalDictionaries(_ReadPosition, _homePosition);
-            }
-        }
-        */
-
-        #region ScreenDisplay
 
         public void updateError(string newError, Exception Error)
         {
-            _text["Error"].AppendLine(newError);
-            _text["Error"].AppendLine(Error.Message);
-            _text["Error"].AppendLine(Error.StackTrace);
-        }
-
-        // Dedicated loop thread
-        public void UpdateScreen()
-        {
-            while (true)
-            {
-                try
-                {
-                    bool hasMsg = false;
-                    while (!hasMsg)
-                    {
-                        hasMsg = _text.TryGetValue("Error", out _DisplayMsg);
-                    }
-
-                    StreamWriter file = new StreamWriter("ErrorMsg" + _errorMsgs.ToString() + ".txt");
-
-                    file.WriteLine(_DisplayMsg);
-                    
-                    file.Flush();
-                    file.Close();
-
-                    /*
-                    
-                    hasMsg = false;
-                    while (!hasMsg)
-                    {
-                        hasMsg = _text.TryGetValue("Controller", out _PrintMsg);
-                    }
-                    file = new StreamWriter("Control.csv");
-                    file.WriteLine(_PrintMsg);
-                    file.Flush();
-                    file.Close();
-                    */
-                    //Console.WriteLine(_PrintMsg.ToString());
-
-                    if (_isConnected)
-                    {
-                        try
-                        {
-                            updateMsg();
-                        }
-                        catch (Exception)
-                        {
-                            
-                            throw;
-                        }
-                        /*
-                        hasMsg = false;
-                        while (!hasMsg)
-                        {
-                            hasMsg = _text.TryGetValue("msg", out _DisplayMsg);
-                            Console.Clear();
-                            Console.WriteLine(_DisplayMsg.ToString());
-                        }
-                         * 
-                         */
-                    }
-                    else
-                    {
-                        Console.Clear();
-                        Console.WriteLine("---------------------------------\n   Not Connected to Kuka Robot");
-                        TimeCoordinate currentTimePose = _Position.LastElement;
-                        Vector3 currentEndEffector = currentTimePose.Pose * new Vector3(0, 0, 1);
-                        Console.WriteLine("IPOC: {0}", currentTimePose.Ipoc);
-                        Console.WriteLine("Position: ({0} , {1} , {2}) \n"
-                                         + "Angle:    ({3} , {4} , {5})\n"
-                                         + "Tip:      ({6} , {7} , {8})", currentTimePose.x, currentTimePose.y, currentTimePose.z, currentTimePose.a, currentTimePose.b, currentTimePose.c, currentEndEffector.X, currentEndEffector.Y, currentEndEffector.Z);
-                    }
-                    if (_KukaCycleTime.ElapsedMilliseconds > 5000)
-                    {
-                        Disconnect();
-                    }
-                    System.Threading.Thread.Sleep(100);
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Error printing to Screen");
-                    Console.WriteLine(e.Message);
-                    //_errorMsgs++;
-                }
-
-            }
-        }
-
-        void updateMsg()
-        {
-            /*
-            double[] displayAxis = new double[6];
-            lock (axisComandLock)
-            {
-                for (int i = 0; i < 6; i++)
-                {
-                    displayAxis[i] = _axisCommand[i];
-                }
-            }
-             * 
-             */
-            TimeCoordinate _DisplayPosition = _Position.LastElement;
-            TimeCoordinate _DisplayVelocity = _velocity.LastElement;
-            TimeCoordinate _DisplayAcceleration = _acceleration.LastElement;
-            TimeCoordinate _DisplayTorque = _Torque.LastElement;
-            TimeCoordinate _DisplayDesiredPosition = _CurrentDesiredPose;
-            double[] _DisplayCommandPosition = _axisCommand;
-            double[] _DisplayAngle = _Angles.LastElement;
-            Vector3 currentZAxis = _DisplayPosition.Pose.zAxis;
-            Vector3 desiredZAxis = _DisplayDesiredPosition.Pose.zAxis;
-            Vector3 currentVelocity = _DisplayVelocity.Pose.Velocity;
-
-            Console.Clear();
-            Console.WriteLine("---------------------------------\n              Info:\n");
-            Console.WriteLine("Number of Angles: " + _Angles.ThreadSafeToArray.Length.ToString());
-            Console.WriteLine("Current Angles:       (" + String.Format("{0:0.000}", _DisplayAngle[0]) + " , " +
-                                                                    String.Format("{0:0.000}", _DisplayAngle[1]) + " , " +
-                                                                    String.Format("{0:0.000}", _DisplayAngle[2]) + " , " +
-                                                                    String.Format("{0:0.000}", _DisplayAngle[3]) + " , " +
-                                                                    String.Format("{0:0.000}", _DisplayAngle[4]) + " , " +
-                                                                    String.Format("{0:0.000}", _DisplayAngle[5]) + ")");
-
-            plotPose(forwardKinimatics(_DisplayAngle, _EndEffector), "FK Position:            (");
-            plotPose(_Reference, "Reference Position:     (");
-            plotPose(currentPose, "Measured Position:      (");
-            plotPose(_referenceVelocity, "Reference Velocity:     (");
-            plotPose(_velocity.LastElement.Pose, "Measured Velocity:      (");
-            Console.WriteLine("Current Position:     (" + String.Format("{0:0.00}", _DisplayPosition.x) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayPosition.y) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayPosition.z) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayPosition.a) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayPosition.b) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayPosition.c) + ")");
-            Console.WriteLine("Tip Vector:           (" + String.Format("{0:0.00}", currentZAxis.X) + " , " +
-                                                                        String.Format("{0:0.00}", currentZAxis.Y) + " , " +
-                                                                        String.Format("{0:0.00}", currentZAxis.Z) + ")");
-            Console.WriteLine("Current Velocity:     (" + String.Format("{0:0.00}", _DisplayVelocity.x) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayVelocity.y) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayVelocity.z) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayVelocity.a) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayVelocity.b) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayVelocity.c) + " , " + ")");
-            Console.WriteLine("Axis Velocity:        (" + String.Format("{0:0.00}", currentVelocity.X) + " , " +
-                                                                        String.Format("{0:0.00}", currentVelocity.Y) + " , " +
-                                                                        String.Format("{0:0.00}", currentVelocity.Z) + ") Total: " +
-                                                                    String.Format("{0:0.00}", _DisplayVelocity.angle));
-            Console.WriteLine("Desired Position:     (" + String.Format("{0:0.00}", _DisplayDesiredPosition.x) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayDesiredPosition.y) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayDesiredPosition.z) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayDesiredPosition.a) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayDesiredPosition.b) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayDesiredPosition.c) + ")");
-            Console.WriteLine("Desired Tip Vector:   (" + String.Format("{0:0.00}", desiredZAxis.X) + " , " +
-                                                                        String.Format("{0:0.00}", desiredZAxis.Y) + " , " +
-                                                                        String.Format("{0:0.00}", desiredZAxis.Z) + ")");
-            Console.WriteLine("Command Position:     (" + String.Format("{0:0.00}", _DisplayCommandPosition[0]) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayCommandPosition[1]) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayCommandPosition[2]) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayCommandPosition[3]) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayCommandPosition[4]) + " , " +
-                                                                    String.Format("{0:0.00}", _DisplayCommandPosition[5]) + ")");
-
-            plotPose(_EndEffectorPose, "End Effector Position:     (");
-
-            lock (TrajectoryPrintLock)
-            {
-                Console.WriteLine(_text["msg"].ToString());
-            }
-            /*
-            Console.WriteLine("Command Axis:         (" + String.Format("{0:0.0000}", displayAxis[0]) + " , " +
-                                                                    String.Format("{0:0.0000}", displayAxis[1]) + " , " +
-                                                                    String.Format("{0:0.0000}", displayAxis[2]) + " , " +
-                                                                    String.Format("{0:0.0000}", displayAxis[3]) + " , " +
-                                                                    String.Format("{0:0.0000}", displayAxis[4]) + " , " +
-                                                                    String.Format("{0:0.0000}", displayAxis[5]) + ")");
-             * 
-             * 
-             */
-
-
-            Console.WriteLine("Linear Velocity: " + LinearVelocity.ToString() + "mm per ms");
-            Console.WriteLine("Angular Velocity: " + AngularVelocity.ToString() + "mm per ms");
-            Console.WriteLine("Linear Acceleration: " + LinearAcceleration.ToString() + "mm per ms2");
-            Console.WriteLine("Angular Acceleration: " + AngularAcceleration.ToString() + "mm per ms2");
-            if (gripperIsOpen)
-            {
-                Console.WriteLine("Gripper is OPEN.");
-            }
-            else
-            {
-                Console.WriteLine("Gripper is CLOSED");
-            }
-            if (_isCommanded)
-            {
-                Console.WriteLine("Robot is Commanded");
-            }
-            else
-            {
-                Console.WriteLine("Robot is NOT Commanded");
-            }
-            if (_CurrentTrajectory.isRotating)
-            {
-                Console.WriteLine("You spin me right round baby... right round....");
-            }
-            else
-            {
-                Console.WriteLine("no rotating");
-            }
-            Console.WriteLine("Process data time:       " + _processDataTimer.ToString() + "ms.");
-            Console.WriteLine("Max Process data time:   " + _maxProcessDataTimer.ToString() + "ms.");
-            Console.WriteLine("Kuka cycle time:         " + _loopTime.ToString() + "ms.");
-            Console.WriteLine("Average Trajectory time: {0}", _trajectoryLoaderTime);
-            Console.WriteLine("Reference time:          {0}", PGetReference);
-            Console.WriteLine("Controller time:         {0}", PGetController);
-            Console.WriteLine("Control loop time:       {0}", P1);
-            Console.WriteLine("Inverse Wrist loop time: {0}", P2);
-            Console.WriteLine("Inverse Jacobian time:   {0}", P3);
-            Console.WriteLine("Control axis loop time:  {0}", P4);
-            Console.WriteLine("Average Jacobian time:   {0}", _JacobienAverTimes);
-            Console.WriteLine("Maximum Jacobian time: \n(");
-            foreach (var item in MaxJocTimer.ThreadSafeToArray)
-            {
-                Console.Write(" {0} ", item.ToString());
-            }
-            Console.WriteLine(")");
-            Console.WriteLine("server time:   \n(");
-            foreach (var item in serverTimer.ThreadSafeToArray)
-            {
-                Console.Write(" {0} ", item.ToString());
-            }
-            Console.WriteLine(")");
-            Console.WriteLine("Maximum server time:   \n(");
-            foreach (var item in MaxserverTimer.ThreadSafeToArray)
-            {
-                Console.Write(" {0} ", item.ToString());
-            }
-            Console.WriteLine(")");
-
-
-        }
-        #endregion
-        void plotPose(Pose pose, string msg)
-        {
-            Vector3 kukaAngles = SF.getKukaAngles(pose.Orientation);
-            Console.WriteLine(msg + String.Format("{0:0.00}", pose.Translation.X) + " , " +
-                                                                    String.Format("{0:0.00}", pose.Translation.Y) + " , " +
-                                                                    String.Format("{0:0.00}", pose.Translation.Z) + " , " +
-                                                                    String.Format("{0:0.00}", kukaAngles.X) + " , " +
-                                                                    String.Format("{0:0.00}", kukaAngles.Y) + " , " +
-                                                                    String.Format("{0:0.00}", kukaAngles.Z) + ")");
-
-        }
-
-
-        void plotTrajectories(Trajectory[] Trajectories)
-        {
-            try
-            {
-                StringBuilder msg = new StringBuilder();
-                msg.AppendLine("  Time  |     Start Pos     |     Final Pos     |     Start Vel     |    Final Vel      |   Angle   ");
-                msg.AppendLine("  [s]   |       [mm]        |       [mm]        |       [mm]        |       [mm]        |   [Deg]   ");
-                for (int i = 0; i < Trajectories.Length; i++)
-                {
-                    msg.AppendLine(String.Format("{0,-8:0.00}|{1,9:G}|{2,9:G}|{3,10:G}|{4,10:G}|{5,-7:0.00}", Trajectories[i].trajectoryTime.TotalSeconds,
-                                                                                                            Trajectories[i].startPose,
-                                                                                                            Trajectories[i].finalPose,
-                                                                                                            Trajectories[i].startVelocity,
-                                                                                                            Trajectories[i].finalVelocity,
-                                                                                                            Trajectories[i].finalAngle * 180 / Math.PI));
-                }
-                lock (TrajectoryPrintLock)
-                {
-                    _text["msg"].Clear();
-                    _text["msg"].AppendLine(msg.ToString());
-                    
-                }
-
-            }
-            catch (FormatException fe)
-            {
-                updateError(fe.Message,fe);
-            }
-            catch (ArgumentNullException ne)
-            {
-                updateError(ne.Message,ne);
-            }
-            catch (Exception e)
-            {
-                updateError(e.Message,e);
-            }
+            _GUI.updateError(newError, Error);
         }
 
         #region Movement
@@ -1108,12 +600,6 @@ namespace LightWeight_Server
 
 
                     }
-                    // New test code:
-                    if (!_isRotating && (_isRotatingX || _isRotatingY || _isRotatingZ))
-                    {
-                        _rotatingTimer.Restart();
-                        _isRotating = true;
-                    }
                 }
                 catch (Exception e)
                 {
@@ -1201,7 +687,6 @@ namespace LightWeight_Server
                     //_NewTrajectoryList[i] = new TrajectoryOld(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
                     QuinticTrajectories[i] = new TrajectoryQuintic(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1], PoseList);
                 }
-                plotTrajectories(QuinticTrajectories);
                 _TrajectoryHandler.Load(QuinticTrajectories);
                 _newPosesLoaded = true;
                 trajectoryLoader.Stop();
@@ -1306,7 +791,6 @@ namespace LightWeight_Server
 
         public void updateComandPosition()
         {
-            T1 = IPOC.Elapsed.TotalMilliseconds;
             lock (trajectoryLock)
             {
 
@@ -1404,49 +888,11 @@ namespace LightWeight_Server
                 }
 
             }
-            P1 = IPOC.Elapsed.TotalMilliseconds - T1;
-                
-                if (A1axis && A1.Elapsed.TotalMilliseconds == 0)
-                {
-                    _axisCommand[4] = 0.01;
-                    _axisCommand[3] = 0.01;
-                    _axisCommand[5] = -0.01;
-                    A1axis = false;
-                    A1.Restart();
-                }
-
-                if (A2axis && A2.Elapsed.TotalMilliseconds == 0)
-                {
-                    _axisCommand[4] = -0.01;
-                    _axisCommand[3] = -0.01;
-                    _axisCommand[5] = 0.01;
-                    A1axis = false;
-                    A2.Restart();
-                }
-                if (A2.Elapsed.TotalMilliseconds > 5000)
-                {
-                    A2.Stop();
-                    A2.Reset();
-                    _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
-                }
-                if (A1.Elapsed.TotalMilliseconds > 5000)
-                {
-                    A1.Stop();
-                    A1.Reset();
-                    _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
-                }
-            
-
         }
 
         private void resetRotation()
         {
             flushCommands();
-            _rotatingTimer.Reset();
-            _isRotating = false;
-            _isRotatingX = false;
-            _isRotatingY = false;
-            _isRotatingZ = false;
         }
 
 

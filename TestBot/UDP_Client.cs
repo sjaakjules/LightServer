@@ -470,13 +470,13 @@ namespace TestBot
             XmlNode comPosNode = _SendXML.SelectSingleNode("//Rob/RIst");
             for (int i = 0; i < 6; i++)
             {
-                comPosNode.Attributes[CardinalKey[i]].Value = String.Format("{0:0.0}", _kukaPosition[i]);
+                comPosNode.Attributes[CardinalKey[i]].Value = String.Format("{0:0.000000}", _kukaPosition[i]);
             }
 
             XmlNode comAngNode = _SendXML.SelectSingleNode("//Rob/AIPos");
             for (int i = 0; i < 6; i++)
             {
-                comAngNode.Attributes[AxisKey[i]].Value = String.Format("{0:0.0}", _kukaAngles[i]);
+                comAngNode.Attributes[AxisKey[i]].Value = String.Format("{0:0.000000}", _kukaAngles[i]);
             }
             _PacketOut = Encoding.UTF8.GetBytes(Beautify(_SendXML));
 
