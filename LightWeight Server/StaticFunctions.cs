@@ -140,7 +140,7 @@ namespace LightWeight_Server
 
         public bool Equals(Pose pose2, double error)
         {
-            if (Vector3.Distance(this.Translation, pose2.Translation) == error && SF.isOrientationAligned(this.Orientation, pose2.Orientation, error))
+            if (Vector3.Distance(this.Translation, pose2.Translation) < error)// && SF.isOrientationAligned(this.Orientation, pose2.Orientation, error))
             {
                 return true;
             }
@@ -399,39 +399,68 @@ namespace LightWeight_Server
             return new TimeCoordinate(Pose1.x / Value, Pose1.y / Value, Pose1.z / Value, Vector3.Divide(Pose1.axis, Value), Pose1.angle / Value, Pose1.Ipoc);
         }
         
+        public TimeCoordinate getRateOfChange(TimeCoordinate pose1, double framerate)
+        {
+            Vector3 changeAxis;
+            float changeAngle;
+            if (this.Ipoc < pose1.Ipoc)
+            {
+                Quaternion changeOrientation = Quaternion.Inverse(this._Orientation) * pose1._Orientation;
+                SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
+                return new TimeCoordinate((pose1.x - this.x) / framerate,
+                                            (pose1.y - this.y) / framerate,
+                                            (pose1.z - this.z) / framerate,
+                                            Vector3.Transform(changeAxis, pose1._Orientation),
+                                            changeAngle / (float)framerate,
+                                            pose1.Ipoc);
+            }
+            else
+            {
+                Quaternion changeOrientation = Quaternion.Inverse(pose1._Orientation) * this._Orientation;
+                SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
+                return new TimeCoordinate((this.x - pose1.x) / framerate,
+                                            (this.y - pose1.y) / framerate,
+                                            (this.z - pose1.z) / framerate,
+                                            Vector3.Transform(changeAxis, this._Orientation),
+                                            changeAngle / (float)framerate,
+                                            this.Ipoc);
+            }
+        }
+
+
         public TimeCoordinate getRateOfChange(TimeCoordinate pose1)
         {
             Vector3 changeAxis;
             float changeAngle;
             if (this.Ipoc < pose1.Ipoc)
             {
-                double delTime = 1.0 * (pose1.Ipoc - this.Ipoc) / TimeSpan.TicksPerMillisecond;
+                double delTime = 1.0 * (pose1.Ipoc - this.Ipoc);
                 if (delTime == 0)
                 {
                     delTime = 1;
                 }
                 Quaternion changeOrientation = Quaternion.Inverse(this._Orientation) * pose1._Orientation;
                 SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
-                return new TimeCoordinate(  (pose1.x - this.x) / delTime,
+                return new TimeCoordinate((pose1.x - this.x) / delTime,
                                             (pose1.y - this.y) / delTime,
                                             (pose1.z - this.z) / delTime,
-                                            changeAxis,
+                                            Vector3.Transform(changeAxis,this._Orientation),
                                             changeAngle / (float)delTime,
                                             pose1.Ipoc);
             }
             else
             {
-                double delTime = 1.0 * (this.Ipoc - pose1.Ipoc) / TimeSpan.TicksPerMillisecond;
+                double delTime = 1.0 * (this.Ipoc - pose1.Ipoc) ;
                 if (delTime == 0)
                 {
                     delTime = 1;
                 }
                 Quaternion changeOrientation = Quaternion.Inverse(pose1._Orientation) * this._Orientation;
                 SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
-                return new TimeCoordinate(  (pose1.x - this.x) / delTime,
+                return new TimeCoordinate((this.x - pose1.x) / delTime,
                                             (this.y - pose1.y) / delTime,
                                             (this.z - pose1.z) / delTime,
-                                            changeAxis,
+                                            Vector3.Transform(changeAxis, pose1._Orientation),
                                             changeAngle / (float)delTime,
                                             this.Ipoc);
             }
@@ -598,11 +627,20 @@ namespace LightWeight_Server
     public static class SF
     {
         #region Printing Functions
-
-
-        public static void updateDataFile(Pose refPos, Pose refVel, Pose actPos, Pose actVel, double time, StringBuilder tableRow)
+        static string printDouble(double[] array)
         {
-            tableRow.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data};", time, refPos, actPos, refVel, actVel));
+            StringBuilder printingstring = new StringBuilder();
+            printingstring.Append(string.Format("{0}", array[0]));
+            for (int i = 1; i < array.Length; i++)
+            {
+                printingstring.Append(string.Format(",{0}", array[i]));
+            }
+            return printingstring.ToString();
+        }
+
+        public static void updateDataFile(Pose refPos, Pose refVel, Pose actPos, Pose actVel, double time,double[] tipVel, double[] axisComand, StringBuilder tableRow)
+        {
+            tableRow.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data},{5},{6};", time, refPos, actPos, refVel, actVel, printDouble(tipVel), printDouble(axisComand)));
         }
 
         #endregion
@@ -726,6 +764,15 @@ namespace LightWeight_Server
                 return true;
             }
             return false;
+        }
+
+        public static Vector3 getOrientationError(Quaternion reference, Quaternion measured)
+        {
+            Vector3 changeAxis = Vector3.Zero;
+            float changeAngle = 0;
+            Quaternion changeOrientation = Quaternion.Inverse(reference) * measured;
+            SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
+            return Vector3.Transform(changeAxis, measured) * changeAngle;
         }
 
         public static Vector3 getOrientationError(Matrix reference, Matrix measured)
@@ -883,13 +930,13 @@ namespace LightWeight_Server
         public static readonly String[] rotationKeys = new String[] { "X1", "X2", "X3", "Y1", "Y2", "Y3", "Z1", "Z2", "Z3" };
         public static readonly String[] axisVecotrKeys = new String[] { "XX", "XY", "XZ", "ZX", "ZY", "ZZ" };
 
-        public static TimeCoordinate AverageRateOfChange(TimeCoordinate[] list)
+        public static TimeCoordinate AverageRateOfChange(TimeCoordinate[] list, double framerate)
         {
-            TimeCoordinate averageRate = list[0].getRateOfChange(list[1]); ;
+            TimeCoordinate averageRate = list[0].getRateOfChange(list[1],framerate); 
 
             for (int i = 2; i < list.Length; i++)
             {
-                averageRate += list[i - 1].getRateOfChange(list[i]);
+                averageRate += list[i - 1].getRateOfChange(list[i],framerate);
             }
             return averageRate / (float)(list.Length - 1);
         }

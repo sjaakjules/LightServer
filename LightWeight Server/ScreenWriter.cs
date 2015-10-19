@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -100,6 +101,7 @@ namespace LightWeight_Server
             SetupTelemetryInfo(newRobot);
         }
 
+
         public void updateError(string newError, Exception Error)
         {
             lock (ErrorWriteLock)
@@ -138,6 +140,7 @@ namespace LightWeight_Server
                                 try
                                 {
                                     _DisplayMsg.AppendLine(_RobotName[robot._RobotID.ToString()] + " info:");
+                                    _DisplayMsg.AppendLine(string.Format("Connected Port: {0}\nConnected IP: {1}\n", robot.EndPoint.Port.ToString(), robot.EndPoint.Address.ToString()));
                                     updateTelemetryInfo(robot);
                                     updateMsg(robot);
                                 }
@@ -197,6 +200,10 @@ namespace LightWeight_Server
         void updateMsg(RobotInfo robot)
         {
             _DisplayMsg.AppendLine("---------------------------------\n");
+            plotDoubleQue(robot.serverTimer, "Server loop Time", _DisplayMsg);
+            plotDoubleQue(robot.MaxserverTimer, "Max Server Loop Time", _DisplayMsg);
+            plotDoubleQue(robot._processDataTimer, "Process Data Time", _DisplayMsg);
+            plotDoubleQue(robot._maxProcessDataTimer, "Max Process Time", _DisplayMsg);
             plotVector(_EndEffector[robot._RobotID.ToString()], "End Effector", _DisplayMsg);
             plotPose(_DesiredPosition[robot._RobotID.ToString()], "Desired Position", _DisplayMsg);
             plotPose(_Position[robot._RobotID.ToString()], "Position", _DisplayMsg);
@@ -206,8 +213,18 @@ namespace LightWeight_Server
             plotDoubles(_angles[robot._RobotID.ToString()], "Axis Angles", _DisplayMsg);
             plotVector(_Position[robot._RobotID.ToString()].zAxis, "Current Z-Axis", _DisplayMsg);
             plotVector(_DesiredPosition[robot._RobotID.ToString()].zAxis, "Desired Z-Axis", _DisplayMsg);
-            
+            plotDoubleQue(robot.JocTimer, "FK / IK Time", _DisplayMsg);
+            plotDoubleQue(robot.MaxJocTimer, "Max FK / IK Time", _DisplayMsg);
+            plotDoubleQue(robot._trajectoryLoaderTime, "Trajectory Load Time", _DisplayMsg);
             /*
+        public FixedSizedQueue<double> _maxProcessDataTimer = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> _trajectoryLoaderTime = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> _processDataTimer = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> JocTimer = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> MaxJocTimer = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> serverTimer = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> MaxserverTimer = new FixedSizedQueue<double>(10);
+            
             Console.WriteLine("Process data time:       " + _processDataTimer.ToString() + "ms.");
             Console.WriteLine("Max Process data time:   " + _maxProcessDataTimer.ToString() + "ms.");
             Console.WriteLine("Kuka cycle time:         " + _loopTime.ToString() + "ms.");
@@ -237,16 +254,38 @@ namespace LightWeight_Server
                 Console.Write(" {0} ", item.ToString());
             }
             Console.WriteLine(")");
+
+             * 
              * 
              */
 
-
+        }
+        void plotDoubleQue(FixedSizedQueue<double> que, string Heading, StringBuilder collection)
+        {
+            int length = que.Count;
+            if (length > 0)
+            {
+                double[] array = que.ThreadSafeToArray;
+                if (Heading.Length < 24)
+                {
+                    string newheading = string.Concat(Heading, ":", new string(' ', 24 - Heading.Length));
+                }
+                collection.Append(String.Format("{0,-25}\n (", Heading));
+                for (int i = 0; i < length; i++)
+			{
+                collection.Append(String.Format("{0:0.00},", array[i]));
+			}
+                collection.AppendLine(")");
+            }
         }
 
         void plotDoubles(double[] array, string Heading, StringBuilder collection)
         {
-
-            collection.AppendLine(String.Format("{0,-20}: ({1:0.000},{2:0.000},{3:0.000},{4:0.000},{5:0.000},{6:0.000})", Heading,
+            if (Heading.Length < 24)
+            {
+                string newheading = string.Concat(Heading, ":", new string(' ', 24 - Heading.Length));
+            }
+            collection.AppendLine(String.Format("{0,-25}\t ({1:0.000},{2:0.000},{3:0.000},{4:0.000},{5:0.000},{6:0.000})", Heading,
                                                                     array[0],
                                                                     array[1],
                                                                     array[2],
@@ -257,12 +296,20 @@ namespace LightWeight_Server
 
         void plotVector(Vector3 Vector, string Heading, StringBuilder collection)
         {
-            collection.AppendLine(String.Format("{0:-20}: ({1:0.0},{2:0.0},{3:0.0})", Heading, Vector.X, Vector.Y, Vector.Z));
+            if (Heading.Length < 24)
+            {
+                string newheading = string.Concat(Heading, ":", new string(' ', 24 - Heading.Length));
+            }
+            collection.AppendLine(String.Format("{0:-20}\t ({1:0.0},{2:0.0},{3:0.0})", Heading, Vector.X, Vector.Y, Vector.Z));
         }
 
         void plotPose(Pose pose, string Heading, StringBuilder collection)
         {
-            collection.AppendLine(String.Format("{0:-20}: {1:Display}", Heading,pose));
+            if (Heading.Length < 24)
+            {
+                string newheading = string.Concat(Heading, ":", new string(' ', 24 - Heading.Length));
+            }
+            collection.AppendLine(String.Format("{0:-20}\t {1:Display}", Heading,pose));
         }
 
 

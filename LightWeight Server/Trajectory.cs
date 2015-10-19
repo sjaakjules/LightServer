@@ -80,7 +80,7 @@ namespace LightWeight_Server
             trajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)AverageVelocty);
             changePose = new Pose(Quaternion.Inverse(StartPose.Orientation)*EndPose.Orientation, xf-x0);
             SF.getAxisAngle(changePose.Orientation, out _TrajectoryAxis, out _finalAngle);
-            _TrajectoryAxis = EndPose * _TrajectoryAxis;
+            _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
             _QuinticPerameters[0] = Quintic(x0.X, xf.X, xm.X, x0d.X, xfd.X, xmd.X, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[1] = Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[2] = Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, xfd.Z, xmd.Z, trajectoryTime.TotalMilliseconds);
@@ -116,7 +116,7 @@ namespace LightWeight_Server
             trajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)averageVelocity);
             changePose = new Pose(Quaternion.Inverse(StartPose.Orientation) * finalPose.Orientation, xf - x0);
             SF.getAxisAngle(changePose.Orientation, out _TrajectoryAxis, out _finalAngle);
-            _TrajectoryAxis = finalPose * _TrajectoryAxis;
+            _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
             _QuinticPerameters[0] = Quintic(x0.X, xf.X, xm.X, x0d.X, xfd.X, xmd.X, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[1] = Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[2] = Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, xfd.Z, xmd.Z, trajectoryTime.TotalMilliseconds);

@@ -51,6 +51,7 @@ namespace TestBot
         ManualResetEvent haveReceived = new ManualResetEvent(false);
         public ManualResetEvent isReadyToSend = new ManualResetEvent(false);
 
+        object speedlock = new object();
         object positionLock = new object();
 
         int _BufferSize = 1024;
@@ -62,10 +63,11 @@ namespace TestBot
         int _Port = 6009;
         XmlDocument _SendXML;
 
-        double[] _kukaPosition, _kukaAngles;
-        Matrix _kukaPose;
+        double[] _kukaPosition, _kukaAngles, _AxisSpeed;
+      //  Matrix _kukaPose;
 
         Stopwatch IPOCTimer = new Stopwatch();
+        Stopwatch frameRate = new Stopwatch();
         public Stopwatch _loopTimer = new Stopwatch();
 
         string[] CardinalKey = new string[] { "X", "Y", "Z", "A", "B", "C" };
@@ -76,9 +78,10 @@ namespace TestBot
 
         Vector3 _EE = new Vector3(50.3f, -10, 102.6f);
 
-        double serverSpeed = 4;
 
         Random rnd = new Random();
+
+        StringBuilder errorString = new StringBuilder(); 
 
         #region Constructor:
         /// <summary>
@@ -88,11 +91,13 @@ namespace TestBot
         /// <param name="robot"></param> The robot information to be updated and read from
         public UDP_Client()
         {
+            IPOCTimer.Start();
             // 540, 0, 915 is kuka end effector base hence 39.5 -18.1 81.7 is tip
             //_kukaPosition = new double[] { 500.5, -18.1, 833.3, -180, 0, -180 };
             _kukaAngles = new double[] { 0, -90, 90, 0, 90, 0 };
             _kukaPosition = forwardKinimatics(_kukaAngles, _EE);
-            _kukaPose = MakeMatrixFromKuka(_kukaPosition);
+            _AxisSpeed = new double[] { 0, 0, 0, 0, 0, 0 };
+      //      _kukaPose = MakeMatrixFromKuka(_kukaPosition);
             _kukaServerIPEP = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 6008);
 
             SetupXML();
@@ -105,18 +110,18 @@ namespace TestBot
             }
             catch (SocketException se)
             {
-                Console.WriteLine("SocketException " + catchStatement);
-                Console.WriteLine(se.Message);
+                errorString.AppendLine("SocketException " + catchStatement);
+                errorString.AppendLine(se.Message);
             }
             catch (ObjectDisposedException ob)
             {
-                Console.WriteLine("ObjectDisposedException " + catchStatement);
-                Console.WriteLine(ob.Message);
+                errorString.AppendLine("ObjectDisposedException " + catchStatement);
+                errorString.AppendLine(ob.Message);
             }
             catch (Exception e)
             {
-                Console.WriteLine("Generic error " + catchStatement);
-                Console.WriteLine(e.Message);
+                errorString.AppendLine("Generic error " + catchStatement);
+                errorString.AppendLine(e.Message);
             }
             // Binds the socket to local IP.
             bindSocket();
@@ -145,18 +150,18 @@ namespace TestBot
             }
             catch (SocketException se)
             {
-                Console.WriteLine("SocketException " + catchStatement);
-                Console.WriteLine(se.Message);
+                errorString.AppendLine("SocketException " + catchStatement);
+                errorString.AppendLine(se.Message);
             }
             catch (ObjectDisposedException ob)
             {
-                Console.WriteLine("ObjectDisposedException " + catchStatement);
-                Console.WriteLine(ob.Message);
+                errorString.AppendLine("ObjectDisposedException " + catchStatement);
+                errorString.AppendLine(ob.Message);
             }
             catch (Exception e)
             {
-                Console.WriteLine("Generic error " + catchStatement);
-                Console.WriteLine(e.Message);
+                errorString.AppendLine("Generic error " + catchStatement);
+                errorString.AppendLine(e.Message);
             }
         }
 
@@ -193,20 +198,20 @@ namespace TestBot
             }
             catch (SocketException se)
             {
-                Console.WriteLine("SocketException " + catchStatement);
-                Console.WriteLine(se.Message);
+                errorString.AppendLine("SocketException " + catchStatement);
+                errorString.AppendLine(se.Message);
                 return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
             catch (ObjectDisposedException ob)
             {
-                Console.WriteLine("ObjectDisposedException " + catchStatement);
-                Console.WriteLine(ob.Message);
+                errorString.AppendLine("ObjectDisposedException " + catchStatement);
+                errorString.AppendLine(ob.Message);
                 return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
             catch (Exception e)
             {
-                Console.WriteLine("Generic error " + catchStatement);
-                Console.WriteLine(e.Message);
+                errorString.AppendLine("Generic error " + catchStatement);
+                errorString.AppendLine(e.Message);
                 return new IPEndPoint(IPAddress.Parse("127.0.0.1"), _Port);
             }
         }
@@ -240,13 +245,13 @@ namespace TestBot
                 }
                 catch (ObjectDisposedException ob)
                 {
-                    Console.WriteLine("ObjectDisposedException " + catchStatement);
-                    Console.WriteLine(ob.Message);
+                    errorString.AppendLine("ObjectDisposedException " + catchStatement);
+                    errorString.AppendLine(ob.Message);
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("Generic error " + catchStatement);
-                    Console.WriteLine(e.Message);
+                    errorString.AppendLine("Generic error " + catchStatement);
+                    errorString.AppendLine(e.Message);
                 }
                 // pause This thread until a packet has been returned.
                 haveReceived.WaitOne();
@@ -278,18 +283,18 @@ namespace TestBot
             }
             catch (SocketException se)
             {
-                Console.WriteLine("SocketException " + catchStatement);
-                Console.WriteLine(se.Message);
+                errorString.AppendLine("SocketException " + catchStatement);
+                errorString.AppendLine(se.Message);
             }
             catch (ObjectDisposedException ob)
             {
-                Console.WriteLine("ObjectDisposedException " + catchStatement);
-                Console.WriteLine(ob.Message);
+                errorString.AppendLine("ObjectDisposedException " + catchStatement);
+                errorString.AppendLine(ob.Message);
             }
             catch (Exception e)
             {
-                Console.WriteLine("Generic error " + catchStatement);
-                Console.WriteLine(e.Message);
+                errorString.AppendLine("Generic error " + catchStatement);
+                errorString.AppendLine(e.Message);
             }
 
 
@@ -304,6 +309,7 @@ namespace TestBot
                 State.MessageIn = Encoding.UTF8.GetString(State.PacketIn, 0, State.PacketInSize);
                 Console.Clear();
                 Console.WriteLine(State.MessageIn);
+                Console.WriteLine(errorString);
                 // create xml document from state message in.
                 XmlDocument xmlIn = new XmlDocument();
                 xmlIn.LoadXml(State.MessageIn);
@@ -361,30 +367,57 @@ namespace TestBot
             }
             catch (SocketException se)
             {
-                Console.WriteLine("SocketException " + catchStatement);
-                Console.WriteLine(se.Message);
+                errorString.AppendLine("SocketException " + catchStatement);
+                errorString.AppendLine(se.Message);
             }
             catch (ObjectDisposedException ob)
             {
-                Console.WriteLine("ObjectDisposedException " + catchStatement);
-                Console.WriteLine(ob.Message);
+                errorString.AppendLine("ObjectDisposedException " + catchStatement);
+                errorString.AppendLine(ob.Message);
             }
             catch (Exception e)
             {
-                Console.WriteLine("Generic error " + catchStatement);
-                Console.WriteLine(e.Message);
-                Console.WriteLine(e.StackTrace);
+                errorString.AppendLine("Generic error " + catchStatement);
+                errorString.AppendLine(e.Message);
+                errorString.AppendLine(e.StackTrace);
+            }
+        }
+
+        public void constantSpeedUpdate()
+        {
+            frameRate.Start();
+            while (true)
+            {
+                double currentFramerate = frameRate.Elapsed.TotalMilliseconds;
+                frameRate.Restart();
+                lock (positionLock)
+                {
+                    lock (speedlock)
+                    {
+                        for (int i = 0; i < 6; i++)
+                        {
+                            _kukaAngles[i] = _kukaAngles[i] + _AxisSpeed[i] * currentFramerate;
+                        }
+                    }
+                    _kukaPosition = forwardKinimatics(_kukaAngles, _EE);
+                }
+                Thread.Sleep(1);
             }
         }
 
         void updateRobotAngle(double[] newAngle)
         {
-            for (int i = 0; i < 6; i++)
+            lock (speedlock)
             {
-                _kukaAngles[i] += newAngle[i];
+
+                for (int i = 0; i < 6; i++)
+                {
+                    _AxisSpeed[i] = newAngle[i] / 4;
+                    //_kukaAngles[i] += newAngle[i];
+                }
             }
-            _kukaPosition = forwardKinimatics(_kukaAngles, _EE);
-            _kukaPose = MakeMatrixFromKuka(_kukaPosition);
+            //_kukaPosition = forwardKinimatics(_kukaAngles, _EE);
+           // _kukaPose = MakeMatrixFromKuka(_kukaPosition);
             
         }
 
@@ -395,8 +428,8 @@ namespace TestBot
             {
                 //Console.WriteLine("In in the lock in update robot");
                 Matrix changeTransform = MakeMatrixFromKuka(newCommand);
-                _kukaPose = M(changeTransform,_kukaPose);
-                getKukaAngles(_kukaPose, out _kukaPosition);
+           //     _kukaPose = M(changeTransform,_kukaPose);
+            //    getKukaAngles(_kukaPose, out _kukaPosition);
                 
                 /*
                  * 
@@ -419,22 +452,20 @@ namespace TestBot
 
         public void ConstantSend()
         {
-            _loopTimer.Start();
+            //_loopTimer.Start();
             while (true)
             {
 
-              //  isReadyToSend.Reset();
-                if (_loopTimer.Elapsed.TotalMilliseconds > serverSpeed)
-                {
-                    lock (positionLock)
-                    {
-                        //Console.WriteLine("in the lock in the sender");
-                        UpdateXML();
-                        SendData();
-                    }
-                    _loopTimer.Restart();
-                }
-               // isReadyToSend.WaitOne(4);
+                //  isReadyToSend.Reset();
+                //  if (_loopTimer.Elapsed.TotalMilliseconds > serverSpeed)
+                //    {
+                //Console.WriteLine("in the lock in the sender");
+                UpdateXML();
+                SendData();
+                //_loopTimer.Restart();
+                //   }
+                // isReadyToSend.WaitOne(4);
+                Thread.Sleep(4);
             }
         }
 
@@ -447,36 +478,39 @@ namespace TestBot
             }
             catch (SocketException se)
             {
-                Console.WriteLine("SocketException " + catchStatement);
-                Console.WriteLine(se.Message);
+                errorString.AppendLine("SocketException " + catchStatement);
+                errorString.AppendLine(se.Message);
             }
             catch (ObjectDisposedException ob)
             {
-                Console.WriteLine("ObjectDisposedException " + catchStatement);
-                Console.WriteLine(ob.Message);
+                errorString.AppendLine("ObjectDisposedException " + catchStatement);
+                errorString.AppendLine(ob.Message);
             }
             catch (Exception e)
             {
-                Console.WriteLine("Generic error " + catchStatement);
-                Console.WriteLine(e.Message);
+                errorString.AppendLine("Generic error " + catchStatement);
+                errorString.AppendLine(e.Message);
             }
         }
 
         void UpdateXML()
         {
             XmlNode IpocNode = _SendXML.SelectSingleNode("//Rob/IPOC");
-            IpocNode.InnerText = IPOCTimer.ElapsedTicks.ToString();
-
-            XmlNode comPosNode = _SendXML.SelectSingleNode("//Rob/RIst");
-            for (int i = 0; i < 6; i++)
+            IpocNode.InnerText = ((long)IPOCTimer.Elapsed.TotalMilliseconds).ToString();
+            lock (positionLock)
             {
-                comPosNode.Attributes[CardinalKey[i]].Value = String.Format("{0:0.000000}", _kukaPosition[i]);
-            }
 
-            XmlNode comAngNode = _SendXML.SelectSingleNode("//Rob/AIPos");
-            for (int i = 0; i < 6; i++)
-            {
-                comAngNode.Attributes[AxisKey[i]].Value = String.Format("{0:0.000000}", _kukaAngles[i]);
+                XmlNode comPosNode = _SendXML.SelectSingleNode("//Rob/RIst");
+                for (int i = 0; i < 6; i++)
+                {
+                    comPosNode.Attributes[CardinalKey[i]].Value = String.Format("{0:0.000000}", _kukaPosition[i]);
+                }
+
+                XmlNode comAngNode = _SendXML.SelectSingleNode("//Rob/AIPos");
+                for (int i = 0; i < 6; i++)
+                {
+                    comAngNode.Attributes[AxisKey[i]].Value = String.Format("{0:0.000000}", _kukaAngles[i]);
+                }
             }
             _PacketOut = Encoding.UTF8.GetBytes(Beautify(_SendXML));
 
@@ -493,18 +527,18 @@ namespace TestBot
             }
             catch (SocketException se)
             {
-                Console.WriteLine("SocketException " + catchStatement);
-                Console.WriteLine(se.Message);
+                errorString.AppendLine("SocketException " + catchStatement);
+                errorString.AppendLine(se.Message);
             }
             catch (ObjectDisposedException ob)
             {
-                Console.WriteLine("ObjectDisposedException " + catchStatement);
-                Console.WriteLine(ob.Message);
+                errorString.AppendLine("ObjectDisposedException " + catchStatement);
+                errorString.AppendLine(ob.Message);
             }
             catch (Exception e)
             {
-                Console.WriteLine("Generic error " + catchStatement);
-                Console.WriteLine(e.Message);
+                errorString.AppendLine("Generic error " + catchStatement);
+                errorString.AppendLine(e.Message);
             }
         }
 
@@ -583,18 +617,6 @@ namespace TestBot
             return sb.ToString();
         }
 
-
-        public void timer()
-        {
-            while (true)
-            {
-                if (_loopTimer.Elapsed.TotalMilliseconds > serverSpeed )
-                {
-                    _loopTimer.Restart();
-                    isReadyToSend.Set();
-                }
-            }
-        }
 
 
         public void getKukaAngles(Matrix pose, out double[] kukaOut)

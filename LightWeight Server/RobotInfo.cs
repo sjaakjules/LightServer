@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -29,15 +30,16 @@ namespace LightWeight_Server
 
         // Time of loop in SECONDS
         double _loopTime = 0;
-        double _processDataTimer = 0;
-        double _maxProcessDataTimer = 0;
         Stopwatch _ConnectionTimer = new Stopwatch();
-        double _JacobienAverTimes = 0, _trajectoryLoaderTime = 0;
+        double _JacobienAverTimes = 0;
         Stopwatch A1 = new Stopwatch(), A2 = new Stopwatch(), jacobianTimer = new Stopwatch();
-        FixedSizedQueue<double> JocTimer = new FixedSizedQueue<double>(10);
-        FixedSizedQueue<double> MaxJocTimer = new FixedSizedQueue<double>(10);
-        FixedSizedQueue<double> serverTimer = new FixedSizedQueue<double>(10);
-        FixedSizedQueue<double> MaxserverTimer = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> _maxProcessDataTimer = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> _trajectoryLoaderTime = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> _processDataTimer = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> JocTimer = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> MaxJocTimer = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> serverTimer = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> MaxserverTimer = new FixedSizedQueue<double>(10);
 
         FixedSizedQueue<TimeCoordinate> _Position = new FixedSizedQueue<TimeCoordinate>(6);
         FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(6);
@@ -49,6 +51,7 @@ namespace LightWeight_Server
 
         public readonly Guid _RobotID;
         ScreenWriter _GUI;
+        IPEndPoint ConnectedIP;
 
         Pose[] _T = new Pose[7];
         Matrix[] _T0 = new Matrix[7];
@@ -81,7 +84,7 @@ namespace LightWeight_Server
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
         readonly double _MaxCartesianChange = 1;
         readonly double _MaxAngularChange = 0.1;
-        readonly double _MaxAxisChange = 1;
+        readonly double _MaxAxisChange = 0.005;
 
         double _maxLinearVelocity = .12; // in mm/ms
         double _maxAngularVelocity = .012; // in mm/ms
@@ -106,20 +109,7 @@ namespace LightWeight_Server
 
 
         #region Properties
-
-        public double ProcessDataTimer
-        {
-            get { return _processDataTimer; }
-            set
-            {
-                if (_maxProcessDataTimer <= value)
-                {
-                    _maxProcessDataTimer = value;
-                }
-                _processDataTimer = value;
-            }
-        }
-
+        
 
         public Pose currentPose { get { return _Position.LastElement.Pose; } }
 
@@ -136,6 +126,8 @@ namespace LightWeight_Server
         public Pose currentReferencePosition { get { return _ReferencePosition.LastElement; } }
 
         public Pose currentReferenceVelocity { get { return _ReferenceVelocity.LastElement; } }
+
+        public IPEndPoint EndPoint { get { return ConnectedIP; } set { ConnectedIP = value; } }
 
         public double LinearVelocity
         {
@@ -275,6 +267,7 @@ namespace LightWeight_Server
             if (_isConnecting)
             {
                 IPOC.Start();
+                _KukaCycleTime.Start();
                 double[] startAngles = _Angles.LastElement;
                 _StartPose = forwardKinimatics(startAngles, Vector3.Zero);
                 _StartTipPose = _Position.LastElement.Pose;
@@ -302,8 +295,6 @@ namespace LightWeight_Server
                 {
                     _isConnected = false;
                     _KukaCycleTime.Reset();
-                    _processDataTimer = 0;
-                    _maxProcessDataTimer = 0; 
 
                 }
                 catch (Exception e)
@@ -324,7 +315,6 @@ namespace LightWeight_Server
         public void updateRobotPosition(long LIpoc, long Ipoc, double x, double y, double z, double a, double b, double c)
         {
             //updateError(x.ToString() + " : " + y.ToString() + " : " + z.ToString() + " : " + a.ToString() + " : " + b.ToString() + " : " + c.ToString());
-            _KukaCycleTime.Stop();
             _loopTime = _KukaCycleTime.Elapsed.TotalMilliseconds;
             _KukaCycleTime.Restart();
             a = (a == -180) ? 180 : a;
@@ -333,9 +323,9 @@ namespace LightWeight_Server
             TimeCoordinate newPosition = new TimeCoordinate(x, y, z, a, b, c, Ipoc);
             _Position.Enqueue(newPosition);
             TimeCoordinate[] positions = _Position.ThreadSafeToArray;
-            _velocity.Enqueue(SF.AverageRateOfChange(positions));
+            _velocity.Enqueue(SF.AverageRateOfChange(positions,_loopTime));
             TimeCoordinate[] velocities = _velocity.ThreadSafeToArray;
-            _acceleration.Enqueue(SF.AverageRateOfChange(velocities));
+            _acceleration.Enqueue(SF.AverageRateOfChange(velocities,_loopTime));
         }
 
 
@@ -518,7 +508,7 @@ namespace LightWeight_Server
         public void updateServerTime(double t)
         {
             serverTimer.Enqueue(t);
-            if (t > 4 )//|| Math.Abs(t - MaxserverTimer.ToArray().Average()) < 0.01)
+            if (t > 3 )//|| Math.Abs(t - MaxserverTimer.ToArray().Average()) < 0.01)
             {
                 MaxserverTimer.Enqueue(t);
             }
@@ -690,7 +680,7 @@ namespace LightWeight_Server
                 _TrajectoryHandler.Load(QuinticTrajectories);
                 _newPosesLoaded = true;
                 trajectoryLoader.Stop();
-                _trajectoryLoaderTime = trajectoryLoader.Elapsed.TotalMilliseconds;
+                _trajectoryLoaderTime.Enqueue(trajectoryLoader.Elapsed.TotalMilliseconds);
                 return true;
             }
             }

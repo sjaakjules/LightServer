@@ -15,11 +15,10 @@ namespace TestBot
         {
             Thread robotClientListener = new Thread(robotClient.ConstantReceive);
             Thread robotClientSender = new Thread(robotClient.ConstantSend);
-            //Thread timerThread = new Thread(robotClient.timer);
-            //robotClient._loopTimer.Start();
+            Thread robotSpeedUpdate = new Thread(robotClient.constantSpeedUpdate);
             robotClientListener.Start();
             robotClientSender.Start();
-            //timerThread.Start();
+            robotSpeedUpdate.Start();
             Console.ReadLine();
         }
 

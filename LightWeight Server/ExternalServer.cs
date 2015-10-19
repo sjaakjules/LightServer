@@ -287,7 +287,7 @@ namespace LightWeight_Server
         {
             while (true)
             {
-                if (_sendTimer.Elapsed.TotalMilliseconds > (1000.0/_SendRefreshRate) && ClientIEP.Count > 0)
+                if (ClientIEP.Count > 0)
                 {
                     IPEndPoint[] clientList = ClientIEP.ThreadSafeToArray;
                     foreach (var Client in clientList)
@@ -322,7 +322,7 @@ namespace LightWeight_Server
                             _GUI.updateError("Generic error " + catchStatement, e);
                         }
                     }
-                    _sendTimer.Restart();
+                    Thread.Sleep(1000 / _SendRefreshRate);
                 }
             }
 

@@ -130,7 +130,7 @@ namespace LightWeight_Server
         {
             // Finds local EP to bind socket
             _localEP = getAvailableIpEP();
-
+            _Robot.EndPoint = _localEP;
             // Bind the local EP
             string catchStatement = " while trying to bind local EP:";
             try
@@ -333,9 +333,9 @@ namespace LightWeight_Server
                             break;
 
                         case "AIPos":
-                            _Robot.updateRobotAngles(double.Parse(Node.Attributes["A1"].Value) * Math.PI / 180, double.Parse(Node.Attributes["A2"].Value) * Math.PI / 180,
-                                                    double.Parse(Node.Attributes["A3"].Value) * Math.PI / 180, double.Parse(Node.Attributes["A4"].Value) * Math.PI / 180,
-                                                    double.Parse(Node.Attributes["A5"].Value) * Math.PI / 180, double.Parse(Node.Attributes["A6"].Value) * Math.PI / 180, _IPOC);
+                            _Robot.updateRobotAngles(double.Parse(Node.Attributes["A1"].Value) * 1.0 * Math.PI / 180, double.Parse(Node.Attributes["A2"].Value) * 1.0 * Math.PI / 180,
+                                                    double.Parse(Node.Attributes["A3"].Value) * 1.0 * Math.PI / 180, double.Parse(Node.Attributes["A4"].Value) * 1.0 * Math.PI / 180,
+                                                    double.Parse(Node.Attributes["A5"].Value) * 1.0 * Math.PI / 180, double.Parse(Node.Attributes["A6"].Value) * 1.0 * Math.PI / 180, _IPOC);
                             break;
 
                         case "Torque":
@@ -362,7 +362,11 @@ namespace LightWeight_Server
                 UpdateXML(State);
 
                 processDataTimer.Stop();
-                _Robot.ProcessDataTimer = 1.0 * processDataTimer.Elapsed.TotalMilliseconds;
+                _Robot._processDataTimer.Enqueue(processDataTimer.Elapsed.TotalMilliseconds);
+                if (processDataTimer.Elapsed.TotalMilliseconds > 3)
+                {
+                    _Robot._maxProcessDataTimer.Enqueue(processDataTimer.Elapsed.TotalMilliseconds);
+                }
 
             }
             catch (SocketException se)
