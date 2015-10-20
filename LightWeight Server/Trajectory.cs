@@ -52,6 +52,134 @@ namespace LightWeight_Server
         abstract public void updateStartPosition(Pose StartPose, Pose StartVelocity);
     }
 
+    class TrajectoryLinear : Trajectory
+    {
+
+        public override float finalAngle { get { return _finalAngle; } }
+        public override Vector3 trajectoryAxis { get { return _TrajectoryAxis; } }
+
+        public TrajectoryLinear(Pose EndPose, double AverageVelocity, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID)
+            : base(TrajectoryTypes.LinearTag)
+        {
+            averageVelocity = AverageVelocity;
+            segmentID = SegmentID;
+            startPose = StartPose;
+            finalPose = EndPose;
+            startVelocity = new Pose(Quaternion.Identity, StartVelocity);
+            finalVelocity = new Pose(Quaternion.Identity, FinalVelocity);
+            Vector3 x0 = StartPose.Translation;
+            Vector3 xf = EndPose.Translation;
+            trajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)AverageVelocity);
+            changePose = new Pose(Quaternion.Inverse(StartPose.Orientation) * EndPose.Orientation, xf - x0);
+            SF.getAxisAngle(changePose.Orientation, out _TrajectoryAxis, out _finalAngle);
+            _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
+        }
+
+
+        public override Pose getReferenceVelocity(double t)
+        {
+            return startVelocity;
+        }
+        public override Pose getReferencePosition(double t)
+        {
+            return startPose;
+        }
+        public override void updateStartPosition(Pose StartPose, Pose StartVelocity)
+        {
+
+        }
+        /*
+        Vector3 getDisplacement(Vector3 currentPosition, double maxChange, double linearAcceleration)
+        {
+            if (!_isTranslating && !_isRotating)
+            {
+                IsActive = false;
+            }
+            if (_isTranslating && IsActive)
+            {
+
+                if ((Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition))) < maxChange)
+                {
+                    _isTranslating = false;
+                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange / 2);
+                }
+                if (!_ViaMode)
+                {
+                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange);
+                }
+
+                float d = (float)(maxChange * maxChange / (32 * linearAcceleration));
+                float accelerationDistance = 10.0f;
+                if ((Math.Abs(Vector3.Distance(_startPose.Translation, _finalPose.Translation)) > accelerationDistance))
+                {
+                    // in the start/final region
+                    // Check for last step occurance
+
+                    if ((Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition))) < 0.1f)
+                    {
+                        _isTranslating = false;
+                        return _finalPose.Translation - currentPosition;
+                    }
+                    else if (Math.Abs(Vector3.Distance(_startPose.Translation, currentPosition)) < accelerationDistance / 2 ||
+                        (Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition)) < accelerationDistance / 2))
+                    {
+                        // If its in start or final region find two distances
+                        float disFromStart = Math.Abs(Vector3.Distance(_startPose.Translation, currentPosition)) + .01f;
+                        float disFromFinal = Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition));
+                        return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition),
+                            (float)maxChange * ((disFromStart < disFromFinal) ? disFromStart : disFromFinal) / (accelerationDistance / 2));
+                    }
+                    else
+                    {
+                        return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange);
+                    }
+                }
+                else
+                {
+                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange / 2);
+                    // TODO code when agent is on robot, ie less than 1mm commands
+                }
+
+
+            }
+            return Vector3.Zero;
+        }
+
+
+        Vector3 getOrientation(Quaternion currentOrientation, float maxChange)
+        {
+            // float Duration = (float)(_elapsedTime.Elapsed.TotalMilliseconds / _trajectoryTime.TotalMilliseconds);
+            // Duration = (Duration >= 1.0) ? 1.0f : Duration;
+
+            if (!_isTranslating && !_isRotating)
+            {
+                IsActive = false;
+            }
+            if (_isRotating && IsActive)
+            {
+                Quaternion changeQ = Quaternion.Identity;
+                Quaternion currentInvers = Quaternion.Inverse(currentOrientation);
+                Quaternion toFinal = __FinalOrientation * currentInvers;
+                Vector3 toFinalAxis = Vector3.Zero;
+                float toFinalAngle = 0;
+                SF.getAxisAngle(toFinal, ref toFinalAxis, ref toFinalAngle);
+                if (Math.Abs(MathHelper.ToDegrees(toFinalAngle)) < maxChange)
+                {
+                    _isRotating = false;
+                }
+                toFinalAxis.Normalize();
+                changeQ = Quaternion.CreateFromAxisAngle(toFinalAxis, Math.Sign(toFinalAngle) * MathHelper.ToRadians(maxChange));
+                float[] kukaAngles = new float[6];
+                SF.getKukaAngles(changeQ, ref kukaAngles);
+                return new Vector3(kukaAngles[3], kukaAngles[4], kukaAngles[5]);
+            }
+            return Vector3.Zero;
+        }
+         * 
+         * 
+         */
+    }
+
 
     class TrajectoryQuintic : Trajectory
     {

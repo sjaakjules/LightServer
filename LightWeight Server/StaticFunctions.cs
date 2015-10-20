@@ -140,7 +140,7 @@ namespace LightWeight_Server
 
         public bool Equals(Pose pose2, double error)
         {
-            if (Vector3.Distance(this.Translation, pose2.Translation) < error)// && SF.isOrientationAligned(this.Orientation, pose2.Orientation, error))
+            if (Vector3.Distance(this.Translation, pose2.Translation) <= error)// && SF.isOrientationAligned(this.Orientation, pose2.Orientation, error))
             {
                 return true;
             }
@@ -770,7 +770,7 @@ namespace LightWeight_Server
         {
             Vector3 changeAxis = Vector3.Zero;
             float changeAngle = 0;
-            Quaternion changeOrientation = Quaternion.Inverse(reference) * measured;
+            Quaternion changeOrientation = Quaternion.Inverse(measured) * reference;
             SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
             return Vector3.Transform(changeAxis, measured) * changeAngle;
         }

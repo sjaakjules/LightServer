@@ -84,7 +84,7 @@ namespace LightWeight_Server
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
         readonly double _MaxCartesianChange = 1;
         readonly double _MaxAngularChange = 0.1;
-        readonly double _MaxAxisChange = 0.005;
+        readonly double _MaxAxisChange = 0.00015;
 
         double _maxLinearVelocity = .12; // in mm/ms
         double _maxAngularVelocity = .012; // in mm/ms
@@ -466,7 +466,13 @@ namespace LightWeight_Server
             return new Pose(M);
         }
 
-        public void updateSignal(int a, int b, long Ipoc)
+        double[] InverseKinimatics(Pose DesiredPose)
+        {
+
+            return new double[] { 0, 0, 0, 0, 0, 0 };
+        }
+
+        public void updateSignal(double a, double b, long Ipoc)
         {
             if (a == 65)
             {

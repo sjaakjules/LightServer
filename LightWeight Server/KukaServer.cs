@@ -344,7 +344,7 @@ namespace LightWeight_Server
                                                     double.Parse(Node.Attributes["A5"].Value), double.Parse(Node.Attributes["A6"].Value), _IPOC);
                             break;
                         case "Robot":
-                            _Robot.updateSignal(int.Parse(Node.Attributes["Active1"].Value), int.Parse(Node.Attributes["Active2"].Value), _IPOC);
+                            _Robot.updateSignal(double.Parse(Node.Attributes["Active1"].Value), double.Parse(Node.Attributes["Active2"].Value), _IPOC);
                             break;
                         default:
                             break;

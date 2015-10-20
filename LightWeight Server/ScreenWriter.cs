@@ -262,19 +262,19 @@ namespace LightWeight_Server
         }
         void plotDoubleQue(FixedSizedQueue<double> que, string Heading, StringBuilder collection)
         {
-            int length = que.Count;
-            if (length > 0)
+            if (que.Count > 0)
             {
                 double[] array = que.ThreadSafeToArray;
+                int length = array.Length;
                 if (Heading.Length < 24)
                 {
                     string newheading = string.Concat(Heading, ":", new string(' ', 24 - Heading.Length));
                 }
                 collection.Append(String.Format("{0,-25}\n (", Heading));
                 for (int i = 0; i < length; i++)
-			{
-                collection.Append(String.Format("{0:0.00},", array[i]));
-			}
+                {
+                    collection.Append(String.Format("{0:0.00},", array[i]));
+                }
                 collection.AppendLine(")");
             }
         }
