@@ -145,7 +145,7 @@ namespace LightWeight_Server
                     if (value > _MaxCartesianChange)
                     {
                         // Assume new velocity given in mm/s
-                        _maxLinearVelocity = value / 1000;
+                        _maxLinearVelocity = 1.0 * value / 1000;
                     }
                     else { _maxLinearVelocity = value; }
                     
@@ -169,7 +169,7 @@ namespace LightWeight_Server
                     if (value > _MaxAngularChange)
                     {
                         // assume new velocity given in deg/s
-                        _maxAngularVelocity = value / 1000;
+                        _maxAngularVelocity = 1.0 * value / 1000;
                     }
                     else
                     {
@@ -419,8 +419,8 @@ namespace LightWeight_Server
             double c1 = Math.Cos(a1);
             double s2 = Math.Sin(a2);
             double c2 = Math.Cos(a2);
-            double s3p = Math.Sin(a3 - Math.PI / 2);
-            double c3p = Math.Cos(a3 - Math.PI / 2);
+            double s3p = Math.Sin(a3 - 1.0*Math.PI / 2);
+            double c3p = Math.Cos(a3 - 1.0 * Math.PI / 2);
             double s4 = Math.Sin(a4);
             double c4 = Math.Cos(a4);
             double s5 = Math.Sin(a5);
@@ -496,7 +496,7 @@ namespace LightWeight_Server
                 jacobianTimer.Restart();
                 getLinkTransforms(a1, a2, a3, a4, a5, a6, _EndEffector, out _T, out _T0);
                 _Jacobian = Jacobian(_T, _T0);
-                _InverseJacobian = InverseJacobian(1e-6);
+                _InverseJacobian = InverseJacobian(1e-12);
 
                 jacobianTimer.Stop();
                 double newTime = jacobianTimer.Elapsed.TotalMilliseconds;
@@ -661,10 +661,10 @@ namespace LightWeight_Server
                 Stopwatch trajectoryLoader = new Stopwatch();
                 trajectoryLoader.Start();
                //  Check if no veloicty was specified or if mm/s or mm/ms was specified. Must used mm/ms for trajectory generation
-                AverageVelocity[0] = (AverageVelocity[0] == -1) ? _maxLinearVelocity / 2 : ((AverageVelocity[0] > 0.1) ? AverageVelocity[0] / 1000 : AverageVelocity[0]);
+                AverageVelocity[0] = (AverageVelocity[0] == -1) ? 1.0 * _maxLinearVelocity / 2 : ((AverageVelocity[0] > 0.1) ? 1.0 * AverageVelocity[0] / 1000 : AverageVelocity[0]);
                 for (int i = 1; i < AverageVelocity.Length; i++)
                 {
-                    AverageVelocity[i] = (AverageVelocity[i] == -1) ? AverageVelocity[i-1] : ((AverageVelocity[i] > 0.1) ? AverageVelocity[i] / 1000 : AverageVelocity[i]);
+                    AverageVelocity[i] = (AverageVelocity[i] == -1) ? AverageVelocity[i - 1] : ((AverageVelocity[i] > 0.1) ? 1.0 * AverageVelocity[i] / 1000 : AverageVelocity[i]);
                 }
                 //_NewTrajectoryList = new TrajectoryOld[n];
                 Vector3[] PointVelocitys = new Vector3[n+1];

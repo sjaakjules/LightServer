@@ -133,6 +133,19 @@ namespace LightWeight_Server
         public Pose(TimeCoordinate Pose) : this(Pose.Orientation, Pose.Translation) { }
 
 
+        public double[,] getMatrix
+        {
+            get
+            {
+                Matrix orientation = Matrix.CreateFromQuaternion(this.Orientation);
+                double[,] matrix = new double[,] {  { orientation.M11, orientation.M21, orientation.M31, this.Translation.X }, 
+                                                        { orientation.M12, orientation.M22, orientation.M32, this.Translation.Y }, 
+                                                        { orientation.M13, orientation.M23, orientation.M33, this.Translation.Z }, { 0, 0, 0, 1 } };
+                return matrix;
+            }
+        }
+
+
         public override int GetHashCode()
         {
             return ShiftAndWrap(_x.GetHashCode(), 2) ^ _y.GetHashCode();
@@ -396,7 +409,7 @@ namespace LightWeight_Server
 
         public static TimeCoordinate operator /(TimeCoordinate Pose1, float Value)
         {
-            return new TimeCoordinate(Pose1.x / Value, Pose1.y / Value, Pose1.z / Value, Vector3.Divide(Pose1.axis, Value), Pose1.angle / Value, Pose1.Ipoc);
+            return new TimeCoordinate(1.0f * Pose1.x / Value, 1.0f * Pose1.y / Value, 1.0f * Pose1.z / Value, Vector3.Divide(Pose1.axis, Value), 1.0f * Pose1.angle / Value, Pose1.Ipoc);
         }
         
         public TimeCoordinate getRateOfChange(TimeCoordinate pose1, double framerate)
@@ -407,22 +420,22 @@ namespace LightWeight_Server
             {
                 Quaternion changeOrientation = Quaternion.Inverse(this._Orientation) * pose1._Orientation;
                 SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
-                return new TimeCoordinate((pose1.x - this.x) / framerate,
-                                            (pose1.y - this.y) / framerate,
-                                            (pose1.z - this.z) / framerate,
+                return new TimeCoordinate(1.0f * (pose1.x - this.x) / framerate,
+                                            1.0f * (pose1.y - this.y) / framerate,
+                                            1.0f * (pose1.z - this.z) / framerate,
                                             Vector3.Transform(changeAxis, pose1._Orientation),
-                                            changeAngle / (float)framerate,
+                                            1.0f * changeAngle / (float)framerate,
                                             pose1.Ipoc);
             }
             else
             {
                 Quaternion changeOrientation = Quaternion.Inverse(pose1._Orientation) * this._Orientation;
                 SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
-                return new TimeCoordinate((this.x - pose1.x) / framerate,
-                                            (this.y - pose1.y) / framerate,
-                                            (this.z - pose1.z) / framerate,
+                return new TimeCoordinate(1.0f * (this.x - pose1.x) / framerate,
+                                            1.0f * (this.y - pose1.y) / framerate,
+                                            1.0f * (this.z - pose1.z) / framerate,
                                             Vector3.Transform(changeAxis, this._Orientation),
-                                            changeAngle / (float)framerate,
+                                            1.0f * changeAngle / (float)framerate,
                                             this.Ipoc);
             }
         }
@@ -441,11 +454,11 @@ namespace LightWeight_Server
                 }
                 Quaternion changeOrientation = Quaternion.Inverse(this._Orientation) * pose1._Orientation;
                 SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
-                return new TimeCoordinate((pose1.x - this.x) / delTime,
-                                            (pose1.y - this.y) / delTime,
-                                            (pose1.z - this.z) / delTime,
+                return new TimeCoordinate(1.0f * (pose1.x - this.x) / delTime,
+                                            1.0f * (pose1.y - this.y) / delTime,
+                                            1.0f * (pose1.z - this.z) / delTime,
                                             Vector3.Transform(changeAxis,this._Orientation),
-                                            changeAngle / (float)delTime,
+                                            1.0f * changeAngle / (float)delTime,
                                             pose1.Ipoc);
             }
             else
@@ -457,11 +470,11 @@ namespace LightWeight_Server
                 }
                 Quaternion changeOrientation = Quaternion.Inverse(pose1._Orientation) * this._Orientation;
                 SF.getAxisAngle(changeOrientation, out changeAxis, out changeAngle);
-                return new TimeCoordinate((this.x - pose1.x) / delTime,
-                                            (this.y - pose1.y) / delTime,
-                                            (this.z - pose1.z) / delTime,
+                return new TimeCoordinate(1.0f * (this.x - pose1.x) / delTime,
+                                            1.0f * (this.y - pose1.y) / delTime,
+                                            1.0f * (this.z - pose1.z) / delTime,
                                             Vector3.Transform(changeAxis, pose1._Orientation),
-                                            changeAngle / (float)delTime,
+                                            1.0f * changeAngle / (float)delTime,
                                             this.Ipoc);
             }
         }
@@ -620,6 +633,26 @@ namespace LightWeight_Server
         { }
 
         public TrajectoryException(string Message, Exception InnerException)
+            : base(Message, InnerException)
+        { }
+    }
+
+
+
+    /// <summary>
+    /// Exception class for general orientation and rotation related functions, derived from System.Exception
+    /// </summary>
+    public class InverseKinematicsException : Exception
+    {
+        public InverseKinematicsException()
+            : base()
+        { }
+
+        public InverseKinematicsException(string Message)
+            : base(Message)
+        { }
+
+        public InverseKinematicsException(string Message, Exception InnerException)
             : base(Message, InnerException)
         { }
     }
@@ -815,7 +848,7 @@ namespace LightWeight_Server
                 quaternion = Quaternion.Negate(quaternion);
             }
             float angle = 2 * (float)Math.Acos(quaternion.W);
-            float s = (float)Math.Sin(angle / 2);
+            float s = (float)Math.Sin(1.0 * angle / 2);
             if (Math.Abs(s) < 1e-6)
             {
                 outAxis.X = quaternion.X;
@@ -868,17 +901,17 @@ namespace LightWeight_Server
             }
             else
             {
-                Vector3 axis = new Vector3(quaternion.X / s, quaternion.Y / s, quaternion.Z / s);
+                Vector3 axis = new Vector3(1.0f * quaternion.X / s, 1.0f * quaternion.Y / s, 1.0f * quaternion.Z / s);
                 axis.Normalize();
-                s = quaternion.X == 0 ? s : quaternion.X / axis.X;
-                s = quaternion.Y == 0 ? s : quaternion.Y / axis.Y;
-                s = quaternion.Z == 0 ? s : quaternion.Z / axis.Z;
+                s = quaternion.X == 0 ? s : 1.0f * quaternion.X / axis.X;
+                s = quaternion.Y == 0 ? s : 1.0f * quaternion.Y / axis.Y;
+                s = quaternion.Z == 0 ? s : 1.0f * quaternion.Z / axis.Z;
 
                 if (float.IsNaN(quaternion.Z))
                 {
                     outAxis.Z = 1;
                 }
-                outAxis = new Vector3(quaternion.X / s, quaternion.Y / s, quaternion.Z / s);
+                outAxis = new Vector3(1.0f * quaternion.X / s, 1.0f * quaternion.Y / s, 1.0f * quaternion.Z / s);
                 outAxis.Normalize();
                 if (quaternion.X != 0)
                 {
@@ -949,25 +982,25 @@ namespace LightWeight_Server
         /// <returns></returns>
         public static Quaternion MakeQuaternionFromKuka(double[] pose)
         {
-            Quaternion Rz = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180)));
-            Quaternion Ry = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180)));
-            Quaternion Rx = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180)));
+            Quaternion Rz = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationZ((float)(1.0 * pose[3] * Math.PI / 180)));
+            Quaternion Ry = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationY((float)(1.0 * pose[4] * Math.PI / 180)));
+            Quaternion Rx = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationX((float)(1.0 * pose[5] * Math.PI / 180)));
             return (Rz * Ry * Rx);
         }
 
         public static Quaternion MakeQuaternionFromKuka(double A, double B, double C)
         {
-            Quaternion Rz = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationZ((float)(A * Math.PI / 180)));
-            Quaternion Ry = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationY((float)(B * Math.PI / 180)));
-            Quaternion Rx = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationX((float)(C * Math.PI / 180)));
+            Quaternion Rz = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationZ((float)(1.0 * A * Math.PI / 180)));
+            Quaternion Ry = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationY((float)(1.0 * B * Math.PI / 180)));
+            Quaternion Rx = Quaternion.CreateFromRotationMatrix(Matrix.CreateRotationX((float)(1.0 * C * Math.PI / 180)));
             return (Rz * Ry * Rx);
         }
 
         public static Matrix MakeMatrixFromKuka(double[] pose)
         {
-            Matrix Rz = Matrix.CreateRotationZ((float)(pose[3] * Math.PI / 180));
-            Matrix Ry = Matrix.CreateRotationY((float)(pose[4] * Math.PI / 180));
-            Matrix Rx = Matrix.CreateRotationX((float)(pose[5] * Math.PI / 180));
+            Matrix Rz = Matrix.CreateRotationZ((float)(1.0 * pose[3] * Math.PI / 180));
+            Matrix Ry = Matrix.CreateRotationY((float)(1.0 * pose[4] * Math.PI / 180));
+            Matrix Rx = Matrix.CreateRotationX((float)(1.0 * pose[5] * Math.PI / 180));
             Matrix poseout = R(Rz, Ry, Rx);
             poseout.Translation = new Vector3((float)pose[0], (float)pose[1], (float)pose[2]);
             return poseout;
@@ -1027,7 +1060,7 @@ namespace LightWeight_Server
 
             B = Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33));
 
-            if (Math.Abs(Math.Abs(B) - Math.PI / 2) < 1e-6)
+            if (Math.Abs(Math.Abs(B) - 1.0 * Math.PI / 2) < 1e-6)
             {
                 // Gimbal lock situation! A and C form a line of infinate solutions.
                 C = 0;// (float)Math.PI / 5f;
@@ -1039,9 +1072,9 @@ namespace LightWeight_Server
                 C = Math.Atan2(rotationMat.M32, rotationMat.M33);
             }
 
-            KukaAngleOut[3] = A * 180 / Math.PI;
-            KukaAngleOut[4] = B * 180 / Math.PI;
-            KukaAngleOut[5] = C * 180 / Math.PI;
+            KukaAngleOut[3] = 1.0 * A * 180 / Math.PI;
+            KukaAngleOut[4] = 1.0 * B * 180 / Math.PI;
+            KukaAngleOut[5] = 1.0 * C * 180 / Math.PI;
         }
 
         /// <summary>
@@ -1061,7 +1094,7 @@ namespace LightWeight_Server
 
             B = (float)Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33));
 
-            if (Math.Abs(Math.Abs(B) - Math.PI / 2) < 1e-6)
+            if (Math.Abs(Math.Abs(B) - 1.0 * Math.PI / 2) < 1e-6)
             {
                 // Gimbal lock situation! A and C form a line of infinate solutions.
                 C = 0;// (float)Math.PI / 5f;
@@ -1093,7 +1126,7 @@ namespace LightWeight_Server
 
             B = (float)Math.Atan2(-rotationMat.M31, Math.Sqrt(rotationMat.M32 * rotationMat.M32 + rotationMat.M33 * rotationMat.M33));
 
-            if (Math.Abs(Math.Abs(B) - Math.PI / 2) < 1e-6)
+            if (Math.Abs(Math.Abs(B) - 1.0 * Math.PI / 2) < 1e-6)
             {
                 // Gimbal lock situation! A and C form a line of infinate solutions.
                 C = 0;// (float)Math.PI / 5f;
@@ -1112,6 +1145,258 @@ namespace LightWeight_Server
             kukaOut[4] = MathHelper.ToDegrees(B);
             kukaOut[5] = MathHelper.ToDegrees(C);
 
+        }
+
+
+
+        enum ElbowPosition { up, down, stretched };
+        enum BasePosition { front, back, vertical };
+
+
+        static double[] IK1to3(Pose des, Vector3 EE, double[] lastVal, ref ElbowPosition elbow, ref BasePosition basePos)
+        {
+
+            double wristOffset = Math.Atan2(35, 515);
+            double theta1a, theta1b, theta1, theta2u, theta2d, theta2, theta3u, theta3d, theta3;
+            Vector3 Wrist = des * (-EE - new Vector3(0, 0, 80));
+            if (Wrist.Z < 0) throw new InverseKinematicsException("Out of workspace");
+            theta1a = -Math.Atan2(Wrist.Y, Wrist.X);
+            theta1b = (theta1a > 0) ? theta1a - Math.PI : theta1a + Math.PI;
+            if (Math.Abs(lastVal[0] - theta1a) < Math.Abs(lastVal[0] - theta1b))
+            {
+                theta1 = theta1a;
+                basePos = BasePosition.front;
+            }
+            else
+            {
+                theta1 = theta1b;
+                basePos = BasePosition.back;
+            }
+            if (theta1 < -170.0 * Math.PI / 180 || theta1 > 170.0 * Math.PI / 180)
+            {
+                throw new InverseKinematicsException("Out of workspace");
+            }
+            Vector3 Base = new Vector3(25 * (float)Math.Cos(-theta1), 25 * (float)Math.Sin(-theta1), 400f);
+            Vector3 LinkBW = Wrist - Base;
+            if (Math.Abs(LinkBW.Length() - (560 + Math.Sqrt(515 * 515 + 35 * 35))) < 1e-6)
+            {
+                throw new InverseKinematicsException("Out of workspace");
+            }
+            if (LinkBW.Length() == (560 + Math.Sqrt(515 * 515 + 35 * 35)))
+            {
+                theta3 = -Math.Atan2(35, 515);
+            }
+            Vector3 xHat = new Vector3(LinkBW.X, LinkBW.Y, 0);
+            xHat.Normalize();
+            double beta = Math.Atan2(LinkBW.Z, Math.Sqrt(LinkBW.X * LinkBW.X + LinkBW.Y * LinkBW.Y));
+            double gamma = Math.Acos((1.0 * LinkBW.LengthSquared() + 560 * 560 - 35 * 35 - 515 * 515) / (2 * 560 * LinkBW.Length()));
+            double alpha = Math.Acos((1.0 * 560 * 560 + 35 * 35 + 515 * 515 - LinkBW.LengthSquared()) / (2.0 * 560 * Math.Sqrt(35 * 35 + 515 * 515)));
+            if (double.IsNaN(gamma))
+            {
+                gamma = 0;
+            }
+            if (double.IsNaN(alpha))
+            {
+                alpha = Math.PI;
+            }
+            if (basePos == BasePosition.front)
+            {
+                theta2u = -(beta + gamma);
+                theta2d = -(beta - gamma);
+                theta3u = Math.PI + wristOffset - alpha;
+                theta3d = -(Math.PI - alpha - wristOffset);
+            }
+            else
+            {
+                theta2u = -Math.PI + (beta - gamma);
+                theta2d = -Math.PI + (beta + gamma);
+                theta3u = Math.PI + wristOffset - alpha;
+                theta3d = -Math.PI + alpha + wristOffset;
+            }
+            if (Math.Abs(lastVal[1] - theta2u) < Math.Abs(lastVal[1] - theta2d))
+            {
+                theta2 = theta2u;
+                theta3 = theta3u;
+                elbow = ElbowPosition.up;
+            }
+            else
+            {
+                theta2 = theta2d;
+                theta3 = theta3d;
+                elbow = ElbowPosition.down;
+            }
+
+            if (elbow == ElbowPosition.up)
+            {
+                if (theta2u > (-190.0 * Math.PI / 180) && theta2u < (1.0 * Math.PI / 4) && theta3u < (156.0 * Math.PI / 180) && theta3u > (-120.0 * Math.PI / 180))
+                {
+                    theta2 = theta2u;
+                    theta3 = theta3u;
+                }
+                else if ((theta2d > (-190.0 * Math.PI / 180) && theta2d < (1.0 * Math.PI / 4)) && (theta3d < (156.0 * Math.PI / 180) && (theta3d > (-120.0 * Math.PI / 180))))
+                {
+                    elbow = ElbowPosition.down;
+                    theta2 = theta2d;
+                    theta3 = theta3d;
+                }
+                else
+                {
+                    throw new InverseKinematicsException("Out of workspace");
+                }
+            }
+            else if (elbow == ElbowPosition.down)
+            {
+                if ((theta2d > (-190.0 * Math.PI / 180) && theta2d < (1.0 * Math.PI / 4)) && (theta3d < (156.0 * Math.PI / 180) && (theta3d > (-120.0 * Math.PI / 180))))
+                {
+                    theta2 = theta2d;
+                    theta3 = theta3d;
+                }
+                else if (theta2u > (-190.0 * Math.PI / 180) && theta2u < (1.0 * Math.PI / 4) && theta3u < (156.0 * Math.PI / 180) && theta3u > (-120.0 * Math.PI / 180))
+                {
+                    elbow = ElbowPosition.up;
+                    theta2 = theta2u;
+                    theta3 = theta3u;
+                }
+                else
+                {
+                    throw new InverseKinematicsException("Out of workspace");
+                }
+            }
+            else
+            {
+
+                if (theta2u > (-190.0 * Math.PI / 180) && theta2u < (1.0 * Math.PI / 4) && theta3u < (156.0 * Math.PI / 180) && theta3u > (-120.0 * Math.PI / 180))
+                {
+                    elbow = ElbowPosition.up;
+                    theta2 = theta2u;
+                    theta3 = theta3u;
+                }
+                else if ((theta2d > (-190.0 * Math.PI / 180) && theta2d < (1.0 * Math.PI / 4)) && (theta3d < (156.0 * Math.PI / 180) && (theta3d > (-120.0 * Math.PI / 180))))
+                {
+                    elbow = ElbowPosition.down;
+                    theta2 = theta2d;
+                    theta3 = theta3d;
+                }
+                else
+                {
+                    throw new InverseKinematicsException("Out of workspace");
+                }
+            }
+            /*
+
+            // This prefrences elbow up first, then when theta3 not found tries elbow down, and last if elbow up not possible try elbow down.
+            if ((beta + gamma) > (190.0 * Math.PI / 180) || (beta + gamma) < (-1.0 * Math.PI / 4))
+            {
+                // Elbow up not in range, try elbow down
+                if ((beta - gamma) >( 190.0 * Math.PI / 180) || (beta - gamma) < (-1.0 * Math.PI / 4))
+                {
+                    throw new InverseKinematicsException("Out of workspace");
+                }
+                else
+                {
+                    // Elbow down config in range
+                    theta3 = -(Math.PI - alpha - wristOffset);
+                    if (theta3 < (-120.0 * Math.PI / 180))
+                    {
+                        throw new InverseKinematicsException("Out of workspace");
+                    }
+                    theta2d = -(beta - gamma);
+                }
+            }
+            else
+            {
+                // Elbow up in range, 
+                theta3 = Math.PI + wristOffset - alpha;
+                if (theta3 > (156.0 * Math.PI / 180))
+                {
+                    // Elbow up in range but theta3 not in range, check elbow down
+                    if ((beta - gamma) > (190.0 * Math.PI / 180) || (beta - gamma) < (-1.0 * Math.PI / 4))
+                    {
+                        throw new InverseKinematicsException("Out of workspace");
+                    }
+                    else
+                    {
+                        // Elbow down config in range, check elbow3 in range
+                        theta3 = -(Math.PI - alpha - wristOffset);
+                        if (theta3 < (-120.0 * Math.PI / 180))
+                        {
+                            throw new InverseKinematicsException("Out of workspace");
+                        }
+                        theta2 = -(beta - gamma);
+                    }
+                }
+                else
+                {
+                    theta2 = -(beta + gamma);
+                }
+            }
+             * 
+             */
+            return new double[] { theta1, theta2, theta3 };
+        }
+
+        static double[] IKSolver(Pose DesiredPose, Vector3 EE, double[] thetaLast, ref ElbowPosition elbow, ref BasePosition basePos)
+        {
+
+            double theta1, theta2, theta3, theta4, theta5, theta6;
+            double[] angles1to3 = IK1to3(DesiredPose, EE, thetaLast, ref elbow, ref basePos);
+            double px = DesiredPose.Translation.X;
+            double py = DesiredPose.Translation.Y;
+            double d3 = 0;
+            theta1 = Math.Atan2(py, px) - Math.Atan2(d3, Math.Sqrt(px * px + py * py - d3 * d3));
+            theta1 = angles1to3[0];
+            theta2 = angles1to3[1];
+            theta3 = angles1to3[2];
+
+            double[,] r = DesiredPose.getMatrix;
+            double[,] T30 = new double[,] { { Math.Sin(theta2 + theta3) * Math.Cos(theta1),     -Math.Sin(theta2 + theta3) * Math.Sin(theta1),  Math.Cos(theta2 + theta3),  -400 * Math.Cos(theta2 + theta3) - 25 * Math.Sin(theta2 + theta3) - 560 * Math.Sin(theta3) }, 
+                                            { Math.Cos(theta2 + theta3) * Math.Cos(theta1),     -Math.Cos(theta2 + theta3) * Math.Sin(theta1),  -Math.Sin(theta2 + theta3), 400 * Math.Sin(theta2 + theta3) - 25 * Math.Cos(theta2 + theta3) - 560 * Math.Cos(theta3) }, 
+                                            { Math.Sin(theta1), Math.Cos(theta1), 0, 0 }, { 0, 0, 0, 1 } };
+
+            double[,] T3t = multiplyMatrix(T30, r);
+
+            theta4 = Math.Atan2(-T3t[2, 2], -T3t[0, 2]);
+
+            double s1 = Math.Sin(theta1);
+            double c1 = Math.Cos(theta1);
+            double s2 = Math.Sin(theta2);
+            double c2 = Math.Cos(theta2);
+            double s3 = Math.Sin(theta3);
+            double c3 = Math.Cos(theta3);
+            double s23 = Math.Sin(theta2 + theta3);
+            double c23 = Math.Cos(theta2 + theta3);
+            double s4 = Math.Sin(theta4);
+            double c4 = Math.Cos(theta4);
+
+            double s5 = -(r[0, 2] * (c1 * c23 * c4 + s1 * s4) + r[1, 2] * (s1 * c23 * c4 - c1 * s4) - r[2, 2] * s23 * c4);
+            double c5 = r[0, 2] * ((-c1) * s23) + r[1, 2] * (-s1) * s23 + r[2, 2] * (-c23);
+            theta5 = Math.Atan2(s5, c5);
+            if (Math.Abs(T3t[1, 1]) < 1e-6 && Math.Abs(T3t[1, 0]) < 1e-6)
+            {
+                // Singularity! set angles on last known theta4
+                theta4 = thetaLast[3];
+                theta5 = 0;
+                theta6 = Math.Atan2(-T3t[0, 1], T3t[2, 1]) - thetaLast[3];
+            }
+            else
+            {
+                theta4 = Math.Atan2(-T3t[2, 2], -T3t[0, 2]);
+                theta6 = Math.Atan2(-T3t[1, 1], -T3t[1, 0]);
+                theta5 = (Math.Abs(Math.Cos(theta4)) < Math.Abs(Math.Sin(theta4))) ? Math.Atan2(T3t[0, 2] / (-Math.Cos(theta4)), T3t[1, 2]) : Math.Atan2(T3t[2, 2] / (-Math.Sin(theta4)), T3t[1, 2]);
+            }
+            if (theta4 > (185.0 * Math.PI / 180) || theta4 < (-185.0 * Math.PI / 180))
+            {
+                throw new InverseKinematicsException("Out of workspace");
+            }
+            if (theta5 > (120.0 * Math.PI / 180) || theta5 < (-120.0 * Math.PI / 180))
+            {
+                //          throw new InverseKinematicsException("Out of workspace");
+            }
+            if (theta5 > (350.0 * Math.PI / 180) || theta5 < (-350.0 * Math.PI / 180))
+            {
+                // throw new InverseKinematicsException("Out of workspace");
+            }
+            return new double[] { theta1, theta2, theta3, theta4, theta5, theta6 };
         }
 
         /// <summary>
@@ -1161,8 +1446,8 @@ namespace LightWeight_Server
             double c2 = Math.Cos(t2);
             double s3 = Math.Sin(t3);
             double c3 = Math.Cos(t3);
-            double s3p = Math.Sin(t3 - Math.PI / 2);
-            double c3p = Math.Cos(t3 - Math.PI / 2);
+            double s3p = Math.Sin(t3 - 1.0 * Math.PI / 2);
+            double c3p = Math.Cos(t3 - 1.0 * Math.PI / 2);
             double s4 = Math.Sin(t4);
             double c4 = Math.Cos(t4);
             double s5 = Math.Sin(t5);
@@ -1171,7 +1456,7 @@ namespace LightWeight_Server
             double c6 = Math.Cos(t6);
             double c234 = Math.Cos(t2 + t3 + t4);
             // These are the denominators withing the inverse Jacobian, if they tend to zero singularity is reached and velocities will tend to inf!
-            double cot5 = (Math.Abs(s5) < error) ? c5 / error : c5 / s5;
+            double cot5 = (Math.Abs(s5) < error) ? 1.0 * c5 / error : 1.0 * c5 / s5;
             double singularity1 = (Math.Abs(103 * c2p3 + 7 * s2p3 + 112 * c2 + 5) < error) ? Math.Sign(103 * c2p3 + 7 * s2p3 + 112 * c2 + 5) * error : (103 * c2p3 + 7 * s2p3 + 112 * c2 + 5);
             double singularity2 = (Math.Abs(1960 * c3 - 28840 * s3) < error) ? Math.Sign(1960 * c3 - 28840 * s3) * error : (1960 * c3 - 28840 * s3);
             double singularity3 = (Math.Abs(7 * c3 - 103 * s3) < error) ? Math.Sign(7 * c3 - 103 * s3) * error : (7 * c3 - 103 * s3);
@@ -1187,48 +1472,48 @@ namespace LightWeight_Server
             double Sing10 = (3605 * c2 - 175 * c3 - 53045 * s2 + 2575 * s3 - 3920 * c2 * c3 + 57680 * c2 * s3 - 7210 * c2 * c3 * c3 + 52800 * c3 * c3 * s2 + 7210 * c3 * s2 * s3 + 52800 * c2 * c3 * s3);
             double singularity10 = ((Math.Abs(Sing10) < error) ? Math.Sign(Sing10) * error : Sing10);
 
-            inverseJoc[0, 0] = -s1 / (5 * singularity1);
-            inverseJoc[0, 1] = -c1 / (5 * singularity1);
+            inverseJoc[0, 0] = -1.0 * s1 / (5 * singularity1);
+            inverseJoc[0, 1] = -1.0 * c1 / (5 * singularity1);
             inverseJoc[0, 2] = 0;
             inverseJoc[0, 3] = 0;
             inverseJoc[0, 4] = 0;
             inverseJoc[0, 5] = 0;
-            inverseJoc[1, 0] = -(103 * c1 * c2 * c3 - 103 * c1 * s2 * s3 + 7 * c1 * c2 * s3 + 7 * c1 * c3 * s2) / (2 * singularity2);
-            inverseJoc[1, 1] = (7 * c2 * s1 * s3 + 7 * c3 * s1 * s2 - 103 * s1 * s2 * s3 + 103 * c2 * c3 * s1) / (2 * singularity2);
-            inverseJoc[1, 2] = -(7 * c2p3 - 103 * s2p3) / (560 * singularity3);
+            inverseJoc[1, 0] = -1.0 * (103 * c1 * c2 * c3 - 103 * c1 * s2 * s3 + 7 * c1 * c2 * s3 + 7 * c1 * c3 * s2) / (2 * singularity2);
+            inverseJoc[1, 1] = 1.0 * (7 * c2 * s1 * s3 + 7 * c3 * s1 * s2 - 103 * s1 * s2 * s3 + 103 * c2 * c3 * s1) / (2 * singularity2);
+            inverseJoc[1, 2] = -1.0 * (7 * c2p3 - 103 * s2p3) / (560 * singularity3);
             inverseJoc[1, 3] = 0;
             inverseJoc[1, 4] = 0;
             inverseJoc[1, 5] = 0;
-            inverseJoc[2, 0] = (112 * c1 * c2 - 103 * c1 * s2 * s3 + 103 * c1 * c2 * c3 + 7 * c1 * c2 * s3 + 7 * c1 * c3 * s2) / singularity4;
-            inverseJoc[2, 1] = -(112 * c2 * s1 + 7 * c2 * s1 * s3 + 7 * c3 * s1 * s2 - 103 * s1 * s2 * s3 + 103 * c2 * c3 * s1) / singularity4;
-            inverseJoc[2, 2] = -(103 * s2p3 - 7 * c2p3 + 112 * s2) / (560 * singularity3);
+            inverseJoc[2, 0] = 1.0 * (112 * c1 * c2 - 103 * c1 * s2 * s3 + 103 * c1 * c2 * c3 + 7 * c1 * c2 * s3 + 7 * c1 * c3 * s2) / singularity4;
+            inverseJoc[2, 1] = -1.0 * (112 * c2 * s1 + 7 * c2 * s1 * s3 + 7 * c3 * s1 * s2 - 103 * s1 * s2 * s3 + 103 * c2 * c3 * s1) / singularity4;
+            inverseJoc[2, 2] = -1.0 * (103 * s2p3 - 7 * c2p3 + 112 * s2) / (560 * singularity3);
             inverseJoc[2, 3] = 0;
             inverseJoc[2, 4] = 0;
             inverseJoc[2, 5] = 0;
-            inverseJoc[3, 0] = -(103 * c2 * s1 * s5 + 112 * c1 * c2 * c2 * c5 * s4 - 103 * c2 * c3 * c3 * s1 * s5 - 7 * c3 * c3 * s1 * s2 * s5 + 5 * c1 * c2 * c5 * s4 + 103 * c4 * c5 * s1 * s2 + 103 * c1 * c2 * c2 * c3 * c5 * s4 + 7 * c2 * c3 * c3 * c4 * c5 * s1 + 7 * c1 * c2 * c2 * c5 * s3 * s4 - 103 * c3 * c3 * c4 * c5 * s1 * s2 - 7 * c2 * c3 * s1 * s3 * s5 + 103 * c3 * s1 * s2 * s3 * s5 + 7 * c1 * c2 * c3 * c5 * s2 * s4 - 103 * c2 * c3 * c4 * c5 * s1 * s3 - 103 * c1 * c2 * c5 * s2 * s3 * s4 - 7 * c3 * c4 * c5 * s1 * s2 * s3) / singularity5;
-            inverseJoc[3, 1] = (103 * c1 * c2 * c3 * c3 * s5 - 103 * c1 * c2 * s5 + 7 * c1 * c3 * c3 * s2 * s5 + 112 * c2 * c2 * c5 * s1 * s4 - 103 * c1 * c4 * c5 * s2 + 5 * c2 * c5 * s1 * s4 + 103 * c1 * c3 * c3 * c4 * c5 * s2 + 103 * c2 * c2 * c3 * c5 * s1 * s4 + 7 * c2 * c2 * c5 * s1 * s3 * s4 + 7 * c1 * c2 * c3 * s3 * s5 - 103 * c1 * c3 * s2 * s3 * s5 - 7 * c1 * c2 * c3 * c3 * c4 * c5 + 103 * c1 * c2 * c3 * c4 * c5 * s3 + 7 * c1 * c3 * c4 * c5 * s2 * s3 + 7 * c2 * c3 * c5 * s1 * s2 * s4 - 103 * c2 * c5 * s1 * s2 * s3 * s4) / singularity5;
-            inverseJoc[3, 2] = -(c5 * s2 * s4) / (5 * singularity7);
-            inverseJoc[3, 3] = (c2p3 * c1 * c4 * c4 * s5 - c2p3 * c1 * s5 + c1 * c2 * c4 * c4 * s5 * s3p + c1 * c4 * c4 * c3p * s2 * s5 - c1 * c2 * c4 * c5 * c3p + c1 * c4 * c5 * s2 * s3p + c3 * c5 * s1 * s4 * s3p - c2 * c2 * c3 * c5 * s1 * s4 * s3p - c2 * c2 * c5 * c3p * s1 * s3 * s4 + c2p3 * c2 * c5 * s1 * s4 * s3p + c2p3 * c5 * c3p * s1 * s2 * s4 + c3 * c4 * c3p * s1 * s4 * s5 + c2 * c2 * c4 * s1 * s3 * s4 * s5 * s3p + c2p3 * c2 * c4 * c3p * s1 * s4 * s5 - c2p3 * c4 * s1 * s2 * s4 * s5 * s3p - c2 * c3 * c5 * c3p * s1 * s2 * s4 + c2 * c5 * s1 * s2 * s3 * s4 * s3p - c2 * c2 * c3 * c4 * c3p * s1 * s4 * s5 + c2 * c3 * c4 * s1 * s2 * s4 * s5 * s3p + c2 * c4 * c3p * s1 * s2 * s3 * s4 * s5) / singularity6;
-            inverseJoc[3, 4] = (c2p3 * s1 * s5 - c2p3 * c4 * c4 * s1 * s5 - c2 * c4 * c4 * s1 * s5 * s3p - c4 * c4 * c3p * s1 * s2 * s5 + c2 * c4 * c5 * c3p * s1 + c1 * c3 * c5 * s4 * s3p - c4 * c5 * s1 * s2 * s3p + c2p3 * c1 * c2 * c5 * s4 * s3p + c2p3 * c1 * c5 * c3p * s2 * s4 + c1 * c3 * c4 * c3p * s4 * s5 - c1 * c2 * c2 * c3 * c5 * s4 * s3p - c1 * c2 * c2 * c5 * c3p * s3 * s4 + c2p3 * c1 * c2 * c4 * c3p * s4 * s5 - c2p3 * c1 * c4 * s2 * s4 * s5 * s3p - c1 * c2 * c3 * c5 * c3p * s2 * s4 + c1 * c2 * c5 * s2 * s3 * s4 * s3p - c1 * c2 * c2 * c3 * c4 * c3p * s4 * s5 + c1 * c2 * c2 * c4 * s3 * s4 * s5 * s3p + c1 * c2 * c3 * c4 * s2 * s4 * s5 * s3p + c1 * c2 * c4 * c3p * s2 * s3 * s4 * s5) / singularity6;
-            inverseJoc[3, 5] = s2p3 - (Math.Cos(t2 + t3 + t4) * cot5) / 2 - (Math.Cos(t2 + t3 - t4) * cot5) / 2;
-            inverseJoc[4, 0] = (112 * c1 * c2 * c2 * c4 - 103 * s1 * s2 * s4 + 5 * c1 * c2 * c4 + 103 * c1 * c2 * c2 * c3 * c4 + 7 * c1 * c2 * c2 * c4 * s3 - 7 * c2 * c3 * c3 * s1 * s4 + 103 * c3 * c3 * s1 * s2 * s4 + 7 * c1 * c2 * c3 * c4 * s2 - 103 * c1 * c2 * c4 * s2 * s3 + 103 * c2 * c3 * s1 * s3 * s4 + 7 * c3 * s1 * s2 * s3 * s4) / singularity10;
-            inverseJoc[4, 1] = -(103 * c1 * s2 * s4 + 112 * c2 * c2 * c4 * s1 + 5 * c2 * c4 * s1 + 7 * c1 * c2 * c3 * c3 * s4 + 103 * c2 * c2 * c3 * c4 * s1 - 103 * c1 * c3 * c3 * s2 * s4 + 7 * c2 * c2 * c4 * s1 * s3 + 7 * c2 * c3 * c4 * s1 * s2 - 103 * c1 * c2 * c3 * s3 * s4 - 103 * c2 * c4 * s1 * s2 * s3 - 7 * c1 * c3 * s2 * s3 * s4) / singularity10;
-            inverseJoc[4, 2] = (c4 * s2) / (5 * singularity3);
+            inverseJoc[3, 0] = -1.0 * (103 * c2 * s1 * s5 + 112 * c1 * c2 * c2 * c5 * s4 - 103 * c2 * c3 * c3 * s1 * s5 - 7 * c3 * c3 * s1 * s2 * s5 + 5 * c1 * c2 * c5 * s4 + 103 * c4 * c5 * s1 * s2 + 103 * c1 * c2 * c2 * c3 * c5 * s4 + 7 * c2 * c3 * c3 * c4 * c5 * s1 + 7 * c1 * c2 * c2 * c5 * s3 * s4 - 103 * c3 * c3 * c4 * c5 * s1 * s2 - 7 * c2 * c3 * s1 * s3 * s5 + 103 * c3 * s1 * s2 * s3 * s5 + 7 * c1 * c2 * c3 * c5 * s2 * s4 - 103 * c2 * c3 * c4 * c5 * s1 * s3 - 103 * c1 * c2 * c5 * s2 * s3 * s4 - 7 * c3 * c4 * c5 * s1 * s2 * s3) / singularity5;
+            inverseJoc[3, 1] = 1.0 * (103 * c1 * c2 * c3 * c3 * s5 - 103 * c1 * c2 * s5 + 7 * c1 * c3 * c3 * s2 * s5 + 112 * c2 * c2 * c5 * s1 * s4 - 103 * c1 * c4 * c5 * s2 + 5 * c2 * c5 * s1 * s4 + 103 * c1 * c3 * c3 * c4 * c5 * s2 + 103 * c2 * c2 * c3 * c5 * s1 * s4 + 7 * c2 * c2 * c5 * s1 * s3 * s4 + 7 * c1 * c2 * c3 * s3 * s5 - 103 * c1 * c3 * s2 * s3 * s5 - 7 * c1 * c2 * c3 * c3 * c4 * c5 + 103 * c1 * c2 * c3 * c4 * c5 * s3 + 7 * c1 * c3 * c4 * c5 * s2 * s3 + 7 * c2 * c3 * c5 * s1 * s2 * s4 - 103 * c2 * c5 * s1 * s2 * s3 * s4) / singularity5;
+            inverseJoc[3, 2] = -1.0 * (c5 * s2 * s4) / (5 * singularity7);
+            inverseJoc[3, 3] = 1.0 * (c2p3 * c1 * c4 * c4 * s5 - c2p3 * c1 * s5 + c1 * c2 * c4 * c4 * s5 * s3p + c1 * c4 * c4 * c3p * s2 * s5 - c1 * c2 * c4 * c5 * c3p + c1 * c4 * c5 * s2 * s3p + c3 * c5 * s1 * s4 * s3p - c2 * c2 * c3 * c5 * s1 * s4 * s3p - c2 * c2 * c5 * c3p * s1 * s3 * s4 + c2p3 * c2 * c5 * s1 * s4 * s3p + c2p3 * c5 * c3p * s1 * s2 * s4 + c3 * c4 * c3p * s1 * s4 * s5 + c2 * c2 * c4 * s1 * s3 * s4 * s5 * s3p + c2p3 * c2 * c4 * c3p * s1 * s4 * s5 - c2p3 * c4 * s1 * s2 * s4 * s5 * s3p - c2 * c3 * c5 * c3p * s1 * s2 * s4 + c2 * c5 * s1 * s2 * s3 * s4 * s3p - c2 * c2 * c3 * c4 * c3p * s1 * s4 * s5 + c2 * c3 * c4 * s1 * s2 * s4 * s5 * s3p + c2 * c4 * c3p * s1 * s2 * s3 * s4 * s5) / singularity6;
+            inverseJoc[3, 4] = 1.0 * (c2p3 * s1 * s5 - c2p3 * c4 * c4 * s1 * s5 - c2 * c4 * c4 * s1 * s5 * s3p - c4 * c4 * c3p * s1 * s2 * s5 + c2 * c4 * c5 * c3p * s1 + c1 * c3 * c5 * s4 * s3p - c4 * c5 * s1 * s2 * s3p + c2p3 * c1 * c2 * c5 * s4 * s3p + c2p3 * c1 * c5 * c3p * s2 * s4 + c1 * c3 * c4 * c3p * s4 * s5 - c1 * c2 * c2 * c3 * c5 * s4 * s3p - c1 * c2 * c2 * c5 * c3p * s3 * s4 + c2p3 * c1 * c2 * c4 * c3p * s4 * s5 - c2p3 * c1 * c4 * s2 * s4 * s5 * s3p - c1 * c2 * c3 * c5 * c3p * s2 * s4 + c1 * c2 * c5 * s2 * s3 * s4 * s3p - c1 * c2 * c2 * c3 * c4 * c3p * s4 * s5 + c1 * c2 * c2 * c4 * s3 * s4 * s5 * s3p + c1 * c2 * c3 * c4 * s2 * s4 * s5 * s3p + c1 * c2 * c4 * c3p * s2 * s3 * s4 * s5) / singularity6;
+            inverseJoc[3, 5] = s2p3 - 1.0 * (Math.Cos(t2 + t3 + t4) * cot5) / 2 - 1.0 * (Math.Cos(t2 + t3 - t4) * cot5) / 2;
+            inverseJoc[4, 0] = 1.0 * (112 * c1 * c2 * c2 * c4 - 103 * s1 * s2 * s4 + 5 * c1 * c2 * c4 + 103 * c1 * c2 * c2 * c3 * c4 + 7 * c1 * c2 * c2 * c4 * s3 - 7 * c2 * c3 * c3 * s1 * s4 + 103 * c3 * c3 * s1 * s2 * s4 + 7 * c1 * c2 * c3 * c4 * s2 - 103 * c1 * c2 * c4 * s2 * s3 + 103 * c2 * c3 * s1 * s3 * s4 + 7 * c3 * s1 * s2 * s3 * s4) / singularity10;
+            inverseJoc[4, 1] = -1.0 * (103 * c1 * s2 * s4 + 112 * c2 * c2 * c4 * s1 + 5 * c2 * c4 * s1 + 7 * c1 * c2 * c3 * c3 * s4 + 103 * c2 * c2 * c3 * c4 * s1 - 103 * c1 * c3 * c3 * s2 * s4 + 7 * c2 * c2 * c4 * s1 * s3 + 7 * c2 * c3 * c4 * s1 * s2 - 103 * c1 * c2 * c3 * s3 * s4 - 103 * c2 * c4 * s1 * s2 * s3 - 7 * c1 * c3 * s2 * s3 * s4) / singularity10;
+            inverseJoc[4, 2] = 1.0 * (c4 * s2) / (5 * singularity3);
             inverseJoc[4, 3] = c4 * s1 - c1 * c2 * s3 * s4 - c1 * c3 * s2 * s4;
             inverseJoc[4, 4] = c1 * c4 + c2 * s1 * s3 * s4 + c3 * s1 * s2 * s4;
             inverseJoc[4, 5] = -c2p3 * s4;
-            inverseJoc[5, 0] = -(103 * c4 * s1 * s2 + 112 * c1 * c2 * c2 * s4 + 5 * c1 * c2 * s4 + 103 * c1 * c2 * c2 * c3 * s4 + 7 * c2 * c3 * c3 * c4 * s1 + 7 * c1 * c2 * c2 * s3 * s4 - 103 * c3 * c3 * c4 * s1 * s2 + 7 * c1 * c2 * c3 * s2 * s4 - 103 * c2 * c3 * c4 * s1 * s3 - 103 * c1 * c2 * s2 * s3 * s4 - 7 * c3 * c4 * s1 * s2 * s3) / singularity9;
-            inverseJoc[5, 1] = (5 * c2 * s1 * s4 + 112 * c2 * c2 * s1 * s4 - 103 * c1 * c4 * s2 - 7 * c1 * c2 * c3 * c3 * c4 + 103 * c1 * c3 * c3 * c4 * s2 + 103 * c2 * c2 * c3 * s1 * s4 + 7 * c2 * c2 * s1 * s3 * s4 + 103 * c1 * c2 * c3 * c4 * s3 + 7 * c1 * c3 * c4 * s2 * s3 + 7 * c2 * c3 * s1 * s2 * s4 - 103 * c2 * s1 * s2 * s3 * s4) / singularity9;
-            inverseJoc[5, 2] = -(s2 * s4) / (5 * singularity7);
-            inverseJoc[5, 3] = -(s1 * s4 + c1 * c2 * c4 * s3 + c1 * c3 * c4 * s2) / singularity8;
-            inverseJoc[5, 4] = (c2 * c4 * s1 * s3 - c1 * s4 + c3 * c4 * s1 * s2) / singularity8;
-            inverseJoc[5, 5] = -(c2p3 * c4) / singularity8;
+            inverseJoc[5, 0] = -1.0 * (103 * c4 * s1 * s2 + 112 * c1 * c2 * c2 * s4 + 5 * c1 * c2 * s4 + 103 * c1 * c2 * c2 * c3 * s4 + 7 * c2 * c3 * c3 * c4 * s1 + 7 * c1 * c2 * c2 * s3 * s4 - 103 * c3 * c3 * c4 * s1 * s2 + 7 * c1 * c2 * c3 * s2 * s4 - 103 * c2 * c3 * c4 * s1 * s3 - 103 * c1 * c2 * s2 * s3 * s4 - 7 * c3 * c4 * s1 * s2 * s3) / singularity9;
+            inverseJoc[5, 1] = 1.0 * (5 * c2 * s1 * s4 + 112 * c2 * c2 * s1 * s4 - 103 * c1 * c4 * s2 - 7 * c1 * c2 * c3 * c3 * c4 + 103 * c1 * c3 * c3 * c4 * s2 + 103 * c2 * c2 * c3 * s1 * s4 + 7 * c2 * c2 * s1 * s3 * s4 + 103 * c1 * c2 * c3 * c4 * s3 + 7 * c1 * c3 * c4 * s2 * s3 + 7 * c2 * c3 * s1 * s2 * s4 - 103 * c2 * s1 * s2 * s3 * s4) / singularity9;
+            inverseJoc[5, 2] = -1.0 * (s2 * s4) / (5 * singularity7);
+            inverseJoc[5, 3] = -1.0 * (s1 * s4 + c1 * c2 * c4 * s3 + c1 * c3 * c4 * s2) / singularity8;
+            inverseJoc[5, 4] = 1.0 * (c2 * c4 * s1 * s3 - c1 * s4 + c3 * c4 * s1 * s2) / singularity8;
+            inverseJoc[5, 5] = -1.0 * (c2p3 * c4) / singularity8;
             return inverseJoc;
         }
 
+        #endregion
 
     }
-        #endregion
 
 
 }
