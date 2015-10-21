@@ -13,6 +13,10 @@ namespace LightWeight_Server
 {
     class RobotInfo
     {
+
+        public enum ElbowPosition { up, down, stretched };
+        public enum BasePosition { front, back, vertical };
+
         object TrajectoryPrintLock = new object();
         object trajectoryLock = new object();
         object RobotInfoLock = new object();
@@ -55,7 +59,6 @@ namespace LightWeight_Server
 
         Pose[] _T = new Pose[7];
         Matrix[] _T0 = new Matrix[7];
-        double[,] _Jacobian = new double[6, 6];
         double[,] _InverseJacobian = new double[6, 6];
 
         Pose _newPose;
@@ -266,6 +269,8 @@ namespace LightWeight_Server
             GUI.ConnectRobot(this, RobotNumber);
         }
 
+        #region 4ms Kuka server Methods
+
         public void Connect()
         {
             if (_isConnecting)
@@ -276,13 +281,13 @@ namespace LightWeight_Server
                 homePosition = _Position.LastElement.kukaValues;
                 _StartPose = forwardKinimatics(homeAngles, Vector3.Zero);
                 _StartTipPose = _Position.LastElement.Pose;
-                _EndEffectorPose = Pose.inverse(_StartPose) * _StartTipPose ;
+                _EndEffectorPose = Pose.inverse(_StartPose) * _StartTipPose;
                 _EndEffector = _EndEffectorPose.Translation;
                 getLinkTransforms(homeAngles[0], homeAngles[1], homeAngles[2], homeAngles[3], homeAngles[4], homeAngles[5], _EndEffector, out _T, out _T0);
                 double[] inverseAngles = IKSolver(_StartTipPose, _EndEffector, _Angles.LastElement, ref _elbow, ref _base);
-                if (!SF.IsClose(homeAngles,inverseAngles))
+                if (!SF.IsClose(homeAngles, inverseAngles))
                 {
-                    updateError(string.Format("Inverse Home not equal\nMeasured: (0}\nInverse: {1}",SF.DoublesToString(homeAngles),SF.DoublesToString(inverseAngles)),new KukaException("IK solver error"));
+                    updateError(string.Format("Inverse Home not equal\nMeasured: (0}\nInverse: {1}", SF.DoublesToString(homeAngles), SF.DoublesToString(inverseAngles)), new KukaException("IK solver error"));
                 }
                 _isConnected = true;
                 _GUI.IsConnected = true;
@@ -293,8 +298,6 @@ namespace LightWeight_Server
                 _isConnecting = true;
             }
         }
-
-
 
         public void Disconnect()
         {
@@ -314,13 +317,132 @@ namespace LightWeight_Server
             }
         }
 
-
-        public void updateError(string newError, Exception Error)
+        public void updateServerTime(double t)
         {
-            _GUI.updateError(newError, Error);
+            serverTimer.Enqueue(t);
+            if (t > 3)//|| Math.Abs(t - MaxserverTimer.ToArray().Average()) < 0.01)
+            {
+                MaxserverTimer.Enqueue(t);
+            }
         }
 
-        #region Movement
+        /// <summary>
+        /// Loads the _desiredPosition data in Base coordinates and the _desiredRotation in local SartPose coordinates. 
+        /// The _desiredRotation is a rotation, which when applied, will rotate the current pose to desired final pose.
+        /// </summary>
+        public void LoadCommand()
+        {
+            lock (trajectoryLock)
+            {
+                try
+                {
+                    if (_newCommandLoaded)
+                    {
+                        if (_newPosesLoaded)
+                        {
+                            _TrajectoryHandler.LodeBuffer(currentPose, currentVelocity);
+                            //  _TrajectoryList = new TrajectoryOld[_NewTrajectoryList.Length];
+                            // _NewTrajectoryList.CopyTo(_TrajectoryList, 0);
+                            //  _NewTrajectoryList = null;
+                            // _CurrentTrajectory = _TrajectoryList[0];
+                            _newPosesLoaded = false;
+                            _newOrientationLoaded = false;
+                            _newPositionLoaded = false;
+                            _newCommandLoaded = false;
+                            _isCommanded = true;
+                            _isCommandedPosition = true;
+                            _isCommandedOrientation = true;
+                            //   _CurrentTrajectory.start();
+                        }
+                        if (_newOrientationLoaded)
+                        {
+
+                            // long orientationDuration = (long)(TimeSpan.TicksPerSecond * (_desiredPose.angle / (MaxOrientationDisplacement * 10)));
+                            if (_newPositionLoaded)
+                            {
+                                _CurrentTrajectory.load(0, _newPose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
+                                _newOrientationLoaded = false;
+                                _newPositionLoaded = false;
+                                _newCommandLoaded = false;
+                                _isCommanded = true;
+                                _isCommandedPosition = true;
+                            }
+                            else
+                            {
+                                _CurrentTrajectory.load(-1, _newPose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
+                                _newOrientationLoaded = false;
+                                _newCommandLoaded = false;
+                                _isCommanded = true;
+                            }
+                            _isCommandedOrientation = true;
+                        }
+                        else if (_newPositionLoaded)
+                        {
+                            _CurrentTrajectory.load(1, _newPose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
+                            _newPositionLoaded = false;
+                            _newCommandLoaded = false;
+                            _isCommanded = true;
+                            _isCommandedPosition = true;
+                        }
+
+
+
+                    }
+                }
+                catch (Exception e)
+                {
+                    updateError("Exception " + e.Message, e);
+                    _newCommandLoaded = false;
+                    _isCommanded = false;
+                    _newOrientationLoaded = false;
+                    _newPositionLoaded = false;
+                    _isCommandedPosition = false;
+                    _isCommandedOrientation = false;
+                }
+            }
+        }
+
+
+        double[] checkLimits(double[] axisComand)
+        {
+            double[] saturatedComand = new double[axisComand.Length];
+            for (int i = 0; i < axisComand.Length; i++)
+            {
+                saturatedComand[i] = (Math.Abs(axisComand[i]) > _MaxAxisChange) ? Math.Sign(axisComand[i]) * _MaxAxisChange : axisComand[i];
+            }
+            return saturatedComand;
+        }
+
+        public void updateComandPosition()
+        {
+            lock (trajectoryLock)
+            {
+
+                if (_isConnected && _isCommanded && _TrajectoryHandler.IsActive)
+                {
+                    double[] axisComand = _TrajectoryHandler.RobotChange(currentPose, currentVelocity, _InverseJacobian);
+                    _axisCommand = checkLimits(axisComand);
+                    _CommandPose = new TimeCoordinate(new Pose(_axisCommand), _Position.LastElement.Ipoc);
+                }
+
+
+                else
+                {
+                    // End condition, or disconnected, command position is zero
+                    flushCommands();
+                }
+
+            }
+        }
+
+        public void flushCommands()
+        {
+            _CommandPose = new TimeCoordinate(0, 0, 0, 0, 0, 0, _Position.LastElement.Ipoc);
+            _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
+        }
+
+        #region Process data methods, first to call from kuka server
+
         public void updateRobotPosition(long LIpoc, long Ipoc, double x, double y, double z, double a, double b, double c)
         {
             //updateError(x.ToString() + " : " + y.ToString() + " : " + z.ToString() + " : " + a.ToString() + " : " + b.ToString() + " : " + c.ToString());
@@ -332,11 +454,55 @@ namespace LightWeight_Server
             TimeCoordinate newPosition = new TimeCoordinate(x, y, z, a, b, c, Ipoc);
             _Position.Enqueue(newPosition);
             TimeCoordinate[] positions = _Position.ThreadSafeToArray;
-            _velocity.Enqueue(SF.AverageRateOfChange(positions,_loopTime));
+            _velocity.Enqueue(SF.AverageRateOfChange(positions, _loopTime));
             TimeCoordinate[] velocities = _velocity.ThreadSafeToArray;
-            _acceleration.Enqueue(SF.AverageRateOfChange(velocities,_loopTime));
+            _acceleration.Enqueue(SF.AverageRateOfChange(velocities, _loopTime));
         }
 
+        public void updateRobotAngles(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
+        {
+            _Angles.Enqueue(new double[] { a1, a2, a3, a4, a5, a6 });
+            if (_isConnected)
+            {
+                jacobianTimer.Restart();
+                _InverseJacobian = GetInverseJacobian(1e-12);
+                jacobianTimer.Stop();
+                double newTime = jacobianTimer.Elapsed.TotalMilliseconds;
+                JocTimer.Enqueue(newTime);
+                double[] jocTimes = JocTimer.ThreadSafeToArray;
+                double[] maxJoc = MaxJocTimer.ThreadSafeToArray;
+                _JacobienAverTimes = jocTimes.Average();
+                if (newTime > maxJoc.Average() || Math.Abs(newTime - maxJoc.Average()) < 0.1)
+                {
+                    MaxJocTimer.Enqueue(newTime);
+                }
+            }
+        }
+
+        public void updateRobotTorque(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
+        {
+            _Torque.Enqueue(new TimeCoordinate(a1, a2, a3, a4, a5, a6, Ipoc));
+        }
+
+        public void updateSignal(double a, double b, long Ipoc)
+        {
+            if (a == 65)
+            {
+                // Robot has not moved
+            }
+            if (b == 3)
+            {
+                // Robot Drives are on
+            }
+            else if (b == 4)
+            {
+                // Robot Drives are off
+            }
+        }
+        #endregion
+
+
+        #region Kinamatic equations, FK/IK and transformation matricies
 
         /// <summary>
         /// Assume Angles are in radians!
@@ -356,7 +522,7 @@ namespace LightWeight_Server
             Matrix T34 = Matrix.Transpose(new Matrix((float)Math.Cos(t4), (float)-Math.Sin(t4), 0, 35, 0, 0, -1, 515, (float)Math.Sin(t4), (float)Math.Cos(t4), 0, 0, 0, 0, 0, 1));
             Matrix T45 = Matrix.Transpose(new Matrix((float)Math.Cos(t5), (float)-Math.Sin(t5), 0, 0, 0, 0, 1, 0, (float)-Math.Sin(t5), (float)-Math.Cos(t5), 0, 0, 0, 0, 0, 1));
             Matrix T56 = Matrix.Transpose(new Matrix((float)-Math.Cos(t6), (float)-Math.Sin(t6), 0, 0, 0, 0, 1, 0, (float)-Math.Sin(t6), (float)Math.Cos(t6), 0, 0, 0, 0, 0, 1));
-            Matrix T67 = Matrix.Transpose(new Matrix(1, 0, 0, End.X, 0, 1, 0, End.Y, 0, 0, 1, End.Z+80, 0, 0, 0, 1));
+            Matrix T67 = Matrix.Transpose(new Matrix(1, 0, 0, End.X, 0, 1, 0, End.Y, 0, 0, 1, End.Z + 80, 0, 0, 0, 1));
             Matrix T02 = SF.M(T01, T12);
             Matrix T03 = SF.M(T02, T23);
             Matrix T04 = SF.M(T03, T34);
@@ -364,32 +530,147 @@ namespace LightWeight_Server
             Matrix T06 = SF.M(T05, T56);
             Matrix T07 = SF.M(T06, T67);
             T = new Pose[] { new Pose(T01), new Pose(T12), new Pose(T23), new Pose(T34), new Pose(T45), new Pose(T56), new Pose(T67) };
-            T0 = new Matrix[] {T01,T02,T03,T04,T05,T06,T07};
+            T0 = new Matrix[] { T01, T02, T03, T04, T05, T06, T07 };
         }
 
-        double[,] InverseJacobian(double error)
+
+        double[,] GetInverseJacobian(double error)
         {
-            double[,] InvWristJacobian = SF.InverseJacobianWrist(_Angles.LastElement, error);
+            double[,] InvWristJacobian = InverseJacobianWrist(_Angles.LastElement, error);
             return getTipInverseJacobian(InvWristJacobian, _EndEffector);
         }
+
+        double[,] getTipInverseJacobian(double[,] InvWristJacobian, Vector3 EE)
+        {
+            double[,] InvSkewEE = new double[,] { { 1, 0, 0, 0, -(EE.Z), EE.Y }, { 0, 1, 0, EE.Z, 0, -EE.X }, { 0, 0, 1, -EE.Y, EE.X, 0 }, { 0, 0, 0, 1, 0, 0 }, { 0, 0, 0, 0, 1, 0 }, { 0, 0, 0, 0, 0, 1 } };
+            return SF.multiplyMatrix(InvWristJacobian, InvSkewEE);
+        }
+
+        /// <summary>
+        /// Computes the inverse jacobian to the WRIST where if singularity occures the result aproximates the jacobian.
+        /// </summary>
+        /// <param name="t"></param> 6 angles in radians.
+        /// <param name="error"></param> Error for singularity detection, 1e-6 specified if greater than 1e-2.
+        /// <returns></returns>
+        public double[,] InverseJacobianWrist(double[] t, double error)
+        {
+            if (t.Length == 6)
+            {
+                error = (Math.Abs(error) < 1e-2) ? 1e-6 : Math.Abs(error);
+                return InverseJacobianWrist(t[0], t[1], t[2], t[3], t[4], t[5], error);
+            }
+            else
+            {
+                throw new KukaException(string.Format("Incorrect number of angles supplied. Need 6 angles but {0} were given.", t.Length));
+            }
+        }
+
+        /// <summary>
+        /// Computes the inverse jacobian to the WRIST where if singularity occures aproximates the jacobian.
+        /// Angles are in radians!!!
+        /// </summary>
+        /// <param name="t1"></param>
+        /// <param name="t2"></param>
+        /// <param name="t3"></param>
+        /// <param name="t4"></param>
+        /// <param name="t5"></param>
+        /// <param name="t6"></param>
+        /// <param name="EE"></param>
+        /// <returns></returns>
+        double[,] InverseJacobianWrist(double t1, double t2, double t3, double t4, double t5, double t6, double error)
+        {
+            double[,] inverseJoc = new double[6, 6];
+            double s1 = Math.Sin(t1);
+            double c1 = Math.Cos(t1);
+            double s2 = Math.Sin(t2);
+            double s2p3 = Math.Sin(t2 + t3);
+            double c2p3 = Math.Cos(t2 + t3);
+            double c2 = Math.Cos(t2);
+            double s3 = Math.Sin(t3);
+            double c3 = Math.Cos(t3);
+            double s3p = Math.Sin(t3 - 1.0 * Math.PI / 2);
+            double c3p = Math.Cos(t3 - 1.0 * Math.PI / 2);
+            double s4 = Math.Sin(t4);
+            double c4 = Math.Cos(t4);
+            double s5 = Math.Sin(t5);
+            double c5 = Math.Cos(t5);
+            double s6 = Math.Sin(t6);
+            double c6 = Math.Cos(t6);
+            double c234 = Math.Cos(t2 + t3 + t4);
+            // These are the denominators withing the inverse Jacobian, if they tend to zero singularity is reached and velocities will tend to inf!
+            double cot5 = (Math.Abs(s5) < error) ? 1.0 * c5 / error : 1.0 * c5 / s5;
+            double singularity1 = (Math.Abs(103 * c2p3 + 7 * s2p3 + 112 * c2 + 5) < error) ? Math.Sign(103 * c2p3 + 7 * s2p3 + 112 * c2 + 5) * error : (103 * c2p3 + 7 * s2p3 + 112 * c2 + 5);
+            double singularity2 = (Math.Abs(1960 * c3 - 28840 * s3) < error) ? Math.Sign(1960 * c3 - 28840 * s3) * error : (1960 * c3 - 28840 * s3);
+            double singularity3 = (Math.Abs(7 * c3 - 103 * s3) < error) ? Math.Sign(7 * c3 - 103 * s3) * error : (7 * c3 - 103 * s3);
+            double singularity4 = (Math.Abs(3920 * c3 - 57680 * s3) < error) ? Math.Sign(3920 * c3 - 57680 * s3) * error : (3920 * c3 - 57680 * s3);
+            double Sing5 = (3605 * c2 * s5 - 175 * c3 * s5 - 53045 * s2 * s5 + 2575 * s3 * s5 + 57680 * c2 * s3 * s5 - 7210 * c2 * c3 * c3 * s5 + 52800 * c3 * c3 * s2 * s5 - 3920 * c2 * c3 * s5 + 52800 * c2 * c3 * s3 * s5 + 7210 * c3 * s2 * s3 * s5);
+            double singularity5 = (Math.Abs(Sing5) < error) ? Math.Sign(Sing5) * error : (Sing5);
+            double Sing6 = (c2p3 * c2p3 * s5 - c2p3 * c2p3 * c4 * c4 * s5 + s2p3 * c2 * s3 * s5 + s2p3 * c3 * s2 * s5 - s2p3 * c4 * c4 * s2 * s5 * s3p + c2p3 * c2 * c4 * c5 * c3p - c2p3 * c4 * c5 * s2 * s3p + s2p3 * c2 * c4 * c5 * s3p + s2p3 * c4 * c5 * c3p * s2 - c2p3 * c2 * c4 * c4 * s5 * s3p - c2p3 * c4 * c4 * c3p * s2 * s5 + s2p3 * c2 * c4 * c4 * c3p * s5 - s2p3 * c2 * c4 * c4 * s3 * s5 - s2p3 * c3 * c4 * c4 * s2 * s5);
+            double singularity6 = (Math.Abs(Sing6) < error) ? Math.Sign(Sing6) * error : (Sing6);
+            double singularity7 = (Math.Abs(7 * c3 * s5 - 103 * s3 * s5) < error) ? Math.Sign(7 * c3 * s5 - 103 * s3 * s5) * error : (7 * c3 * s5 - 103 * s3 * s5);
+            double singularity8 = ((Math.Abs(s5) < error) ? Math.Sign(s5) * error : s5);
+            double Sing9 = (5 * s5 * (721 * c2 - 35 * c3 - 10609 * s2 + 515 * s3 - 784 * c2 * c3 + 11536 * c2 * s3 - 1442 * c2 * c3 * c3 + 10560 * c3 * c3 * s2 + 1442 * c3 * s2 * s3 + 10560 * c2 * c3 * s3));
+            double singularity9 = ((Math.Abs(Sing9) < error) ? Math.Sign(Sing9) * error : Sing9);
+            double Sing10 = (3605 * c2 - 175 * c3 - 53045 * s2 + 2575 * s3 - 3920 * c2 * c3 + 57680 * c2 * s3 - 7210 * c2 * c3 * c3 + 52800 * c3 * c3 * s2 + 7210 * c3 * s2 * s3 + 52800 * c2 * c3 * s3);
+            double singularity10 = ((Math.Abs(Sing10) < error) ? Math.Sign(Sing10) * error : Sing10);
+
+            inverseJoc[0, 0] = -1.0 * s1 / (5 * singularity1);
+            inverseJoc[0, 1] = -1.0 * c1 / (5 * singularity1);
+            inverseJoc[0, 2] = 0;
+            inverseJoc[0, 3] = 0;
+            inverseJoc[0, 4] = 0;
+            inverseJoc[0, 5] = 0;
+            inverseJoc[1, 0] = -1.0 * (103 * c1 * c2 * c3 - 103 * c1 * s2 * s3 + 7 * c1 * c2 * s3 + 7 * c1 * c3 * s2) / (2 * singularity2);
+            inverseJoc[1, 1] = 1.0 * (7 * c2 * s1 * s3 + 7 * c3 * s1 * s2 - 103 * s1 * s2 * s3 + 103 * c2 * c3 * s1) / (2 * singularity2);
+            inverseJoc[1, 2] = -1.0 * (7 * c2p3 - 103 * s2p3) / (560 * singularity3);
+            inverseJoc[1, 3] = 0;
+            inverseJoc[1, 4] = 0;
+            inverseJoc[1, 5] = 0;
+            inverseJoc[2, 0] = 1.0 * (112 * c1 * c2 - 103 * c1 * s2 * s3 + 103 * c1 * c2 * c3 + 7 * c1 * c2 * s3 + 7 * c1 * c3 * s2) / singularity4;
+            inverseJoc[2, 1] = -1.0 * (112 * c2 * s1 + 7 * c2 * s1 * s3 + 7 * c3 * s1 * s2 - 103 * s1 * s2 * s3 + 103 * c2 * c3 * s1) / singularity4;
+            inverseJoc[2, 2] = -1.0 * (103 * s2p3 - 7 * c2p3 + 112 * s2) / (560 * singularity3);
+            inverseJoc[2, 3] = 0;
+            inverseJoc[2, 4] = 0;
+            inverseJoc[2, 5] = 0;
+            inverseJoc[3, 0] = -1.0 * (103 * c2 * s1 * s5 + 112 * c1 * c2 * c2 * c5 * s4 - 103 * c2 * c3 * c3 * s1 * s5 - 7 * c3 * c3 * s1 * s2 * s5 + 5 * c1 * c2 * c5 * s4 + 103 * c4 * c5 * s1 * s2 + 103 * c1 * c2 * c2 * c3 * c5 * s4 + 7 * c2 * c3 * c3 * c4 * c5 * s1 + 7 * c1 * c2 * c2 * c5 * s3 * s4 - 103 * c3 * c3 * c4 * c5 * s1 * s2 - 7 * c2 * c3 * s1 * s3 * s5 + 103 * c3 * s1 * s2 * s3 * s5 + 7 * c1 * c2 * c3 * c5 * s2 * s4 - 103 * c2 * c3 * c4 * c5 * s1 * s3 - 103 * c1 * c2 * c5 * s2 * s3 * s4 - 7 * c3 * c4 * c5 * s1 * s2 * s3) / singularity5;
+            inverseJoc[3, 1] = 1.0 * (103 * c1 * c2 * c3 * c3 * s5 - 103 * c1 * c2 * s5 + 7 * c1 * c3 * c3 * s2 * s5 + 112 * c2 * c2 * c5 * s1 * s4 - 103 * c1 * c4 * c5 * s2 + 5 * c2 * c5 * s1 * s4 + 103 * c1 * c3 * c3 * c4 * c5 * s2 + 103 * c2 * c2 * c3 * c5 * s1 * s4 + 7 * c2 * c2 * c5 * s1 * s3 * s4 + 7 * c1 * c2 * c3 * s3 * s5 - 103 * c1 * c3 * s2 * s3 * s5 - 7 * c1 * c2 * c3 * c3 * c4 * c5 + 103 * c1 * c2 * c3 * c4 * c5 * s3 + 7 * c1 * c3 * c4 * c5 * s2 * s3 + 7 * c2 * c3 * c5 * s1 * s2 * s4 - 103 * c2 * c5 * s1 * s2 * s3 * s4) / singularity5;
+            inverseJoc[3, 2] = -1.0 * (c5 * s2 * s4) / (5 * singularity7);
+            inverseJoc[3, 3] = 1.0 * (c2p3 * c1 * c4 * c4 * s5 - c2p3 * c1 * s5 + c1 * c2 * c4 * c4 * s5 * s3p + c1 * c4 * c4 * c3p * s2 * s5 - c1 * c2 * c4 * c5 * c3p + c1 * c4 * c5 * s2 * s3p + c3 * c5 * s1 * s4 * s3p - c2 * c2 * c3 * c5 * s1 * s4 * s3p - c2 * c2 * c5 * c3p * s1 * s3 * s4 + c2p3 * c2 * c5 * s1 * s4 * s3p + c2p3 * c5 * c3p * s1 * s2 * s4 + c3 * c4 * c3p * s1 * s4 * s5 + c2 * c2 * c4 * s1 * s3 * s4 * s5 * s3p + c2p3 * c2 * c4 * c3p * s1 * s4 * s5 - c2p3 * c4 * s1 * s2 * s4 * s5 * s3p - c2 * c3 * c5 * c3p * s1 * s2 * s4 + c2 * c5 * s1 * s2 * s3 * s4 * s3p - c2 * c2 * c3 * c4 * c3p * s1 * s4 * s5 + c2 * c3 * c4 * s1 * s2 * s4 * s5 * s3p + c2 * c4 * c3p * s1 * s2 * s3 * s4 * s5) / singularity6;
+            inverseJoc[3, 4] = 1.0 * (c2p3 * s1 * s5 - c2p3 * c4 * c4 * s1 * s5 - c2 * c4 * c4 * s1 * s5 * s3p - c4 * c4 * c3p * s1 * s2 * s5 + c2 * c4 * c5 * c3p * s1 + c1 * c3 * c5 * s4 * s3p - c4 * c5 * s1 * s2 * s3p + c2p3 * c1 * c2 * c5 * s4 * s3p + c2p3 * c1 * c5 * c3p * s2 * s4 + c1 * c3 * c4 * c3p * s4 * s5 - c1 * c2 * c2 * c3 * c5 * s4 * s3p - c1 * c2 * c2 * c5 * c3p * s3 * s4 + c2p3 * c1 * c2 * c4 * c3p * s4 * s5 - c2p3 * c1 * c4 * s2 * s4 * s5 * s3p - c1 * c2 * c3 * c5 * c3p * s2 * s4 + c1 * c2 * c5 * s2 * s3 * s4 * s3p - c1 * c2 * c2 * c3 * c4 * c3p * s4 * s5 + c1 * c2 * c2 * c4 * s3 * s4 * s5 * s3p + c1 * c2 * c3 * c4 * s2 * s4 * s5 * s3p + c1 * c2 * c4 * c3p * s2 * s3 * s4 * s5) / singularity6;
+            inverseJoc[3, 5] = s2p3 - 1.0 * (Math.Cos(t2 + t3 + t4) * cot5) / 2 - 1.0 * (Math.Cos(t2 + t3 - t4) * cot5) / 2;
+            inverseJoc[4, 0] = 1.0 * (112 * c1 * c2 * c2 * c4 - 103 * s1 * s2 * s4 + 5 * c1 * c2 * c4 + 103 * c1 * c2 * c2 * c3 * c4 + 7 * c1 * c2 * c2 * c4 * s3 - 7 * c2 * c3 * c3 * s1 * s4 + 103 * c3 * c3 * s1 * s2 * s4 + 7 * c1 * c2 * c3 * c4 * s2 - 103 * c1 * c2 * c4 * s2 * s3 + 103 * c2 * c3 * s1 * s3 * s4 + 7 * c3 * s1 * s2 * s3 * s4) / singularity10;
+            inverseJoc[4, 1] = -1.0 * (103 * c1 * s2 * s4 + 112 * c2 * c2 * c4 * s1 + 5 * c2 * c4 * s1 + 7 * c1 * c2 * c3 * c3 * s4 + 103 * c2 * c2 * c3 * c4 * s1 - 103 * c1 * c3 * c3 * s2 * s4 + 7 * c2 * c2 * c4 * s1 * s3 + 7 * c2 * c3 * c4 * s1 * s2 - 103 * c1 * c2 * c3 * s3 * s4 - 103 * c2 * c4 * s1 * s2 * s3 - 7 * c1 * c3 * s2 * s3 * s4) / singularity10;
+            inverseJoc[4, 2] = 1.0 * (c4 * s2) / (5 * singularity3);
+            inverseJoc[4, 3] = c4 * s1 - c1 * c2 * s3 * s4 - c1 * c3 * s2 * s4;
+            inverseJoc[4, 4] = c1 * c4 + c2 * s1 * s3 * s4 + c3 * s1 * s2 * s4;
+            inverseJoc[4, 5] = -c2p3 * s4;
+            inverseJoc[5, 0] = 1.0 * (103 * c4 * s1 * s2 + 112 * c1 * c2 * c2 * s4 + 5 * c1 * c2 * s4 + 103 * c1 * c2 * c2 * c3 * s4 + 7 * c2 * c3 * c3 * c4 * s1 + 7 * c1 * c2 * c2 * s3 * s4 - 103 * c3 * c3 * c4 * s1 * s2 + 7 * c1 * c2 * c3 * s2 * s4 - 103 * c2 * c3 * c4 * s1 * s3 - 103 * c1 * c2 * s2 * s3 * s4 - 7 * c3 * c4 * s1 * s2 * s3) / singularity9;
+            inverseJoc[5, 1] = -1.0 * (5 * c2 * s1 * s4 + 112 * c2 * c2 * s1 * s4 - 103 * c1 * c4 * s2 - 7 * c1 * c2 * c3 * c3 * c4 + 103 * c1 * c3 * c3 * c4 * s2 + 103 * c2 * c2 * c3 * s1 * s4 + 7 * c2 * c2 * s1 * s3 * s4 + 103 * c1 * c2 * c3 * c4 * s3 + 7 * c1 * c3 * c4 * s2 * s3 + 7 * c2 * c3 * s1 * s2 * s4 - 103 * c2 * s1 * s2 * s3 * s4) / singularity9;
+            inverseJoc[5, 2] = 1.0 * (s2 * s4) / (5 * singularity7);
+            inverseJoc[5, 3] = 1.0 * (s1 * s4 + c1 * c2 * c4 * s3 + c1 * c3 * c4 * s2) / singularity8;
+            inverseJoc[5, 4] = -1.0 * (c2 * c4 * s1 * s3 - c1 * s4 + c3 * c4 * s1 * s2) / singularity8;
+            inverseJoc[5, 5] = 1.0 * (c2p3 * c4) / singularity8;
+            return inverseJoc;
+        }
+
 
         double[,] Jacobian(Pose[] T, Matrix[] T0)
         {
             // TODO: return jacobian
             Vector3[] rit = new Vector3[6];
             Vector3[] Jr = new Vector3[6];
-            Vector3[] Jw = new  Vector3[6];
+            Vector3[] Jw = new Vector3[6];
             rit[5] = T[6].Translation;
             for (int i = 4; i >= 0; i--)
-			{
-			    rit[i] = T[i+1].Translation + Vector3.Transform(rit[i+1],T[i+1].Orientation);
-			}
+            {
+                rit[i] = T[i + 1].Translation + Vector3.Transform(rit[i + 1], T[i + 1].Orientation);
+            }
             for (int i = 0; i < 6; i++)
-			{
+            {
                 T0[i].Translation = Vector3.Zero;
-			    Jr[i] = Vector3.Transform(Vector3.Cross(new Vector3(0,0,1),rit[i]),T0[i]);
-                Jw[i] = new Vector3(T0[i].M31,T0[i].M32,T0[i].M33);
-			}
+                Jr[i] = Vector3.Transform(Vector3.Cross(new Vector3(0, 0, 1), rit[i]), T0[i]);
+                Jw[i] = new Vector3(T0[i].M31, T0[i].M32, T0[i].M33);
+            }
 
             return new double[,] {{Jr[0].X,Jr[1].X,Jr[2].X,Jr[3].X,Jr[4].X,Jr[5].X},
                                   {Jr[0].Y,Jr[1].Y,Jr[2].Y,Jr[3].Y,Jr[4].Y,Jr[5].Y},
@@ -428,7 +709,7 @@ namespace LightWeight_Server
             double c1 = Math.Cos(a1);
             double s2 = Math.Sin(a2);
             double c2 = Math.Cos(a2);
-            double s3p = Math.Sin(a3 - 1.0*Math.PI / 2);
+            double s3p = Math.Sin(a3 - 1.0 * Math.PI / 2);
             double c3p = Math.Cos(a3 - 1.0 * Math.PI / 2);
             double s4 = Math.Sin(a4);
             double c4 = Math.Cos(a4);
@@ -474,11 +755,6 @@ namespace LightWeight_Server
             M = Matrix.Transpose(M);
             return new Pose(M);
         }
-
-
-        public enum ElbowPosition { up, down, stretched };
-        public enum BasePosition { front, back, vertical };
-
 
         double[] IK1to3(Pose des, Vector3 EE, double[] lastVal, ref ElbowPosition elbow, ref BasePosition basePos)
         {
@@ -627,25 +903,7 @@ namespace LightWeight_Server
                                             { Math.Sin(theta1), Math.Cos(theta1), 0, 0 }, { 0, 0, 0, 1 } };
 
             double[,] T3t = SF.multiplyMatrix(T30, r);
-            /*
-                theta4 = Math.Atan2(-T3t[2, 2], -T3t[0, 2]);
-            
-            double s1 = Math.Sin(theta1);
-            double c1 = Math.Cos(theta1);
-            double s2 = Math.Sin(theta2);
-            double c2 = Math.Cos(theta2);
-            double s3 = Math.Sin(theta3);
-            double c3 = Math.Cos(theta3);
-            double s23 = Math.Sin(theta2+theta3);
-            double c23 = Math.Cos(theta2+theta3);
-            double s4 = Math.Sin(theta4);
-            double c4 = Math.Cos(theta4);
 
-            double s5 = -(r[0,2]*(c1*c23*c4+s1*s4)+r[1,2]*(s1*c23*c4-c1*s4)-r[2,2]*s23*c4);
-            double c5 = r[0,2]*((-c1)*s23)+r[1,2]*(-s1)*s23+r[2,2]*(-c23);
-
-             */
-            //theta5 = Math.Atan2(s5, c5);
             if (Math.Abs(T3t[1, 1]) < 1e-6 && Math.Abs(T3t[1, 0]) < 1e-6)
             {
                 // Singularity! set angles on last known theta4
@@ -665,14 +923,7 @@ namespace LightWeight_Server
                 {
                     theta6 = (thetaLast[5] < theta6) ? (theta6 - Math.PI) : (theta6 + Math.PI);
                 }
-                // if (Math.Abs(thetaLast[5] - theta6) > 1.0 * Math.PI/2)
-                //   {
-                //       theta6 = (thetaLast[5] < theta6) ? theta6 -  Math.PI : theta6 +  Math.PI;
-                //  }
                 theta5 = (Math.Abs(Math.Cos(theta4)) > Math.Abs(Math.Sin(theta4))) ? Math.Atan2((-1.0 * T3t[0, 2] / (Math.Cos(theta4))), T3t[1, 2]) : Math.Atan2((-1.0 * T3t[2, 2] / (Math.Sin(theta4))), T3t[1, 2]);
-                // double theta5b = (Math.Abs(Math.Cos(theta6)) > Math.Abs(Math.Sin(theta6))) ? Math.Atan2((-1.0 * T3t[1, 0] / (Math.Cos(theta6))), T3t[1, 2]) : Math.Atan2((-1.0 * T3t[1, 1] / (Math.Sin(theta6))), T3t[1, 2]);
-                //  theta5 = (Math.Abs(thetaLast[4] - theta5a) < Math.Abs(thetaLast[4] - theta5b)) ? theta5a : theta5b;
-
             }
             if (theta4 > (185.0 * Math.PI / 180) || theta4 < (-185.0 * Math.PI / 180))
             {
@@ -688,60 +939,11 @@ namespace LightWeight_Server
             }
             return new double[] { theta1, theta2, theta3, theta4, theta5, theta6 };
         }
+        #endregion
 
-        public void updateSignal(double a, double b, long Ipoc)
-        {
-            if (a == 65)
-            {
-                // Robot has not moved
-            }
-            if (b == 3)
-            {
-                // Robot Drives are on
-            }
-            else if (b == 4)
-            {
-                // Robot Drives are off
-            }
-        }
+        #endregion
 
-        public void updateRobotAngles(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
-        {
-            _Angles.Enqueue(new double[]{a1,a2,a3,a4,a5,a6});
-            if (_isConnected)
-            {
-                jacobianTimer.Restart();
-                getLinkTransforms(a1, a2, a3, a4, a5, a6, _EndEffector, out _T, out _T0);
-                _Jacobian = Jacobian(_T, _T0);
-                _InverseJacobian = InverseJacobian(1e-12);
-
-                jacobianTimer.Stop();
-                double newTime = jacobianTimer.Elapsed.TotalMilliseconds;
-                JocTimer.Enqueue(newTime);
-                double[] jocTimes = JocTimer.ThreadSafeToArray;
-                double[] maxJoc = MaxJocTimer.ThreadSafeToArray;
-                _JacobienAverTimes = jocTimes.Average();
-                if (newTime > maxJoc.Average() || Math.Abs(newTime - maxJoc.Average() ) < 0.1)
-                {
-                    MaxJocTimer.Enqueue(newTime);
-                }
-            }
-        }
-
-        public void updateServerTime(double t)
-        {
-            serverTimer.Enqueue(t);
-            if (t > 3 )//|| Math.Abs(t - MaxserverTimer.ToArray().Average()) < 0.01)
-            {
-                MaxserverTimer.Enqueue(t);
-            }
-        }
-
-
-        public void updateRobotTorque(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
-        {
-            _Torque.Enqueue(new TimeCoordinate(a1, a2, a3, a4, a5, a6, Ipoc));
-        }
+        #region External server 30Hz speeds.... maybe
 
         public void LoadedCommand()
         {
@@ -751,6 +953,71 @@ namespace LightWeight_Server
             }
         }
 
+        public bool newPoses(int n, Pose[] new_Poses, double[] AverageVelocity)
+        {
+            try
+            {
+
+                if (!_newPosesLoaded)
+                {
+                    Guid PoseList = Guid.NewGuid();
+                    TrajectoryQuintic[] QuinticTrajectories = new TrajectoryQuintic[n];
+                    Stopwatch trajectoryLoader = new Stopwatch();
+                    trajectoryLoader.Start();
+                    //  Check if no veloicty was specified or if mm/s or mm/ms was specified. Must used mm/ms for trajectory generation
+                    AverageVelocity[0] = (AverageVelocity[0] == -1) ? 1.0 * _maxLinearVelocity / 2 : ((AverageVelocity[0] > 0.1) ? 1.0 * AverageVelocity[0] / 1000 : AverageVelocity[0]);
+                    for (int i = 1; i < AverageVelocity.Length; i++)
+                    {
+                        AverageVelocity[i] = (AverageVelocity[i] == -1) ? AverageVelocity[i - 1] : ((AverageVelocity[i] > 0.1) ? 1.0 * AverageVelocity[i] / 1000 : AverageVelocity[i]);
+                    }
+                    //_NewTrajectoryList = new TrajectoryOld[n];
+                    Vector3[] PointVelocitys = new Vector3[n + 1];
+                    PointVelocitys[0] = Vector3.Zero;
+                    PointVelocitys[n] = Vector3.Zero;
+                    PointVelocitys[1] = (float)((AverageVelocity[0] + 0.2 * AverageVelocity[1]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[0].Translation - currentPose.Translation) + Vector3.Normalize(new_Poses[1].Translation - new_Poses[0].Translation)));
+
+                    for (int i = 2; i < n; i++)
+                    {
+                        PointVelocitys[i] = (float)((AverageVelocity[i - 1] + 0.2 * AverageVelocity[i]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[i - 1].Translation - new_Poses[i - 2].Translation) + Vector3.Normalize(new_Poses[i].Translation - new_Poses[i - 1].Translation)));
+                    }
+                    //_NewTrajectoryList[0] = new TrajectoryOld(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1]);
+                    QuinticTrajectories[0] = new TrajectoryQuintic(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1], PoseList);
+                    for (int i = 1; i < n; i++)
+                    {
+                        //_NewTrajectoryList[i] = new TrajectoryOld(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
+                        QuinticTrajectories[i] = new TrajectoryQuintic(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1], PoseList);
+                    }
+                    _TrajectoryHandler.Load(QuinticTrajectories);
+                    _newPosesLoaded = true;
+                    trajectoryLoader.Stop();
+                    _trajectoryLoaderTime.Enqueue(trajectoryLoader.Elapsed.TotalMilliseconds);
+                    return true;
+                }
+            }
+            catch (Exception e)
+            {
+                updateError("Error loading: " + e.Message, e);
+            }
+            return false;
+        }
+
+        #endregion
+
+        #region Mixed methods, called anytime anywhere! thread safety??? what is?
+
+        public void goHome()
+        {
+            _TrajectoryHandler.goHome(new Trajectory[] { new JointLinearTrajectory(_Angles.LastElement, homeAngles, _MaxAxisChange, Guid.NewGuid()) });
+        }
+
+        public void updateError(string newError, Exception Error)
+        {
+            _GUI.updateError(newError, Error);
+        }
+        #endregion
+
+        #region Old trajectory / position orientation methods, used with trajectoryOLD
+        /*
         /// <summary>
         /// Loads the _desiredPosition data in Base coordinates and the _desiredRotation in local SartPose coordinates. 
         /// The _desiredRotation is a rotation, which when applied, will rotate the current pose to desired final pose.
@@ -766,10 +1033,10 @@ namespace LightWeight_Server
                         if (_newPosesLoaded)
                         {
                             _TrajectoryHandler.LodeBuffer(currentPose, currentVelocity);
-                          //  _TrajectoryList = new TrajectoryOld[_NewTrajectoryList.Length];
-                           // _NewTrajectoryList.CopyTo(_TrajectoryList, 0);
-                          //  _NewTrajectoryList = null;
-                           // _CurrentTrajectory = _TrajectoryList[0];
+                            //  _TrajectoryList = new TrajectoryOld[_NewTrajectoryList.Length];
+                            // _NewTrajectoryList.CopyTo(_TrajectoryList, 0);
+                            //  _NewTrajectoryList = null;
+                            // _CurrentTrajectory = _TrajectoryList[0];
                             _newPosesLoaded = false;
                             _newOrientationLoaded = false;
                             _newPositionLoaded = false;
@@ -777,7 +1044,7 @@ namespace LightWeight_Server
                             _isCommanded = true;
                             _isCommandedPosition = true;
                             _isCommandedOrientation = true;
-                        //   _CurrentTrajectory.start();
+                            //   _CurrentTrajectory.start();
                         }
                         if (_newOrientationLoaded)
                         {
@@ -785,7 +1052,7 @@ namespace LightWeight_Server
                             // long orientationDuration = (long)(TimeSpan.TicksPerSecond * (_desiredPose.angle / (MaxOrientationDisplacement * 10)));
                             if (_newPositionLoaded)
                             {
-                                _CurrentTrajectory.load(0, _newPose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0,0,0)));
+                                _CurrentTrajectory.load(0, _newPose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
                                 _newOrientationLoaded = false;
                                 _newPositionLoaded = false;
                                 _newCommandLoaded = false;
@@ -826,100 +1093,9 @@ namespace LightWeight_Server
                 }
             }
         }
-        /*
-        public void LoadTrajectory()
-        {
-            lock (trajectoryLock)
-            {
-                try
-                {
-                    if (_newCommandLoaded && _isCommanded)
-                    {
-                        Vector3 currentAcc = new Vector3((float)_acceleration["X"], (float)_acceleration["Y"], (float)_acceleration["Z"]);
-                        Matrix tempFinalPose = Matrix.CreateFromQuaternion(_DesiredRotation);
-                        tempFinalPose.Translation = new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]);
-                        _CurrentTrajectory = new Trajectory(tempFinalPose, this);
-                        _CurrentTrajectory.Start(currentPose, currentAcc);
-                        _newCommandLoaded = false;
-                        _isCommanded = true;
-                    }
-                    else if (_newCommandLoaded)
-                    {
-                        Matrix tempFinalPose = Matrix.CreateFromQuaternion(_DesiredRotation);
-                        tempFinalPose.Translation = new Vector3((float)_DesiredPosition["X"], (float)_DesiredPosition["Y"], (float)_DesiredPosition["Z"]);
-                        _CurrentTrajectory = new Trajectory(tempFinalPose, this);
-                        _CurrentTrajectory.Start(currentPose);
-                        _newCommandLoaded = false;
-                        _isCommanded = true;
-                    }
-
-                }
-                catch (Exception)
-                {
-                    _CurrentTrajectory = new Trajectory(currentPose, this);
-                    _CurrentTrajectory.Stop();
-                    _newCommandLoaded = false;
-                    _isCommanded = false;
-                }
-            }
-        }
-
+         * 
          * 
          */
-
-        public void goHome()
-        {
-            _TrajectoryHandler.goHome(new Trajectory[] { new JointLinearTrajectory(_Angles.LastElement, homeAngles, _MaxAxisChange, Guid.NewGuid()) });
-        }
-
-        public bool newPoses(int n, Pose[] new_Poses, double[] AverageVelocity)
-        {
-            try
-            {
-                
-            if (!_newPosesLoaded)
-            {
-                Guid PoseList = Guid.NewGuid();
-                TrajectoryQuintic[] QuinticTrajectories = new TrajectoryQuintic[n];
-                Stopwatch trajectoryLoader = new Stopwatch();
-                trajectoryLoader.Start();
-               //  Check if no veloicty was specified or if mm/s or mm/ms was specified. Must used mm/ms for trajectory generation
-                AverageVelocity[0] = (AverageVelocity[0] == -1) ? 1.0 * _maxLinearVelocity / 2 : ((AverageVelocity[0] > 0.1) ? 1.0 * AverageVelocity[0] / 1000 : AverageVelocity[0]);
-                for (int i = 1; i < AverageVelocity.Length; i++)
-                {
-                    AverageVelocity[i] = (AverageVelocity[i] == -1) ? AverageVelocity[i - 1] : ((AverageVelocity[i] > 0.1) ? 1.0 * AverageVelocity[i] / 1000 : AverageVelocity[i]);
-                }
-                //_NewTrajectoryList = new TrajectoryOld[n];
-                Vector3[] PointVelocitys = new Vector3[n+1];
-                PointVelocitys[0] = Vector3.Zero;
-                PointVelocitys[n] = Vector3.Zero; 
-                PointVelocitys[1] = (float)((AverageVelocity[0] + 0.2 * AverageVelocity[1]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[0].Translation - currentPose.Translation) + Vector3.Normalize(new_Poses[1].Translation - new_Poses[0].Translation)));
-                
-                for (int i = 2; i < n ; i++)
-                {
-                    PointVelocitys[i] = (float)((AverageVelocity[i - 1] + 0.2 * AverageVelocity[i]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[i-1].Translation - new_Poses[i - 2].Translation) + Vector3.Normalize(new_Poses[i].Translation - new_Poses[i-1].Translation)));
-                }
-                //_NewTrajectoryList[0] = new TrajectoryOld(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1]);
-                QuinticTrajectories[0] = new TrajectoryQuintic(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1], PoseList);
-                for (int i = 1; i < n; i++)
-                {
-                    //_NewTrajectoryList[i] = new TrajectoryOld(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
-                    QuinticTrajectories[i] = new TrajectoryQuintic(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1], PoseList);
-                }
-                _TrajectoryHandler.Load(QuinticTrajectories);
-                _newPosesLoaded = true;
-                trajectoryLoader.Stop();
-                _trajectoryLoaderTime.Enqueue(trajectoryLoader.Elapsed.TotalMilliseconds);
-                return true;
-            }
-            }
-            catch (Exception e)
-            {
-                updateError("Error loading: " + e.Message, e);
-            }
-            return false;
-        }
-
         public void newPosition(double x, double y, double z)
         {
             lock (trajectoryLock)
@@ -992,22 +1168,8 @@ namespace LightWeight_Server
             // The output is the transform from Base to final.
         }
 
-        double[,] getTipInverseJacobian(double[,] InvWristJacobian, Vector3 EE)
-        {
-            double[,] InvSkewEE = new double[,] { { 1, 0, 0, 0, -EE.Z, EE.Y }, { 0, 1, 0, EE.Z, 0, -EE.X }, { 0, 0, 1, -EE.Y, EE.X, 0 }, { 0, 0, 0, 1, 0, 0 }, { 0, 0, 0, 0, 1, 0 }, { 0, 0, 0, 0, 0, 1 } };
-            return SF.multiplyMatrix(InvWristJacobian,InvSkewEE);
-        }
 
-        double[] checkLimits(double[] axisComand)
-        {
-            double[] saturatedComand = new double[axisComand.Length];
-            for (int i = 0; i < axisComand.Length; i++)
-            {
-                saturatedComand[i] = (Math.Abs(axisComand[i]) > _MaxAxisChange) ? Math.Sign(axisComand[i]) * _MaxAxisChange : axisComand[i];
-            }
-            return saturatedComand;
-        }
-
+        /*
         public void updateComandPosition()
         {
             lock (trajectoryLock)
@@ -1015,10 +1177,7 @@ namespace LightWeight_Server
 
                 if (_isConnected && _isCommanded && _TrajectoryHandler.IsActive)
                 {
-                    double[] axisComand = _TrajectoryHandler.RobotChange(currentPose, currentVelocity, _InverseJacobian);
-                    _axisCommand = checkLimits(axisComand);
-                    _CommandPose = new TimeCoordinate(new Pose(_axisCommand), _Position.LastElement.Ipoc);
-                    /*
+                    
                     Pose CurrentPose = currentPose;
 
                 //    TGetReference = IPOC.Elapsed.TotalMilliseconds;
@@ -1047,6 +1206,8 @@ namespace LightWeight_Server
                    // Pose commandPose = _CurrentTrajectory.reference(currentPose, currentVelocity, _maxLinearVelocity, (float)_maxAngularVelocity, _maxLinearAcceleration, _maxAngularAcceleration);
                    // Vector3 comandPos = _CurrentTrajectory.getDisplacement(currentPose.Translation, MaxDisplacement);
                    // Vector3 commandOri = _CurrentTrajectory.getOrientation(currentRotation, (float)MaxOrientationDisplacement);
+         * 
+                    _axisCommand = checkLimits(axisComand);
                     // Update the command position all lights green
                    // Vector3 kukaAngles = SF.getKukaAngles(commandPose.Orientation);
                     _CommandPose = new TimeCoordinate(commandPose, _Position.LastElement.Ipoc);
@@ -1068,38 +1229,9 @@ namespace LightWeight_Server
                             _CurrentTrajectory.stop();
                         }
                     }
-                     * 
-                     */
                 }
 
 
-                    /*
-                else if (_isRotating)
-                {
-                    Vector3 commandOri = Vector3.Zero;
-                    if (_rotatingTimer.Elapsed.TotalMilliseconds > 6000.0)
-                    {
-                        resetRotation();
-                    }
-                    if (_isRotatingX)
-                    {
-                        commandOri.X = _degreePerSec * 4 / 1000;
-                    }
-                    if (_isRotatingY)
-                    {
-                        commandOri.Y = _degreePerSec * 4 / 1000;
-                    }
-                    if (_isRotatingZ)
-                    {
-                        commandOri.Z = _degreePerSec * 4 / 1000;
-                    }
-
-                    _CommandedPosition["A"] = commandOri.X;
-                    _CommandedPosition["B"] = commandOri.Y;
-                    _CommandedPosition["C"] = commandOri.Z;
-                }
-                     * 
-                     */
                 else
                 {
                     // End condition, or disconnected half way command position is zero
@@ -1108,55 +1240,11 @@ namespace LightWeight_Server
 
             }
         }
-
-        private void resetRotation()
-        {
-            flushCommands();
-        }
-
-
-        public void flushCommands()
-        {
-            _CommandPose = new TimeCoordinate(0, 0, 0, 0, 0, 0, _Position.LastElement.Ipoc);
-            _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
-        }
+                     * 
+                     */
 
         #endregion
-        /*
-        #region Dictionary Setup
-        
-        void setupCardinalDictionaries(ConcurrentDictionary<string, double> dic)
-        {
-            for (int i = 0; i < 6; i++)
-            {
-                if (!dic.TryAdd(SF.getCardinalKey(i), 0))
-                {
-                    dic[SF.getCardinalKey(i)] = 0;
-                }
-            }
-        }
-        void setupCardinalDictionaries(ConcurrentDictionary<string, double> dic, double[] Values)
-        {
-            for (int i = 0; i < Values.Length; i++)
-            {
-                if (!dic.TryAdd(SF.getCardinalKey(i), Values[i]))
-                {
-                    dic[SF.getCardinalKey(i)] = Values[i];
-                }
-            }
-        }
 
-        void setupAxisDictionaries(ConcurrentDictionary<string, double> dic)
-        {
-            for (int i = 0; i < 6; i++)
-            {
-                if (!dic.TryAdd(SF.getAxisKey(i), 0))
-                {
-                    dic[SF.getAxisKey(i)] = 0;
-                }
-            }
-        }    
-        #endregion
-        */
+
     }
 }

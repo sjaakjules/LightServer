@@ -230,14 +230,15 @@ namespace LightWeight_Server
 
 
                     // IK solver method:
-                    double[] AxisCommand = TrajectoryController.getControllerErrort(ReferencePose, _ThisRobot.currentAxisAngle,currentPose,CurrentVelocity,_ThisRobot);
+                    //double[] AxisCommand = TrajectoryController.getControllerErrort(ReferencePose, _ThisRobot.currentAxisAngle,currentPose,CurrentVelocity,_ThisRobot);
 
 
                     // Jacobian method
-                    //double[] AxisCommand = TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, inverseJacobian);
-                    if (currentPose.Equals(ReferencePose, 5e-1))
+                    double[] AxisCommand = TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, inverseJacobian);
+                    if (currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 5e-1))
                     {
                         _CurrentSegment++;
+                        _TrajectoryTime.Restart();
                         if (_CurrentSegment == _nSegments)
                         {
                             Stop(currentPose);
