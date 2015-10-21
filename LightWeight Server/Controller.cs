@@ -52,6 +52,17 @@ namespace LightWeight_Server
             I = newI;
         }
 
+        public double[] getControllerErrort(Pose referencePosition, double[] measuredAngles, RobotInfo robot)
+        {
+            double[] referenceAngles = robot.IKSolver(referencePosition, robot.EndEffector, measuredAngles, ref robot._elbow, ref robot._base);
+            double[] controlAngles = new double[referenceAngles.Length];
+            for (int i = 0; i < referenceAngles.Length; i++)
+            {
+                controlAngles[i] = referenceAngles[i] - measuredAngles[i];
+            }
+            return controlAngles;
+        }
+
         public double[] getControllerEffort(Pose referencePosition, Pose referenceVelocity, Pose measuredPosition, Pose measuredVelocity,double[,] inverseJoc)
         {
             Vector3 ErrorTranslation = referencePosition.Translation - measuredPosition.Translation ;

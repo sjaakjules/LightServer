@@ -313,7 +313,7 @@ namespace LightWeight_Server
         }
 
 
-        void plotTrajectories(Trajectory[] Trajectories)
+        void plotTrajectories(TaskTrajectory[] Trajectories)
         {
             try
             {

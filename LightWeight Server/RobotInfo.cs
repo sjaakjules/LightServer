@@ -80,6 +80,8 @@ namespace LightWeight_Server
         Controller _Controller;
 
         bool _gripperIsOpen = true;
+        public ElbowPosition _elbow = ElbowPosition.up;
+        public BasePosition _base = BasePosition.front;
 
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
         readonly double _MaxCartesianChange = 1;
@@ -104,12 +106,14 @@ namespace LightWeight_Server
         bool _isVia = false;
 
         public double[] _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
-
-        public readonly double[] homePosition = new double[] { 540.5, -18.1, 833.3, 180.0, 0.0, 180.0 };
+        public readonly double[] _defaultHomeAngles = new double[] { 0, 0 };
+        double[] _homePosition = new double[6];
+        double[] _HomeAngles = new double[6];
 
 
         #region Properties
-        
+        public double[] homePosition { get { return _homePosition; } private set { _homePosition = value; } }
+        public double[] homeAngles { get { return _HomeAngles; } private set { _HomeAngles = value; } }
 
         public Pose currentPose { get { return _Position.LastElement.Pose; } }
 
@@ -268,12 +272,18 @@ namespace LightWeight_Server
             {
                 IPOC.Start();
                 _KukaCycleTime.Start();
-                double[] startAngles = _Angles.LastElement;
-                _StartPose = forwardKinimatics(startAngles, Vector3.Zero);
+                homeAngles = _Angles.LastElement;
+                homePosition = _Position.LastElement.kukaValues;
+                _StartPose = forwardKinimatics(homeAngles, Vector3.Zero);
                 _StartTipPose = _Position.LastElement.Pose;
                 _EndEffectorPose = Pose.inverse(_StartPose) * _StartTipPose ;
                 _EndEffector = _EndEffectorPose.Translation;
-                getLinkTransforms(startAngles[0], startAngles[1], startAngles[2], startAngles[3], startAngles[4], startAngles[5], _EndEffector, out _T, out _T0);
+                getLinkTransforms(homeAngles[0], homeAngles[1], homeAngles[2], homeAngles[3], homeAngles[4], homeAngles[5], _EndEffector, out _T, out _T0);
+                double[] inverseAngles = IKSolver(_StartTipPose, _EndEffector, _Angles.LastElement, ref _elbow, ref _base);
+                if (!SF.IsClose(homeAngles,inverseAngles))
+                {
+                    updateError(string.Format("Inverse Home not equal\nMeasured: (0}\nInverse: {1}",SF.DoublesToString(homeAngles),SF.DoublesToString(inverseAngles)),new KukaException("IK solver error"));
+                }
                 _isConnected = true;
                 _GUI.IsConnected = true;
                 _isConnecting = false;
@@ -282,7 +292,6 @@ namespace LightWeight_Server
             {
                 _isConnecting = true;
             }
-            
         }
 
 
@@ -466,10 +475,218 @@ namespace LightWeight_Server
             return new Pose(M);
         }
 
-        double[] InverseKinimatics(Pose DesiredPose)
+
+        public enum ElbowPosition { up, down, stretched };
+        public enum BasePosition { front, back, vertical };
+
+
+        double[] IK1to3(Pose des, Vector3 EE, double[] lastVal, ref ElbowPosition elbow, ref BasePosition basePos)
         {
 
-            return new double[] { 0, 0, 0, 0, 0, 0 };
+            double wristOffset = Math.Atan2(35, 515);
+            double theta1a, theta1b, theta1, theta2u, theta2d, theta2, theta3u, theta3d, theta3;
+            Vector3 Wrist = des * (-EE - new Vector3(0, 0, 80));
+            if (Wrist.Z < 0) throw new InverseKinematicsException("Out of workspace");
+            theta1a = -Math.Atan2(Wrist.Y, Wrist.X);
+            theta1b = (theta1a > 0) ? theta1a - Math.PI : theta1a + Math.PI;
+            if (Math.Abs(lastVal[0] - theta1a) < Math.Abs(lastVal[0] - theta1b))
+            {
+                theta1 = theta1a;
+                basePos = BasePosition.front;
+            }
+            else
+            {
+                theta1 = theta1b;
+                basePos = BasePosition.back;
+            }
+            if (theta1 < -170.0 * Math.PI / 180 || theta1 > 170.0 * Math.PI / 180)
+            {
+                throw new InverseKinematicsException("Out of workspace");
+            }
+            Vector3 Base = new Vector3(25 * (float)Math.Cos(-theta1), 25 * (float)Math.Sin(-theta1), 400f);
+            Vector3 LinkBW = Wrist - Base;
+            if (Math.Abs(LinkBW.Length() - (560 + Math.Sqrt(515 * 515 + 35 * 35))) < 1e-6)
+            {
+                throw new InverseKinematicsException("Out of workspace");
+            }
+            if (LinkBW.Length() == (560 + Math.Sqrt(515 * 515 + 35 * 35)))
+            {
+                theta3 = -Math.Atan2(35, 515);
+            }
+            Vector3 xHat = new Vector3(LinkBW.X, LinkBW.Y, 0);
+            xHat.Normalize();
+            double beta = Math.Atan2(LinkBW.Z, Math.Sqrt(LinkBW.X * LinkBW.X + LinkBW.Y * LinkBW.Y));
+            double gamma = Math.Acos((1.0 * LinkBW.LengthSquared() + 560 * 560 - 35 * 35 - 515 * 515) / (2 * 560 * LinkBW.Length()));
+            double alpha = Math.Acos((1.0 * 560 * 560 + 35 * 35 + 515 * 515 - LinkBW.LengthSquared()) / (2.0 * 560 * Math.Sqrt(35 * 35 + 515 * 515)));
+            if (double.IsNaN(gamma))
+            {
+                gamma = 0;
+            }
+            if (double.IsNaN(alpha))
+            {
+                alpha = Math.PI;
+            }
+            if (basePos == BasePosition.front)
+            {
+                theta2u = -(beta + gamma);
+                theta2d = -(beta - gamma);
+                theta3u = Math.PI + wristOffset - alpha;
+                theta3d = -(Math.PI - alpha - wristOffset);
+            }
+            else
+            {
+                theta2u = -Math.PI + (beta - gamma);
+                theta2d = -Math.PI + (beta + gamma);
+                theta3u = Math.PI + wristOffset - alpha;
+                theta3d = -Math.PI + alpha + wristOffset;
+            }
+            if (Math.Abs(lastVal[1] - theta2u) < Math.Abs(lastVal[1] - theta2d))
+            {
+                theta2 = theta2u;
+                theta3 = theta3u;
+                elbow = ElbowPosition.up;
+            }
+            else
+            {
+                theta2 = theta2d;
+                theta3 = theta3d;
+                elbow = ElbowPosition.down;
+            }
+
+            if (elbow == ElbowPosition.up)
+            {
+                if (theta2u > (-190.0 * Math.PI / 180) && theta2u < (1.0 * Math.PI / 4) && theta3u < (156.0 * Math.PI / 180) && theta3u > (-120.0 * Math.PI / 180))
+                {
+                    theta2 = theta2u;
+                    theta3 = theta3u;
+                }
+                else if ((theta2d > (-190.0 * Math.PI / 180) && theta2d < (1.0 * Math.PI / 4)) && (theta3d < (156.0 * Math.PI / 180) && (theta3d > (-120.0 * Math.PI / 180))))
+                {
+                    elbow = ElbowPosition.down;
+                    theta2 = theta2d;
+                    theta3 = theta3d;
+                }
+                else
+                {
+                    throw new InverseKinematicsException("Out of workspace");
+                }
+            }
+            else if (elbow == ElbowPosition.down)
+            {
+                if ((theta2d > (-190.0 * Math.PI / 180) && theta2d < (1.0 * Math.PI / 4)) && (theta3d < (156.0 * Math.PI / 180) && (theta3d > (-120.0 * Math.PI / 180))))
+                {
+                    theta2 = theta2d;
+                    theta3 = theta3d;
+                }
+                else if (theta2u > (-190.0 * Math.PI / 180) && theta2u < (1.0 * Math.PI / 4) && theta3u < (156.0 * Math.PI / 180) && theta3u > (-120.0 * Math.PI / 180))
+                {
+                    elbow = ElbowPosition.up;
+                    theta2 = theta2u;
+                    theta3 = theta3u;
+                }
+                else
+                {
+                    throw new InverseKinematicsException("Out of workspace");
+                }
+            }
+            else
+            {
+
+                if (theta2u > (-190.0 * Math.PI / 180) && theta2u < (1.0 * Math.PI / 4) && theta3u < (156.0 * Math.PI / 180) && theta3u > (-120.0 * Math.PI / 180))
+                {
+                    elbow = ElbowPosition.up;
+                    theta2 = theta2u;
+                    theta3 = theta3u;
+                }
+                else if ((theta2d > (-190.0 * Math.PI / 180) && theta2d < (1.0 * Math.PI / 4)) && (theta3d < (156.0 * Math.PI / 180) && (theta3d > (-120.0 * Math.PI / 180))))
+                {
+                    elbow = ElbowPosition.down;
+                    theta2 = theta2d;
+                    theta3 = theta3d;
+                }
+                else
+                {
+                    throw new InverseKinematicsException("Out of workspace");
+                }
+            }
+            return new double[] { theta1, theta2, theta3 };
+        }
+
+        public double[] IKSolver(Pose DesiredPose, Vector3 EE, double[] thetaLast, ref ElbowPosition elbow, ref BasePosition basePos)
+        {
+
+            double theta1, theta2, theta3, theta4, theta5, theta6;
+            double[] angles1to3 = IK1to3(DesiredPose, EE, thetaLast, ref elbow, ref basePos);
+            theta1 = angles1to3[0];
+            theta2 = angles1to3[1];
+            theta3 = angles1to3[2];
+
+            double[,] r = DesiredPose.getMatrix;
+            double[,] T30 = new double[,] { { Math.Sin(theta2 + theta3) * Math.Cos(theta1),     -Math.Sin(theta2 + theta3) * Math.Sin(theta1),  Math.Cos(theta2 + theta3),  -400 * Math.Cos(theta2 + theta3) - 25 * Math.Sin(theta2 + theta3) - 560 * Math.Sin(theta3) }, 
+                                            { Math.Cos(theta2 + theta3) * Math.Cos(theta1),     -Math.Cos(theta2 + theta3) * Math.Sin(theta1),  -Math.Sin(theta2 + theta3), 400 * Math.Sin(theta2 + theta3) - 25 * Math.Cos(theta2 + theta3) - 560 * Math.Cos(theta3) }, 
+                                            { Math.Sin(theta1), Math.Cos(theta1), 0, 0 }, { 0, 0, 0, 1 } };
+
+            double[,] T3t = SF.multiplyMatrix(T30, r);
+            /*
+                theta4 = Math.Atan2(-T3t[2, 2], -T3t[0, 2]);
+            
+            double s1 = Math.Sin(theta1);
+            double c1 = Math.Cos(theta1);
+            double s2 = Math.Sin(theta2);
+            double c2 = Math.Cos(theta2);
+            double s3 = Math.Sin(theta3);
+            double c3 = Math.Cos(theta3);
+            double s23 = Math.Sin(theta2+theta3);
+            double c23 = Math.Cos(theta2+theta3);
+            double s4 = Math.Sin(theta4);
+            double c4 = Math.Cos(theta4);
+
+            double s5 = -(r[0,2]*(c1*c23*c4+s1*s4)+r[1,2]*(s1*c23*c4-c1*s4)-r[2,2]*s23*c4);
+            double c5 = r[0,2]*((-c1)*s23)+r[1,2]*(-s1)*s23+r[2,2]*(-c23);
+
+             */
+            //theta5 = Math.Atan2(s5, c5);
+            if (Math.Abs(T3t[1, 1]) < 1e-6 && Math.Abs(T3t[1, 0]) < 1e-6)
+            {
+                // Singularity! set angles on last known theta4
+                theta4 = thetaLast[3];
+                theta5 = 0;
+                theta6 = Math.Atan2(-T3t[0, 1], T3t[2, 1]) - thetaLast[3];
+            }
+            else
+            {
+                theta4 = Math.Atan2(-T3t[2, 2], -T3t[0, 2]);
+                while (Math.Abs(thetaLast[3] - theta4) > 1.0 * Math.PI / 2)
+                {
+                    theta4 = (thetaLast[3] < theta4) ? theta4 - Math.PI : theta4 + Math.PI;
+                }
+                theta6 = Math.Atan2(-T3t[1, 1], -T3t[1, 0]);
+                while (Math.Abs(thetaLast[5] - theta6) > 1.0 * Math.PI / 2)
+                {
+                    theta6 = (thetaLast[5] < theta6) ? (theta6 - Math.PI) : (theta6 + Math.PI);
+                }
+                // if (Math.Abs(thetaLast[5] - theta6) > 1.0 * Math.PI/2)
+                //   {
+                //       theta6 = (thetaLast[5] < theta6) ? theta6 -  Math.PI : theta6 +  Math.PI;
+                //  }
+                theta5 = (Math.Abs(Math.Cos(theta4)) > Math.Abs(Math.Sin(theta4))) ? Math.Atan2((-1.0 * T3t[0, 2] / (Math.Cos(theta4))), T3t[1, 2]) : Math.Atan2((-1.0 * T3t[2, 2] / (Math.Sin(theta4))), T3t[1, 2]);
+                // double theta5b = (Math.Abs(Math.Cos(theta6)) > Math.Abs(Math.Sin(theta6))) ? Math.Atan2((-1.0 * T3t[1, 0] / (Math.Cos(theta6))), T3t[1, 2]) : Math.Atan2((-1.0 * T3t[1, 1] / (Math.Sin(theta6))), T3t[1, 2]);
+                //  theta5 = (Math.Abs(thetaLast[4] - theta5a) < Math.Abs(thetaLast[4] - theta5b)) ? theta5a : theta5b;
+
+            }
+            if (theta4 > (185.0 * Math.PI / 180) || theta4 < (-185.0 * Math.PI / 180))
+            {
+                throw new InverseKinematicsException("Out of workspace");
+            }
+            if (theta5 > (120.0 * Math.PI / 180) || theta5 < (-120.0 * Math.PI / 180))
+            {
+                throw new InverseKinematicsException("Out of workspace");
+            }
+            if (theta5 > (350.0 * Math.PI / 180) || theta5 < (-350.0 * Math.PI / 180))
+            {
+                throw new InverseKinematicsException("Out of workspace");
+            }
+            return new double[] { theta1, theta2, theta3, theta4, theta5, theta6 };
         }
 
         public void updateSignal(double a, double b, long Ipoc)
@@ -649,6 +866,12 @@ namespace LightWeight_Server
 
          * 
          */
+
+        public void goHome()
+        {
+            _TrajectoryHandler.goHome(new Trajectory[] { new JointLinearTrajectory(_Angles.LastElement, homeAngles, _MaxAxisChange, Guid.NewGuid()) });
+        }
+
         public bool newPoses(int n, Pose[] new_Poses, double[] AverageVelocity)
         {
             try

@@ -16,8 +16,8 @@ namespace LightWeight_Server
         Stopwatch _TrajectoryTime;
         bool _isActive, _BufferLoaded;
         int _nSegments, _CurrentSegment;
-        Trajectory[] _ActiveTrajectories;
-        Trajectory[] _bufferTrajectories;
+        TaskTrajectory[] _ActiveTrajectories;
+        TaskTrajectory[] _bufferTrajectories;
         Controller TrajectoryController;
         FixedSizedQueue<Pose> _ReferencePose, _ReferenceVelocity;
         Pose _desiredPose= Pose.Zero;
@@ -50,10 +50,14 @@ namespace LightWeight_Server
             _ReferenceVelocity.Enqueue(Pose.Zero);
             _TrajectoryTime = new Stopwatch();
             TrajectoryController = new Controller(_ThisRobot);
-            _ActiveTrajectories = new Trajectory[] { new TrajectoryQuintic(Pose.Zero, Guid.NewGuid()) };
+            _ActiveTrajectories = new TaskTrajectory[] { new TrajectoryQuintic(Pose.Zero, Guid.NewGuid()) };
             _nSegments = 0;
             _CurrentSegment = 0;
             _isActive = false;
+        }
+        public void goHome(Trajectory[] newTrajectory)
+        {
+
         }
 
 
@@ -117,7 +121,7 @@ namespace LightWeight_Server
                     {
                         _bufferTrajectories[0].updateStartPosition(currentPose, CurrentVelocity);
                     }
-                    _ActiveTrajectories = new Trajectory[_nSegments];
+                    _ActiveTrajectories = new TaskTrajectory[_nSegments];
                     for (int i = 0; i < _nSegments; i++)
                     {
                         _ActiveTrajectories[i] = _bufferTrajectories[i];
@@ -129,18 +133,17 @@ namespace LightWeight_Server
             }
         }
 
-        public void Load(Trajectory[] NewTrajectoryList)
+        public void Load(TaskTrajectory[] NewTrajectoryList)
         {
             try
             {
-
-                _bufferTrajectories = new Trajectory[NewTrajectoryList.Length];
-                for (int i = 0; i < NewTrajectoryList.Length; i++)
-                {
-                    _bufferTrajectories[i] = NewTrajectoryList[i];
-                }
                 lock (BufferLock)
                 {
+                    _bufferTrajectories = new TaskTrajectory[NewTrajectoryList.Length];
+                    for (int i = 0; i < NewTrajectoryList.Length; i++)
+                    {
+                        _bufferTrajectories[i] = NewTrajectoryList[i];
+                    }
                     _BufferLoaded = true;
                 }
             }
@@ -161,7 +164,14 @@ namespace LightWeight_Server
                 Pose ReferenceVelocity = _ActiveTrajectories[_CurrentSegment].getReferenceVelocity(_TrajectoryTime.Elapsed.TotalMilliseconds);
                 _ReferencePose.Enqueue(ReferencePose);
                 _ReferenceVelocity.Enqueue(ReferenceVelocity);
-                double[] AxisCommand = TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, inverseJacobian);
+
+
+                // IK solver method:
+                double[] AxisCommand = TrajectoryController.getControllerErrort(ReferencePose, _ThisRobot.currentAxisAngle, _ThisRobot);
+
+
+                // Jacobian method
+                //double[] AxisCommand = TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, inverseJacobian);
                 if (currentPose.Equals(ReferencePose, 5e-1))
                 {
                     _CurrentSegment++;

@@ -63,6 +63,9 @@ namespace LightWeight_Server
                         case ConsoleKey.D9:
                             ConnectedRobots[0].AngularVelocity = ConnectedRobots[0].AngularVelocity - 0.001;
                             break;
+                        case ConsoleKey.H:
+                            ConnectedRobots[0].goHome();
+                            break;
 
                     }
             }
