@@ -16,14 +16,15 @@ namespace LightWeight_Server
         StreamWriter Datafile;
         //object movementLock = new object();
         Stopwatch _DataTime = new Stopwatch();
-        double P = 0.05, I, D;
+        double P = 0.5, I, D;
 
 
 
         public Controller(RobotInfo ThisRobot)
         {
             //this._x, this._y, this._z, this.angle, this.axis.X, this.axis.Y, this.axis.Z
-            DataWriter.AppendFormat("time,ref_rx,ref_ry,ref_rz,ref_ra,ref_rax,ref_ray,ref_raz,act_rx,act_ry,act_rz,act_ra,act_rax,act_ray,act_raz,ref_vx,ref_vy,ref_vz,ref_va,ref_vax,ref_vay,ref_vaz,act_vx,act_vy,act_vz,act_va,act_vax,act_vay,act_vaz,tip1,tip2,tip3,tip4,tip5,tip6,axis1,axis2,axis3,axis4,axis5,axis6;");
+            //DataWriter.AppendFormat("time,ref_rx,ref_ry,ref_rz,ref_ra,ref_rax,ref_ray,ref_raz,act_rx,act_ry,act_rz,act_ra,act_rax,act_ray,act_raz,ref_vx,ref_vy,ref_vz,ref_va,ref_vax,ref_vay,ref_vaz,act_vx,act_vy,act_vz,act_va,act_vax,act_vay,act_vaz,tip1,tip2,tip3,tip4,tip5,tip6,axis1,axis2,axis3,axis4,axis5,axis6;");
+            DataWriter.AppendFormat("time,ref_rx,ref_ry,ref_rz,ref_ra,ref_rax,ref_ray,ref_raz,act_rx,act_ry,act_rz,act_ra,act_rax,act_ray,act_raz,act_vx,act_vy,act_vz,act_va,act_vax,act_vay,act_vaz,refa1,refa2,refa3,refa4,refa5,refa6,axis1,axis2,axis3,axis4,axis5,axis6,err1,err2,err3,err4,err5,err6;");
             try
             {
                 Datafile = new StreamWriter(dataWriterFile + ".csv");
@@ -52,14 +53,20 @@ namespace LightWeight_Server
             I = newI;
         }
 
-        public double[] getControllerErrort(Pose referencePosition, double[] measuredAngles, RobotInfo robot)
+        public double[] getControllerErrort(Pose referencePosition, double[] measuredAngles,Pose measuredPosition,Pose measuredVelocity, RobotInfo robot)
         {
             double[] referenceAngles = robot.IKSolver(referencePosition, robot.EndEffector, measuredAngles, ref robot._elbow, ref robot._base);
             double[] controlAngles = new double[referenceAngles.Length];
             for (int i = 0; i < referenceAngles.Length; i++)
             {
-                controlAngles[i] = referenceAngles[i] - measuredAngles[i];
+                controlAngles[i] = (referenceAngles[i] - measuredAngles[i])*P;
             }
+            SF.updateDataFile(referencePosition, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, referenceAngles, controlAngles,measuredAngles, DataWriter);
+            using (StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true))
+            {
+                Datafile.WriteLine(DataWriter);
+            }
+            DataWriter.Clear();
             return controlAngles;
         }
 

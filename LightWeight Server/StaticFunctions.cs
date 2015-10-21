@@ -1330,6 +1330,11 @@ namespace LightWeight_Server
 
         #endregion
 
+
+        internal static void updateDataFile(Pose referencePosition, Pose measuredPosition, Pose measuredVelocity, double time, double[] referenceAngles, double[] controlAngles, double[] measuredAngles, StringBuilder DataWriter)
+        {
+            DataWriter.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data},{5},{6};", time, referencePosition, measuredPosition, measuredVelocity, printDouble(referenceAngles), printDouble(measuredAngles), printDouble(controlAngles)));
+        }
     }
 
 

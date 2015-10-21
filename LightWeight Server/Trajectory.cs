@@ -15,7 +15,7 @@ using System.Diagnostics;
 
 namespace LightWeight_Server
 {
-    enum TrajectoryTypes { Quintic, Spline, Linear, LinearJoint, QuinticJoint };
+    enum TrajectoryTypes { Joint, Task };
 
     abstract class Trajectory
     {
@@ -38,7 +38,7 @@ namespace LightWeight_Server
         public double[] finalJoint { get; protected set; }
         public double averageVelocity { get; protected set; }
 
-        public JointTrajectory(TrajectoryTypes TrajectoryType) : base(TrajectoryType) { }
+        public JointTrajectory() : base(TrajectoryTypes.Joint) { }
 
         abstract public double[] getReferenceVelocity(double t);
         abstract public double[] getReferencePosition(double t);
@@ -58,7 +58,7 @@ namespace LightWeight_Server
         public Pose changePose { get; protected set; }
         public double averageVelocity { get; protected set; }
 
-        public TaskTrajectory(TrajectoryTypes TrajectoryType) : base(TrajectoryType) { }
+        public TaskTrajectory() : base(TrajectoryTypes.Task) { }
 
         public abstract Vector3 trajectoryAxis { get;}
         public abstract float finalAngle { get; }
@@ -79,8 +79,7 @@ namespace LightWeight_Server
         /// <param name="FinalAngle"></param> final angle
         /// <param name="MaxVelocity"></param>Max Velocity in [RADIANS/MS]
         /// <param name="SegmentID"></param> segment id
-        public JointLinearTrajectory(double[] StartAngle, double[] FinalAngle, double MaxVelocity, Guid SegmentID)
-            : base(TrajectoryTypes.LinearJoint)
+        public JointLinearTrajectory(double[] StartAngle, double[] FinalAngle, double MaxVelocity, Guid SegmentID) : base()
         {
             segmentID = SegmentID;
             double[] newStart = new double[StartAngle.Length];
@@ -139,7 +138,7 @@ namespace LightWeight_Server
         public override Vector3 trajectoryAxis { get { return _TrajectoryAxis; } }
 
         public TrajectoryLinear(Pose EndPose, double AverageVelocity, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID)
-            : base(TrajectoryTypes.Linear)
+            : base()
         {
             averageVelocity = AverageVelocity;
             segmentID = SegmentID;
@@ -269,7 +268,7 @@ namespace LightWeight_Server
 
 
         
-        public TrajectoryQuintic(Pose EndPose, double AverageVelocty, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID) : base(TrajectoryTypes.Quintic)
+        public TrajectoryQuintic(Pose EndPose, double AverageVelocty, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID) : base()
         {
             _QuinticPerameters = new double[4][];
             averageVelocity = AverageVelocty;
@@ -295,7 +294,7 @@ namespace LightWeight_Server
         }
 
         public TrajectoryQuintic(Pose EndPose, Guid SegmentID)
-            : base(TrajectoryTypes.Quintic)
+            : base()
         {
             _QuinticPerameters = new double[][] { new double[] { 0, 0, 0, 0, 0, 0 }, new double[] { 0, 0, 0, 0, 0, 0 }, new double[] { 0, 0, 0, 0, 0, 0 }, new double[] { 0, 0, 0, 0, 0, 0 } };
             segmentID = SegmentID;
