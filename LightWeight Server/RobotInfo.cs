@@ -953,7 +953,7 @@ namespace LightWeight_Server
             }
         }
 
-        public bool newPoses(int n, Pose[] new_Poses, double[] AverageVelocity)
+        public bool newPoses(int n, Pose[] new_Poses, double[] AverageVelocity, double[] EndVelocity)
         {
             try
             {

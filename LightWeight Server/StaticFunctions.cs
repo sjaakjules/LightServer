@@ -103,7 +103,107 @@ namespace LightWeight_Server
                 _kukaValues[2] = (float)_z;
             }
         }
-        
+
+
+        /// <summary>
+        /// Loads a new Pose using a string with the infomation of position, velocity and orientation. Can handle partial information.
+        /// </summary>
+        /// <param name="PositionInfo"></param>
+        /// <param name="LastPose"></param>
+        public Pose(string[] PositionInfo, string[] OrientationInfo, Pose LastPose)
+        {
+            // The following If statements catch error while trying to load positions, use last position and keep loading.
+            // TODO: Add signals and more complex error handeling to send back to external server. Perhaps the string which was received for error checking?
+            if (PositionInfo == null || PositionInfo.Length != 3)
+            {
+                _x = LastPose._x;
+                _y = LastPose._y;
+                _z = LastPose._z;
+            }
+            else
+            {
+                if (!double.TryParse(PositionInfo[0], out _x))
+                {
+                    _x = LastPose._x;
+                }
+                if (!double.TryParse(PositionInfo[1], out _y))
+                {
+                    _y = LastPose._y;
+                }
+                if (!double.TryParse(PositionInfo[2], out _z))
+                {
+                    _z = LastPose._z;
+                }
+            }
+            if (OrientationInfo == null)
+            {
+                this._Orientation = LastPose.Orientation;
+                SF.getAxisAngle(LastPose.Orientation, out _axis, out _angle);
+                SF.getKukaAngles(LastPose.Orientation, out _kukaValues);
+                _kukaValues[0] = (float)_x;
+                _kukaValues[1] = (float)_y;
+                _kukaValues[2] = (float)_z;
+            }
+            else
+            {
+                double[] Axis = new double[OrientationInfo.Length];
+                bool loadedAxis = true;
+                for (int i = 0; i < OrientationInfo.Length; i++)
+                {
+                    if (!double.TryParse(OrientationInfo[i], out Axis[i]))
+                    {
+                        loadedAxis = false;
+                        break;
+                    }
+                }
+                if (loadedAxis)
+                {
+                    // only Z axis loaded
+                    if (Axis.Length == 3)
+                    {
+                        this._Orientation = SF.QfromZaxis(new Vector3((float)Axis[0], (float)Axis[1], (float)Axis[2]), LastPose.Orientation);
+                        SF.getAxisAngle(_Orientation, out _axis, out _angle);
+                        SF.getKukaAngles(_Orientation, out _kukaValues);
+                        _kukaValues[0] = (float)_x;
+                        _kukaValues[1] = (float)_y;
+                        _kukaValues[2] = (float)_z;
+                    }
+                    // Z axis and X axis loaded
+                    else if (Axis.Length == 6)
+                    {
+                        this._Orientation = SF.QfromZX(new Vector3((float)Axis[0], (float)Axis[1], (float)Axis[2]), new Vector3((float)Axis[3], (float)Axis[4], (float)Axis[5]));
+                        SF.getAxisAngle(_Orientation, out _axis, out _angle);
+                        SF.getKukaAngles(_Orientation, out _kukaValues);
+                        _kukaValues[0] = (float)_x;
+                        _kukaValues[1] = (float)_y;
+                        _kukaValues[2] = (float)_z;
+                    }
+                    // No rotation loaded, position movement only
+                    else
+                    {
+                        this._Orientation = LastPose.Orientation;
+                        SF.getAxisAngle(LastPose.Orientation, out _axis, out _angle);
+                        SF.getKukaAngles(LastPose.Orientation, out _kukaValues);
+                        _kukaValues[0] = (float)_x;
+                        _kukaValues[1] = (float)_y;
+                        _kukaValues[2] = (float)_z;
+                    }
+
+                }
+                // Failed while trying to load rotaition, use last orientation and keep moving.
+                // TODO: Add signals and more complex error handeling to send back to external server. Perhaps the string which was received for error checking?
+                else
+                {
+                    this._Orientation = LastPose.Orientation;
+                    SF.getAxisAngle(LastPose.Orientation, out _axis, out _angle);
+                    SF.getKukaAngles(LastPose.Orientation, out _kukaValues);
+                    _kukaValues[0] = (float)_x;
+                    _kukaValues[1] = (float)_y;
+                    _kukaValues[2] = (float)_z;
+                }
+            }
+        }
+
         public Pose(double[] KukaValues)
         {
             _kukaValues = new double[6];

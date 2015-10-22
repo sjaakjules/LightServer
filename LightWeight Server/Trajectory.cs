@@ -15,7 +15,7 @@ using System.Diagnostics;
 
 namespace LightWeight_Server
 {
-    enum TrajectoryTypes { Joint, Task };
+    enum TrajectoryTypes { Joint, Quintic, Linear, Spline };
 
     abstract class Trajectory
     {
@@ -58,7 +58,7 @@ namespace LightWeight_Server
         public Pose changePose { get; protected set; }
         public double averageVelocity { get; protected set; }
 
-        public TaskTrajectory() : base(TrajectoryTypes.Task) { }
+        public TaskTrajectory(TrajectoryTypes types) : base(types) { }
 
         public abstract Vector3 trajectoryAxis { get;}
         public abstract float finalAngle { get; }
@@ -138,7 +138,7 @@ namespace LightWeight_Server
         public override Vector3 trajectoryAxis { get { return _TrajectoryAxis; } }
 
         public TrajectoryLinear(Pose EndPose, double AverageVelocity, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID)
-            : base()
+            : base(TrajectoryTypes.Linear)
         {
             averageVelocity = AverageVelocity;
             segmentID = SegmentID;
@@ -268,7 +268,7 @@ namespace LightWeight_Server
 
 
         
-        public TrajectoryQuintic(Pose EndPose, double AverageVelocty, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID) : base()
+        public TrajectoryQuintic(Pose EndPose, double AverageVelocty, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID) : base(TrajectoryTypes.Quintic)
         {
             _QuinticPerameters = new double[4][];
             averageVelocity = AverageVelocty;
@@ -294,7 +294,7 @@ namespace LightWeight_Server
         }
 
         public TrajectoryQuintic(Pose EndPose, Guid SegmentID)
-            : base()
+            : base(TrajectoryTypes.Quintic)
         {
             _QuinticPerameters = new double[][] { new double[] { 0, 0, 0, 0, 0, 0 }, new double[] { 0, 0, 0, 0, 0, 0 }, new double[] { 0, 0, 0, 0, 0, 0 }, new double[] { 0, 0, 0, 0, 0, 0 } };
             segmentID = SegmentID;

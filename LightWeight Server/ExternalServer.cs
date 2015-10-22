@@ -17,6 +17,7 @@ namespace LightWeight_Server
     {
         // Thread signals to pause until data has been received
         ManualResetEvent haveReceived = new ManualResetEvent(false);
+        object errorMsgLock = new object();
 
         int _BufferSize = 1024;
         byte[] _buffer;
@@ -30,6 +31,8 @@ namespace LightWeight_Server
         string[] splitter = new string[] { "," };
         FixedSizedQueue<IPEndPoint> ClientIEP;
         int _SendRefreshRate = 30; // Refresh rate of send data, Hz
+
+        StringBuilder _errorMessage = new StringBuilder();
 
         Stopwatch _sendTimer = new Stopwatch();
 
@@ -328,6 +331,76 @@ namespace LightWeight_Server
 
         }
 
+        void AddError(string msg)
+        {
+            lock (errorMsgLock)
+            {
+                _errorMessage.AppendLine(msg);
+            }
+            _GUI.updateError(msg,new KukaException("Oh no, What the fuck happened?\n"));
+        }
+
+        bool getPoseInfo(XmlNode pose,Pose lastPose, out Pose endPose, out double EndVelocity, out double AveVelocity, out TrajectoryTypes type)
+        {
+            type = TrajectoryTypes.Quintic;
+            EndVelocity = -1;
+            AveVelocity = -1;
+            string[] PositionStrings = null;
+            string[] orientationStrings = null;
+            bool loaded = false;
+            foreach (XmlAttribute atribute in pose.Attributes)
+            {
+                switch (atribute.Name)
+                {
+                    case "Type":
+                        if (atribute.Value.ToUpper().Equals("QUINTIC"))
+                        {
+                            type = TrajectoryTypes.Quintic;
+                        }
+                        else if (atribute.Value.ToUpper().Equals("SPLINE"))
+                        {
+                            type = TrajectoryTypes.Spline;
+                        }
+                        else if (atribute.Value.ToUpper().Equals("LINEAR"))
+                        {
+                            type = TrajectoryTypes.Linear;
+                        }
+                        break;
+                    case "Position":
+                        string Position = atribute.Value;
+                        PositionStrings = Position.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                        loaded = true;
+                        break;
+                    case "Orientation":
+                        string orientation = atribute.Value;
+                        orientationStrings = orientation.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                        loaded = true;
+                        break;
+                    case "Velocity":
+                        if (!double.TryParse(atribute.Value, out AveVelocity))
+                        {
+                            AveVelocity = -1;
+                        }
+                        break;
+                    case "FinalVelocity":
+                        if (!double.TryParse(atribute.Value, out EndVelocity))
+                        {
+                            EndVelocity = -1;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            if (loaded)
+            {
+                endPose = new Pose(PositionStrings, orientationStrings, lastPose);
+                return true;
+            }
+            endPose = lastPose;
+            return false;
+        }
+
         private void processData(StateObject State)
         {
             string catchStatement = "while trying to process Data:";
@@ -342,49 +415,237 @@ namespace LightWeight_Server
 
                 // Update desired position from xml document.
                 XmlNodeList parentNode = xmlIn.ChildNodes;
-                XmlNodeList ExternalInfoNodes = parentNode.Item(0).ChildNodes;
-                foreach (XmlNode Node in ExternalInfoNodes)
+                int nRobot = -1;
+                if (parentNode.Item(0).Name.ToUpper().Equals("ROBOTA"))
                 {
-                    switch (Node.Name)
+                    nRobot = 0;
+                }
+                else if (parentNode.Item(0).Name.ToUpper().Equals("ROBOTB"))
+                {
+                    nRobot = 1;
+                }
+                else
+                {
+                    nRobot = 0;
+                }
+                if (nRobot >= _Robot.Length)
+                {
+                    AddError("Specified robot is higher than connected robots.");
+                }
+                else
+                {
+                    XmlNodeList ExternalInfoNodes = parentNode.Item(0).ChildNodes;
+                    foreach (XmlNode Node in ExternalInfoNodes)
                     {
-                        case "PoseList":
-                            int N = 0;
-                            if (int.TryParse(Node.Attributes["N"].Value,out N))
-                            {
-                                Pose[] poseList = new Pose[N];
-                                double[] velocityList = new double[N];
-                                string Pose_i = Node.Attributes["N1"].Value;
-                                string[] result = Pose_i.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                                poseList[0] = new Pose(result, _Robot[0].currentPose);
-                                // Velocity of -1 means use last known velocity.
-                                if (result.Length % 3 == 0)
+                        switch (Node.Name)
+                        {
+                            case "PoseList":
+                                bool failedUpdate = false;
+                                int N = -1;
+                                double defaultVelocity = -1;
+                                Pose[] FinalPoseList = null;
+                                double[] EndVelocityList = null;
+                                double[] AveVelocityList = null;
+                                TrajectoryTypes[] Trajectorys = null;
+                                if (Node.Attributes != null)
                                 {
-                                    velocityList[0] = -1;
+                                    foreach (XmlAttribute attribute in Node.Attributes)
+                                    {
+                                        switch (attribute.Name)
+                                        {
+                                            case "N":
+                                                if (int.TryParse(attribute.Value, out N))
+                                                {
+                                                    FinalPoseList = new Pose[N];
+                                                    EndVelocityList = new double[N];
+                                                    AveVelocityList = new double[N];
+                                                    Trajectorys = new TrajectoryTypes[N];
+                                                }
+                                                else
+                                                {
+                                                    AddError("Could not read N within PoseList.\nValue should be an int and read \"" + attribute.Value + "\"");
+                                                    failedUpdate = true;
+                                                }
+                                                break;
+                                            case "Velocity":
+                                                if (!double.TryParse(attribute.Value, out defaultVelocity))
+                                                {
+                                                    AddError("Could not read default velocity within PoseList.\nUsing T1 default velocity\nValue should be a double and read \"" + attribute.Value + "\"");
+                                                }
+                                                break;
+                                            default:
+                                                break;
+                                        }
+                                    }
+                                    if (Node.HasChildNodes && Node.FirstChild.Name != "#text")
+                                    {
+                                        XmlNodeList PoseList = Node.ChildNodes;
+                                        if (PoseList.Count == N)
+                                        {
+                                            foreach (XmlNode newPose in PoseList)
+                                            {
+                                                int nPose = -1;
+                                                if (int.TryParse(newPose.Attributes["N"].Value, out nPose))
+                                                {
+                                                    if (nPose > 0 && nPose <= N)
+                                                    {
+                                                        if (nPose == 1)
+                                                        {
+                                                            if (!getPoseInfo(newPose, _Robot[nRobot].currentPose, out FinalPoseList[nPose - 1], out EndVelocityList[nPose - 1], out AveVelocityList[nPose - 1], out Trajectorys[nPose - 1]))
+                                                            {
+                                                                AddError("Failed to update Pose {0}." + nPose.ToString());
+                                                                failedUpdate = true;
+                                                            }
+                                                        }
+                                                        else if (!getPoseInfo(newPose, FinalPoseList[nPose - 2], out FinalPoseList[nPose - 1], out EndVelocityList[nPose - 1], out AveVelocityList[nPose - 1], out Trajectorys[nPose - 1]))
+                                                        {
+                                                            AddError("Failed to update Pose {0}." + nPose.ToString());
+                                                            failedUpdate = true;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        AddError(string.Format("Pose number, N, is too high or too low\n{0} poses expected and read N={1}", N, nPose));
+                                                        failedUpdate = true;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    AddError("Could not read N within Pose.\nValue should be an int and read \"" + newPose.Attributes["N"].Value + "\"");
+                                                    failedUpdate = true;
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            AddError(string.Format("More poses detected than expected.\n{0} expected, {1} detected", N, PoseList.Count));
+                                            failedUpdate = true;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        AddError("No poses found. List is empty.");
+                                        failedUpdate = true;
+                                    }
                                 }
-                                else if (!double.TryParse(result[0], out velocityList[0]))
+                                else
                                 {
-                                    velocityList[0] = -1;
+                                    AddError("No attributes detected in PoseList. Unknown amount of poses.");
+                                    failedUpdate = true;
                                 }
-                                for (int i = 1; i < N; i++)
+
+                                if (!failedUpdate)
                                 {
-                                    Pose_i = Node.Attributes["N" + (i+1).ToString()].Value;
-                                    result = Pose_i.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-                                    poseList[i] = new Pose(result, poseList[i - 1]);
+                                    // Loaded all poses and velocities associated with the trajectory of each new pose.
+                                    // If errors are encounted during the load it uses last pose as default values
+                                    // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
+                                    _loadedPoses = _Robot[nRobot].newPoses(N, FinalPoseList, EndVelocityList, AveVelocityList);
+                                }
+
+                                /*
+                                int N = 0;
+                                if (int.TryParse(Node.Attributes["N"].Value,out N))
+                                {
+                                    Pose[] poseList = new Pose[N];
+                                    double[] velocityList = new double[N];
+                                    string Pose_i = Node.Attributes["N1"].Value;
+                                    string[] result = Pose_i.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                                    poseList[0] = new Pose(result, _Robot[0].currentPose);
+                                    // Velocity of -1 means use last known velocity.
                                     if (result.Length % 3 == 0)
                                     {
-                                        velocityList[i] = -1;
+                                        velocityList[0] = -1;
                                     }
-                                    else if (!double.TryParse(result[0], out velocityList[i]))
+                                    else if (!double.TryParse(result[0], out velocityList[0]))
                                     {
-                                        velocityList[i] = -1;
+                                        velocityList[0] = -1;
+                                    }
+                                    for (int i = 1; i < N; i++)
+                                    {
+                                        Pose_i = Node.Attributes["N" + (i+1).ToString()].Value;
+                                        result = Pose_i.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                                        poseList[i] = new Pose(result, poseList[i - 1]);
+                                        if (result.Length % 3 == 0)
+                                        {
+                                            velocityList[i] = -1;
+                                        }
+                                        else if (!double.TryParse(result[0], out velocityList[i]))
+                                        {
+                                            velocityList[i] = -1;
+                                        }
+                                    }
+                                    // Loaded all poses and velocities associated with the trajectory of each new pose.
+                                    // If errors are encounted during the load it uses last pose as default values
+                                    // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
+                                    _loadedPoses = _Robot[0].newPoses(N, poseList, velocityList);
+                                }
+                                 * 
+                                 */
+                                break;
+                            case "Pose":
+                                bool UpdatedPose = false;
+                                Pose newFinalPoseList = Pose.Zero;
+                                double newEndVelocityList = -1;
+                                double newAveVelocityList = -1;
+                                TrajectoryTypes trajType = TrajectoryTypes.Quintic;
+                                UpdatedPose = getPoseInfo(Node, _Robot[nRobot].currentPose, out newFinalPoseList, out newEndVelocityList, out newAveVelocityList, out trajType);
+                                /*
+                                int dataPoints = 3;
+                                double[] newOrientation = new double[dataPoints + 1];
+                                for (int i = 0; i < dataPoints; i++)
+                                {
+                                    double result;
+                                    if (double.TryParse(Node.Attributes[SF.cardinalKeys[i]].Value, out result))
+                                    {
+                                        newOrientation[i] = result;
+                                        newOrientation[dataPoints] += 1;
+                                    }
+                                    else
+                                    {
+                                        break;
                                     }
                                 }
-                                // Loaded all poses and velocities associated with the trajectory of each new pose.
-                                // If errors are encounted during the load it uses last pose as default values
-                                // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
-                                _loadedPoses = _Robot[0].newPoses(N, poseList, velocityList);
-                            }
-                            break;
+                                if (newOrientation[dataPoints] == dataPoints)
+                                {
+                                    _Robot[0].newConOrientation((float)newOrientation[0], (float)newOrientation[1], (float)newOrientation[2]);
+                                    _loadedRotation = true;
+                                    _GUI.updateError("Rotation loaded", new Exception("External server: "));
+                                }
+                                 */
+                                if (UpdatedPose)
+                                {
+                                    // Loaded all poses and velocities associated with the trajectory of each new pose.
+                                    // If errors are encounted during the load it uses last pose as default values
+                                    // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
+                                    _loadedPoses = _Robot[nRobot].newPoses(1, new Pose[] {newFinalPoseList}, new double[] {newEndVelocityList}, new double[] {newAveVelocityList});
+                                }
+                                else
+                                {
+                                    AddError("Failed to update individual Pose.");
+                                }
+                                break;
+                            case "Velocty":
+                                double newSpeed = 0;
+                                if (double.TryParse(Node.InnerText, out newSpeed))
+                                {
+                                    _Robot[nRobot].LinearVelocity = newSpeed;
+                                }
+                                else
+                                {
+                                    AddError("New velocity not read.\nValue should be double but read \"" + Node.InnerText + "\"");
+                                }
+                                break;
+                            case "Gripper":
+                                if (int.Parse(Node.InnerText) == 0)
+                                {
+                                    _Robot[nRobot].gripperIsOpen = false;
+                                }
+                                else
+                                {
+                                    _Robot[nRobot].gripperIsOpen = true;
+                                }
+                                break;
+                            /*
                         case "Position":
                             double[] newPosition = new double[4];
                             for (int i = 0; i < 3; i++)
@@ -433,29 +694,6 @@ namespace LightWeight_Server
                             }
                             break;
 
-                        case "Pose":
-                            int dataPoints = 3;
-                            double[] newOrientation = new double[dataPoints+1];
-                            for (int i = 0; i < dataPoints; i++)
-                            {
-                                double result;
-                                if (double.TryParse(Node.Attributes[SF.cardinalKeys[i]].Value, out result))
-                                {
-                                    newOrientation[i] = result;
-                                    newOrientation[dataPoints] += 1;
-                                }
-                                else
-                                {
-                                    break;
-                                }
-                            }
-                            if (newOrientation[dataPoints] == dataPoints)
-                            {
-                                _Robot[0].newConOrientation((float)newOrientation[0], (float)newOrientation[1], (float)newOrientation[2]);
-                                _loadedRotation = true;
-                                _GUI.updateError("Rotation loaded", new Exception("External server: "));
-                            }
-                            break;
 
                         case "PoseXZ":
 
@@ -506,29 +744,20 @@ namespace LightWeight_Server
                             }
                             break;
 
-                        case "Gripper":
-                            if (int.Parse(Node.InnerText) == 0)
-                            {
-                                _Robot[0].gripperIsOpen = false;
-                            }
-                            else
-                            {
-                                _Robot[0].gripperIsOpen = true;
-                            }
-                            break;
-                        default:
-                            break;
+                             */
+                            default:
+                                break;
+                        }
+                    }
+                    if (_loadedPosition || _loadedRotation || _loadedPoses)
+                    {
+                        _loadedPoses = false;
+                        _loadedPosition = false;
+                        _loadedRotation = false;
+                        _Robot[nRobot].LoadedCommand();
+                        _GUI.updateError("Loaded both rotation and position", new Exception("external server:"));
                     }
                 }
-                if (_loadedPosition || _loadedRotation || _loadedPoses)
-                {
-                    _loadedPoses = false;
-                    _loadedPosition = false;
-                    _loadedRotation = false;
-                    _Robot[0].LoadedCommand();
-                    _GUI.updateError("Loaded both rotation and position", new Exception("external server:"));
-                }
-
             }
             catch (SocketException se)
             {

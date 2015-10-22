@@ -159,7 +159,7 @@ namespace LightWeight_Server
             {
                 if (_BufferLoaded)
                 {
-                    if (_bufferTrajectories[0].type == TrajectoryTypes.Task)
+                    if (_bufferTrajectories[0].type != TrajectoryTypes.Joint)
                     {
                         _nSegments = _bufferTrajectories.Length;
                         _CurrentSegment = 0;
@@ -221,7 +221,7 @@ namespace LightWeight_Server
                 // Check and load from buffer
                 LodeBuffer(currentPose, CurrentVelocity);
 
-                if (_ActiveTrajectories[_CurrentSegment].type == TrajectoryTypes.Task)
+                if (_ActiveTrajectories[_CurrentSegment].type != TrajectoryTypes.Joint)
                 {
                     Pose ReferencePose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferencePosition(_TrajectoryTime.Elapsed.TotalMilliseconds);
                     Pose ReferenceVelocity = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferenceVelocity(_TrajectoryTime.Elapsed.TotalMilliseconds);
