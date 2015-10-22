@@ -19,7 +19,7 @@ namespace LightWeight_Server
         ManualResetEvent haveReceived = new ManualResetEvent(false);
         object errorMsgLock = new object();
 
-        int _BufferSize = 1024;
+        int _BufferSize = 20*1024;
         byte[] _buffer;
         Socket _UdpSocket;
         IPEndPoint _localEP;
@@ -539,7 +539,7 @@ namespace LightWeight_Server
                                     // Loaded all poses and velocities associated with the trajectory of each new pose.
                                     // If errors are encounted during the load it uses last pose as default values
                                     // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
-                                    _loadedPoses = _Robot[nRobot].newPoses(N, FinalPoseList, EndVelocityList, AveVelocityList);
+                                    _loadedPoses = _Robot[nRobot].newPoses(N, FinalPoseList,AveVelocityList, EndVelocityList );
                                 }
 
                                 /*

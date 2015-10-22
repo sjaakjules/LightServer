@@ -37,21 +37,21 @@ namespace LightWeight_Server
         Stopwatch _ConnectionTimer = new Stopwatch();
         double _JacobienAverTimes = 0;
         Stopwatch A1 = new Stopwatch(), A2 = new Stopwatch(), jacobianTimer = new Stopwatch();
-        public FixedSizedQueue<double> _maxProcessDataTimer = new FixedSizedQueue<double>(10);
-        public FixedSizedQueue<double> _trajectoryLoaderTime = new FixedSizedQueue<double>(10);
-        public FixedSizedQueue<double> _processDataTimer = new FixedSizedQueue<double>(10);
-        public FixedSizedQueue<double> JocTimer = new FixedSizedQueue<double>(10);
-        public FixedSizedQueue<double> MaxJocTimer = new FixedSizedQueue<double>(10);
-        public FixedSizedQueue<double> serverTimer = new FixedSizedQueue<double>(10);
-        public FixedSizedQueue<double> MaxserverTimer = new FixedSizedQueue<double>(10);
+        public FixedSizedQueue<double> _maxProcessDataTimer = new FixedSizedQueue<double>(5);
+        public FixedSizedQueue<double> _trajectoryLoaderTime = new FixedSizedQueue<double>(5);
+        public FixedSizedQueue<double> _processDataTimer = new FixedSizedQueue<double>(5);
+        public FixedSizedQueue<double> JocTimer = new FixedSizedQueue<double>(5);
+        public FixedSizedQueue<double> MaxJocTimer = new FixedSizedQueue<double>(5);
+        public FixedSizedQueue<double> serverTimer = new FixedSizedQueue<double>(5);
+        public FixedSizedQueue<double> MaxserverTimer = new FixedSizedQueue<double>(5);
 
-        FixedSizedQueue<TimeCoordinate> _Position = new FixedSizedQueue<TimeCoordinate>(6);
-        FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(6);
-        FixedSizedQueue<TimeCoordinate> _acceleration = new FixedSizedQueue<TimeCoordinate>(6);
-        FixedSizedQueue<TimeCoordinate> _Torque = new FixedSizedQueue<TimeCoordinate>(6);
-        FixedSizedQueue<double[]> _Angles = new FixedSizedQueue<double[]>(6);
-        FixedSizedQueue<Pose> _ReferencePosition = new FixedSizedQueue<Pose>(6);
-        FixedSizedQueue<Pose> _ReferenceVelocity = new FixedSizedQueue<Pose>(6);
+        FixedSizedQueue<TimeCoordinate> _Position = new FixedSizedQueue<TimeCoordinate>(5);
+        FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(5);
+        FixedSizedQueue<TimeCoordinate> _acceleration = new FixedSizedQueue<TimeCoordinate>(5);
+        FixedSizedQueue<TimeCoordinate> _Torque = new FixedSizedQueue<TimeCoordinate>(5);
+        FixedSizedQueue<double[]> _Angles = new FixedSizedQueue<double[]>(5);
+        FixedSizedQueue<Pose> _ReferencePosition = new FixedSizedQueue<Pose>(5);
+        FixedSizedQueue<Pose> _ReferenceVelocity = new FixedSizedQueue<Pose>(5);
 
         public readonly Guid _RobotID;
         ScreenWriter _GUI;
@@ -89,7 +89,7 @@ namespace LightWeight_Server
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
         readonly double _MaxCartesianChange = 1;
         readonly double _MaxAngularChange = 0.1;
-        readonly double _MaxAxisChange = 0.00015;
+        readonly double _MaxAxisChange = 0.0015;
 
         double _maxLinearVelocity = .12; // in mm/ms
         double _maxAngularVelocity = .012; // in mm/ms
@@ -886,6 +886,11 @@ namespace LightWeight_Server
                 }
             }
             return new double[] { theta1, theta2, theta3 };
+        }
+
+        public double[] IKSolver(Pose DesiredPose)
+        {
+            return IKSolver(DesiredPose,EndEffector,currentAxisAngle,ref _elbow, ref _base);
         }
 
         public double[] IKSolver(Pose DesiredPose, Vector3 EE, double[] thetaLast, ref ElbowPosition elbow, ref BasePosition basePos)

@@ -502,6 +502,21 @@ namespace LightWeight_Server
             }
         }
 
+        public static TimeCoordinate getAverage(TimeCoordinate[] list)
+        {
+            if (list.Length > 1)
+            {
+                TimeCoordinate poseOut = list[0];
+                for (int i = 1; i < list.Length; i++)
+                {
+                    poseOut = poseOut + list[i];
+                }
+                poseOut = poseOut / list.Length;
+                return poseOut;
+            }
+            return list[0];
+        }
+
         public static TimeCoordinate operator +(TimeCoordinate Pose1, TimeCoordinate Pose2)
         {
             return new TimeCoordinate(Pose1.x + Pose2.x, Pose1.y + Pose2.y, Pose1.z + Pose2.z, Pose1.axis + Pose2.axis, Pose1.angle + Pose2.angle,Pose2.Ipoc);
@@ -773,7 +788,7 @@ namespace LightWeight_Server
 
         public static void updateDataFile(Pose refPos, Pose refVel, Pose actPos, Pose actVel, double time,double[] tipVel, double[] axisComand, StringBuilder tableRow)
         {
-            tableRow.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data},{5},{6};", time, refPos, actPos, refVel, actVel, printDouble(tipVel), printDouble(axisComand)));
+            tableRow.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data},{5},{6}", time, refPos, actPos, refVel, actVel, printDouble(tipVel), printDouble(axisComand)));
         }
 
         #endregion
@@ -846,6 +861,30 @@ namespace LightWeight_Server
                 arrayout[i] = value;
             }
             return arrayout;
+        }
+
+        static public double[] addDoubles(double[] a1, double[] a2)
+        {
+            if (a1.Length != a2.Length)
+            {
+                throw new MatrixException("Double arrays are not same length");
+            }
+            double[] arrayout = new double[a2.Length];
+            for (int i = 0; i < a1.Length; i++)
+            {
+                arrayout[i] = a1[i] + a2[i];
+            }
+            return arrayout;
+        }
+
+        public static double[] multiplyMatrix(double[] M, double value)
+        {
+            double[] Mout = new double[M.Length];
+            for (int i = 0; i < M.Length; i++)
+            {
+                    Mout[i] = M[i] * value;
+            }
+            return Mout;
         }
 
         public static double[] multiplyMatrix(double[,] M, double[] value)
@@ -1320,7 +1359,7 @@ namespace LightWeight_Server
 
         internal static void updateDataFile(Pose referencePosition, Pose measuredPosition, Pose measuredVelocity, double time, double[] referenceAngles, double[] controlAngles, double[] measuredAngles, StringBuilder DataWriter)
         {
-            DataWriter.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data},{5},{6};", time, referencePosition, measuredPosition, measuredVelocity, printDouble(referenceAngles), printDouble(measuredAngles), printDouble(controlAngles)));
+            DataWriter.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data},{5},{6};", time,referencePosition, measuredPosition, measuredVelocity, printDouble(referenceAngles), printDouble(measuredAngles), printDouble(controlAngles)));
         }
     }
 

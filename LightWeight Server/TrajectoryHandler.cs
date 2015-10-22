@@ -14,6 +14,7 @@ namespace LightWeight_Server
         object DesiredPoseLock = new object();
 
         Stopwatch _TrajectoryTime;
+        double Timer = 0;
         bool _isActive, _BufferLoaded;
         int _nSegments, _CurrentSegment;
         Trajectory[] _ActiveTrajectories;
@@ -103,7 +104,7 @@ namespace LightWeight_Server
                 }
                 _desiredPose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose;
                 _isActive = true;
-                _TrajectoryTime.Restart();
+                _TrajectoryTime.Reset();
             }
             catch (Exception e)
             {
@@ -218,6 +219,8 @@ namespace LightWeight_Server
             // Check if its active
             if (_isActive)
             {
+                _TrajectoryTime.Start();
+                Timer += 4;
                 // Check and load from buffer
                 LodeBuffer(currentPose, CurrentVelocity);
 
@@ -234,11 +237,12 @@ namespace LightWeight_Server
 
 
                     // Jacobian method
-                    double[] AxisCommand = TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, inverseJacobian);
-                    if (currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 5e-1))
+                    double[] AxisCommand = TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, inverseJacobian, _ThisRobot);
+                    if (_ActiveTrajectories[_CurrentSegment].trajectoryTime < _TrajectoryTime.Elapsed )//&& currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 1.0))
                     {
                         _CurrentSegment++;
                         _TrajectoryTime.Restart();
+                        Timer = 0;
                         if (_CurrentSegment == _nSegments)
                         {
                             Stop(currentPose);
