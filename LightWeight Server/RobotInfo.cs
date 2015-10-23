@@ -451,15 +451,15 @@ namespace LightWeight_Server
             //updateError(x.ToString() + " : " + y.ToString() + " : " + z.ToString() + " : " + a.ToString() + " : " + b.ToString() + " : " + c.ToString());
             _loopTime = _KukaCycleTime.Elapsed.TotalMilliseconds;
             _KukaCycleTime.Restart();
-            a = (a == -180) ? 180 : a;
-            b = (a == -180) ? 180 : b;
-            c = (a == -180) ? 180 : c;
+            a = (Math.Abs(a + 180) < 1e-3) ? 180 : a;
+            b = (Math.Abs(b + 180) < 1e-3) ? 180 : b;
+            c = (Math.Abs(c + 180) < 1e-3) ? 180 : c;
             TimeCoordinate newPosition = new TimeCoordinate(x, y, z, a, b, c, Ipoc);
             _Position.Enqueue(newPosition);
-            TimeCoordinate[] positions = _Position.ThreadSafeToArray;
-            _velocity.Enqueue(SF.AverageRateOfChange(positions, _loopTime));
-            TimeCoordinate[] velocities = _velocity.ThreadSafeToArray;
-            _acceleration.Enqueue(SF.AverageRateOfChange(velocities, _loopTime));
+           // TimeCoordinate[] positions = _Position.ThreadSafeToArray;
+           // _velocity.Enqueue(SF.AverageRateOfChange(positions, _loopTime));
+           // TimeCoordinate[] velocities = _velocity.ThreadSafeToArray;
+           // _acceleration.Enqueue(SF.AverageRateOfChange(velocities, _loopTime));
         }
 
         public void updateRobotAngles(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
