@@ -46,7 +46,7 @@ namespace LightWeight_Server
         public FixedSizedQueue<double> MaxserverTimer = new FixedSizedQueue<double>(5);
 
         FixedSizedQueue<TimeCoordinate> _Position = new FixedSizedQueue<TimeCoordinate>(5);
-        FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(5);
+       // FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<TimeCoordinate> _acceleration = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<TimeCoordinate> _Torque = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<double[]> _Angles = new FixedSizedQueue<double[]>(5);
@@ -89,7 +89,7 @@ namespace LightWeight_Server
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
         readonly double _MaxCartesianChange = 1;
         readonly double _MaxAngularChange = 0.1;
-        readonly double _MaxAxisChange = 0.0015;
+        readonly double _MaxAxisChange = 0.0003;
 
         double _maxLinearVelocity = .12; // in mm/ms
         double _maxAngularVelocity = .012; // in mm/ms
@@ -120,7 +120,7 @@ namespace LightWeight_Server
 
         public Pose currentPose { get { return _Position.LastElement.Pose; } }
 
-        public Pose currentVelocity { get { return _velocity.LastElement.Pose; } }
+        public Pose currentVelocity { get { return _ReferenceVelocity.LastElement; } }
 
         public Pose currentAcceleration { get { return _acceleration.LastElement.Pose; } }
 
@@ -257,7 +257,7 @@ namespace LightWeight_Server
             _CurrentTrajectory = new TrajectoryOld();
             _Controller = new Controller(this);
             _Position.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0));
-            _velocity.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0));
+          //  _velocity.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0));
             _acceleration.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
             _Torque.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
             _Angles.Enqueue(new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
@@ -363,7 +363,7 @@ namespace LightWeight_Server
                             // long orientationDuration = (long)(TimeSpan.TicksPerSecond * (_desiredPose.angle / (MaxOrientationDisplacement * 10)));
                             if (_newPositionLoaded)
                             {
-                                _CurrentTrajectory.load(0, _newPose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
+                                _CurrentTrajectory.load(0, _newPose, _Position.LastElement.Pose, currentVelocity, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
                                 _newOrientationLoaded = false;
                                 _newPositionLoaded = false;
                                 _newCommandLoaded = false;
@@ -372,7 +372,7 @@ namespace LightWeight_Server
                             }
                             else
                             {
-                                _CurrentTrajectory.load(-1, _newPose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
+                                _CurrentTrajectory.load(-1, _newPose, _Position.LastElement.Pose, currentVelocity, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
                                 _newOrientationLoaded = false;
                                 _newCommandLoaded = false;
                                 _isCommanded = true;
@@ -381,7 +381,7 @@ namespace LightWeight_Server
                         }
                         else if (_newPositionLoaded)
                         {
-                            _CurrentTrajectory.load(1, _newPose, _Position.LastElement.Pose, _velocity.LastElement.Pose, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
+                            _CurrentTrajectory.load(1, _newPose, _Position.LastElement.Pose, currentVelocity, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
                             _newPositionLoaded = false;
                             _newCommandLoaded = false;
                             _isCommanded = true;
@@ -464,6 +464,7 @@ namespace LightWeight_Server
 
         public void updateRobotAngles(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
         {
+            //updateError("IPOC: " + Ipoc.ToString(), new KukaException("IPOC"));
             _Angles.Enqueue(new double[] { a1, a2, a3, a4, a5, a6 });
             if (_isConnected)
             {

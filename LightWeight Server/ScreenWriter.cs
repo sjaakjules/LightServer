@@ -47,7 +47,7 @@ namespace LightWeight_Server
 
         
         
-        Stopwatch _rotatingTimer = new Stopwatch();
+        Stopwatch _ErrorTimer = new Stopwatch();
 
         double TGetReference, TGetController, TloadTrajectory, T1, T2, T3;
         public double PGetReference, PGetController, PloadTrajectory, P1, P2, P3, P4;
@@ -96,6 +96,7 @@ namespace LightWeight_Server
 
         public void ConnectRobot(RobotInfo newRobot, int number)
         {
+            _ErrorTimer.Start();
             _ConnectedRobots[number] = newRobot;
             _RobotName.TryAdd(newRobot._RobotID.ToString(), "Robot " + number.ToString());
             SetupTelemetryInfo(newRobot);
@@ -106,6 +107,7 @@ namespace LightWeight_Server
         {
             lock (ErrorWriteLock)
             {
+                _ErrorWriter.AppendLine(string.Format("Local IPOC: {0:0.0}", _ErrorTimer.Elapsed.TotalMilliseconds));
                 _ErrorWriter.AppendLine(newError);
                 _ErrorWriter.AppendLine(Error.Message);
                 _ErrorWriter.AppendLine(Error.StackTrace);

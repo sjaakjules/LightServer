@@ -16,7 +16,7 @@ namespace LightWeight_Server
         StreamWriter Datafile;
         //object movementLock = new object();
         Stopwatch _DataTime = new Stopwatch();
-        double P = 0, I, D;
+        double P = 0.01, I, D;
 
 
 
@@ -73,10 +73,20 @@ namespace LightWeight_Server
         public double[] getControllerEffort(Pose referencePosition, Pose referenceVelocity, Pose measuredPosition, Pose measuredVelocity,double[,] inverseJoc, RobotInfo robot)
         {
             Vector3 ErrorTranslation = referencePosition.Translation - measuredPosition.Translation ;
+            while (ErrorTranslation.Length() > 5)
+            {
+                ErrorTranslation = ErrorTranslation / 2;
+            }
             //Vector3 ErrorOrientation = SF.getOrientationError(Matrix.CreateFromQuaternion(referencePosition.Orientation), Matrix.CreateFromQuaternion(measuredPosition.Orientation));
             Vector3 ErrorOrientation = SF.getOrientationError(referencePosition.Orientation, measuredPosition.Orientation);
+
+            while (ErrorOrientation.Length() > 0.05)
+            {
+                ErrorTranslation = ErrorTranslation / 2;
+            }
+
             Vector3 ControlTranslation = referenceVelocity.Translation + Vector3.Multiply(ErrorTranslation, (float)P);
-            Vector3 ControlOrientation = Vector3.Multiply(referenceVelocity.axis, referenceVelocity.angle) +Vector3.Multiply(ErrorOrientation, (float)P/200);
+            Vector3 ControlOrientation = Vector3.Multiply(referenceVelocity.axis, referenceVelocity.angle) +Vector3.Multiply(ErrorOrientation, (float)P/100);
             // TODO: write PI controller, may need karman filter for noise
             //double JacTimer = R.IPOC.Elapsed.TotalMilliseconds;
             //Mat Jac = new Mat(Jacobian);

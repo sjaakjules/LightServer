@@ -354,7 +354,7 @@ namespace LightWeight_Server
         {
             if (t > trajectoryTime.TotalMilliseconds)
             {
-                return finalVelocity;
+                return Pose.Zero;
             }
             Vector3 translation = new Vector3(getVelocity(t, _QuinticPerameters[0]), getVelocity(t, _QuinticPerameters[1]), getVelocity(t, _QuinticPerameters[2]));
             Pose ReferencePose = new Pose(Quaternion.CreateFromAxisAngle(_TrajectoryAxis, getVelocity(t, _QuinticPerameters[3])), translation);
