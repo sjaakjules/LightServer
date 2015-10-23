@@ -325,7 +325,10 @@ namespace LightWeight_Server
                 MaxserverTimer.Enqueue(t);
             }
         }
-
+        public void updateprocesstime(double readXML, double Connect, double loadCommands, double updateCommand, double writeXML, double processDataTimers)
+        {
+            updateError(string.Format("Slow process time of {0:0.00}ms\r\nRead XML\t{1:0.0}%\r\nConnection\t{2:0.0}%\r\nLoad Command\t{3:0.0}%\r\nUpdate Command\t{4:0.0}%\r\nWrite XML\t{5:0.0}%\r\n", processDataTimers, 100.0 * (readXML) / processDataTimers, 100.0 * (Connect - readXML) / processDataTimers, 100.0 * (loadCommands - Connect) / processDataTimers, 100.0 * (updateCommand - loadCommands) / processDataTimers, 100.0 * (writeXML - updateCommand) / processDataTimers), new KukaException("Lag:"));
+        }
         /// <summary>
         /// Loads the _desiredPosition data in Base coordinates and the _desiredRotation in local SartPose coordinates. 
         /// The _desiredRotation is a rotation, which when applied, will rotate the current pose to desired final pose.

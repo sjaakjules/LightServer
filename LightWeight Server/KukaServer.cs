@@ -298,6 +298,11 @@ namespace LightWeight_Server
             try
             {
                 processDataTimer.Restart();
+                double readXML = 0;
+                double Connect = 0;
+                double loadCommands = 0;
+                double updateCommand = 0;
+                double writeXML = 0;
                 // Encode msg from state object
                 State.MessageIn = Encoding.UTF8.GetString(State.PacketIn, 0, State.PacketInSize);
 
@@ -350,21 +355,24 @@ namespace LightWeight_Server
                             break;
                     }
                 }
+                readXML = processDataTimer.Elapsed.TotalMilliseconds;
                 _Robot.Connect();
+                Connect = processDataTimer.Elapsed.TotalMilliseconds;
                 //_Robot.SaveInfo();
                 _Robot.LoadCommand();
                 //_Robot.LoadTrajectory();
-
+                loadCommands = processDataTimer.Elapsed.TotalMilliseconds;
                 // As the robot positions have been updated, calculate change in position and update command dictionary
                 _Robot.updateComandPosition();
-
+                updateCommand = processDataTimer.Elapsed.TotalMilliseconds;
                 // Write the new command to the robot accessing the command dictionary
                 UpdateXML(State);
-
+                writeXML = processDataTimer.Elapsed.TotalMilliseconds;
                 processDataTimer.Stop();
                 _Robot._processDataTimer.Enqueue(processDataTimer.Elapsed.TotalMilliseconds);
-                if (processDataTimer.Elapsed.TotalMilliseconds > 3)
+                if (processDataTimer.Elapsed.TotalMilliseconds > 4)
                 {
+                    _Robot.updateprocesstime(readXML, Connect, loadCommands, updateCommand, writeXML, processDataTimer.Elapsed.TotalMilliseconds);
                     _Robot._maxProcessDataTimer.Enqueue(processDataTimer.Elapsed.TotalMilliseconds);
                 }
 
