@@ -8,14 +8,36 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.ComponentModel;
 
 namespace LightWeight_Server
 {
+    public delegate void SixDoubleHandler(object sender, SixDoubleData e);
+
+    /// <summary>
+    /// This is the object class for events with 6 double values and a time stamp of creation.
+    /// Used for new positions from kuka and new commands to kuka
+    /// </summary>
+    public class SixDoubleData : EventArgs
+    {
+        public double Ipoc { get; set; }
+        public double[] newPosition { get; set; }
+    }
+
+
+
+    class Listener
+    {
+
+    }
+
     class RobotInfo
     {
 
-        public enum ElbowPosition { up, down, stretched };
-        public enum BasePosition { front, back, vertical };
+        public event SixDoubleHandler newPosition;
+        Guid lastController;
+        int bufferAmount;
+        int maxBuffer = 3;
 
         object TrajectoryPrintLock = new object();
         object trajectoryLock = new object();
@@ -46,7 +68,7 @@ namespace LightWeight_Server
         public FixedSizedQueue<double> MaxserverTimer = new FixedSizedQueue<double>(5);
 
         FixedSizedQueue<TimeCoordinate> _Position = new FixedSizedQueue<TimeCoordinate>(5);
-       // FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(5);
+        FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<TimeCoordinate> _acceleration = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<TimeCoordinate> _Torque = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<double[]> _Angles = new FixedSizedQueue<double[]>(5);
@@ -99,14 +121,9 @@ namespace LightWeight_Server
         bool _isConnected = false;
         bool _isConnecting = false;
         bool _isCommanded = false;
-        bool _isCommandedPosition = false;
-        bool _isCommandedOrientation = false;
 
         bool _newCommandLoaded = false;
-        bool _newOrientationLoaded = false;
-        bool _newPositionLoaded = false;
         bool _newPosesLoaded = false;
-        bool _isVia = false;
 
         public double[] _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
         public readonly double[] _defaultHomeAngles = new double[] { 0, 0 };
@@ -120,7 +137,7 @@ namespace LightWeight_Server
 
         public Pose currentPose { get { return _Position.LastElement.Pose; } }
 
-        public Pose currentVelocity { get { return _ReferenceVelocity.LastElement; } }
+        public Pose currentVelocity { get { return _velocity.LastElement.Pose; } }
 
         public Pose currentAcceleration { get { return _acceleration.LastElement.Pose; } }
 
@@ -222,13 +239,6 @@ namespace LightWeight_Server
             }
         }
 
-
-        public bool isVia
-        {
-            get { return _isVia; }
-            set { _isVia = value; }
-        }
-
         public bool gripperIsOpen
         {
             get
@@ -254,10 +264,12 @@ namespace LightWeight_Server
             this._RobotID = id;
             this._GUI = GUI;
             _TrajectoryHandler = new TrajectoryHandler(this);
+            _TrajectoryHandler.updateCommandCompleted += new updatedCommandCompletedEventHandler(updateCommandCompleatedlistener);
+            _TrajectoryHandler.updatedCommandProgressChanged += new UpdateCommandProgressChangedEventHandler(updateCommandProgresslistener);
             _CurrentTrajectory = new TrajectoryOld();
             _Controller = new Controller(this);
             _Position.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0));
-          //  _velocity.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0));
+            _velocity.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0));
             _acceleration.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
             _Torque.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
             _Angles.Enqueue(new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
@@ -270,6 +282,63 @@ namespace LightWeight_Server
         }
 
         #region 4ms Kuka server Methods
+
+        public void AsyncGetCommandEffort(long ipocStart, double[] currentPose, double[] currentAngle, Pose CurrentVelocity)
+        {
+            if (lastController != Guid.Empty)
+            {
+                if (bufferAmount >= maxBuffer)
+                {
+                    _TrajectoryHandler.CancelAsync(lastController);
+                    lastController = Guid.NewGuid();
+                    bufferAmount = 0;
+                    _TrajectoryHandler.getRobotChangeAsync(ipocStart, currentPose, currentAngle, CurrentVelocity, lastController);
+                }
+            }
+            else
+            {
+                lastController = Guid.NewGuid();
+                bufferAmount = 0;
+                _TrajectoryHandler.getRobotChangeAsync(ipocStart, currentPose, currentAngle, CurrentVelocity, lastController);
+            }
+        }
+
+        private void updateCommandCompleatedlistener(object sender, UpdatedCommandCompleatedEventArgs e)
+        {
+            Guid taskId = (Guid)e.UserState;
+
+            if (e.Cancelled)
+            {
+                // Cancelled error....
+            }
+            else if (e.Error != null)
+            {
+                // Error occured...
+            }
+            else
+            {
+                double[] newControl = e.newCommand;
+                long ipoc = e.Ipoc;
+            }
+        }
+
+        private void updateCommandProgresslistener(UpdatedCommandProgressEventArgs e)
+        {
+            Guid taskid = (Guid)e.UserState;
+            if (e is UpdatedCommandProgressEventArgs)
+            {
+                UpdatedCommandProgressEventArgs progressEventArgs = e as UpdatedCommandProgressEventArgs;
+                double[] newControl = e.newCommand;
+                long ipoc = e.Ipoc;
+                _axisCommand = checkLimits(newControl);
+                updateError(string.Format("{2:ss.ffff}:\nNew Command:\t({0})\nIpoc: \t{1:0.0}\nms:  \t{3:0.00}", SF.printDouble(newControl), ipoc, DateTime.Now.Ticks, (ipoc-DateTime.Now.Ticks)/TimeSpan.TicksPerMillisecond), new Exception("Progress"));
+                bufferAmount++;
+            }
+            else
+            {
+                // jsut has progress percentage and can display...
+            }
+        }
 
         public void Connect()
         {
@@ -339,68 +408,23 @@ namespace LightWeight_Server
             {
                 try
                 {
-                    if (_newCommandLoaded)
+                    if (_newPosesLoaded)
                     {
-                        if (_newPosesLoaded)
-                        {
-                            _TrajectoryHandler.LodeBuffer(currentPose, currentVelocity);
-                            //  _TrajectoryList = new TrajectoryOld[_NewTrajectoryList.Length];
-                            // _NewTrajectoryList.CopyTo(_TrajectoryList, 0);
-                            //  _NewTrajectoryList = null;
-                            // _CurrentTrajectory = _TrajectoryList[0];
-                            _newPosesLoaded = false;
-                            _newOrientationLoaded = false;
-                            _newPositionLoaded = false;
-                            _newCommandLoaded = false;
-                            _isCommanded = true;
-                            _isCommandedPosition = true;
-                            _isCommandedOrientation = true;
-                            //   _CurrentTrajectory.start();
-                        }
-                        if (_newOrientationLoaded)
-                        {
-
-                            // long orientationDuration = (long)(TimeSpan.TicksPerSecond * (_desiredPose.angle / (MaxOrientationDisplacement * 10)));
-                            if (_newPositionLoaded)
-                            {
-                                _CurrentTrajectory.load(0, _newPose, _Position.LastElement.Pose, currentVelocity, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
-                                _newOrientationLoaded = false;
-                                _newPositionLoaded = false;
-                                _newCommandLoaded = false;
-                                _isCommanded = true;
-                                _isCommandedPosition = true;
-                            }
-                            else
-                            {
-                                _CurrentTrajectory.load(-1, _newPose, _Position.LastElement.Pose, currentVelocity, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
-                                _newOrientationLoaded = false;
-                                _newCommandLoaded = false;
-                                _isCommanded = true;
-                            }
-                            _isCommandedOrientation = true;
-                        }
-                        else if (_newPositionLoaded)
-                        {
-                            _CurrentTrajectory.load(1, _newPose, _Position.LastElement.Pose, currentVelocity, new Pose(currentPose.Orientation, new Vector3(0, 0, 0)));
-                            _newPositionLoaded = false;
-                            _newCommandLoaded = false;
-                            _isCommanded = true;
-                            _isCommandedPosition = true;
-                        }
-
-
-
+                        _TrajectoryHandler.LodeBuffer(currentPose, currentVelocity);
+                        //  _TrajectoryList = new TrajectoryOld[_NewTrajectoryList.Length];
+                        // _NewTrajectoryList.CopyTo(_TrajectoryList, 0);
+                        //  _NewTrajectoryList = null;
+                        // _CurrentTrajectory = _TrajectoryList[0];
+                        _newPosesLoaded = false;
+                        _isCommanded = true;
                     }
+
                 }
                 catch (Exception e)
                 {
                     updateError("Exception " + e.Message, e);
-                    _newCommandLoaded = false;
+                    _newPosesLoaded = false;
                     _isCommanded = false;
-                    _newOrientationLoaded = false;
-                    _newPositionLoaded = false;
-                    _isCommandedPosition = false;
-                    _isCommandedOrientation = false;
                 }
             }
         }
@@ -411,7 +435,15 @@ namespace LightWeight_Server
             double[] saturatedComand = new double[axisComand.Length];
             for (int i = 0; i < axisComand.Length; i++)
             {
-                saturatedComand[i] = (Math.Abs(axisComand[i]) > _MaxAxisChange) ? Math.Sign(axisComand[i]) * _MaxAxisChange : axisComand[i];
+                if (Math.Abs(axisComand[i]) > _MaxAxisChange)
+                {
+                    saturatedComand[i] = Math.Sign(axisComand[i]) * _MaxAxisChange;
+                }
+                else
+                {
+                    saturatedComand[i] = axisComand[i];
+                }
+                
             }
             return saturatedComand;
         }
@@ -423,9 +455,10 @@ namespace LightWeight_Server
 
                 if (_isConnected && _isCommanded && _TrajectoryHandler.IsActive)
                 {
-                    double[] axisComand = _TrajectoryHandler.RobotChange(currentPose, currentVelocity, _InverseJacobian);
-                    _axisCommand = checkLimits(axisComand);
-                    _CommandPose = new TimeCoordinate(new Pose(_axisCommand), _Position.LastElement.Ipoc);
+                    AsyncGetCommandEffort(DateTime.Now.Ticks, currentPose.kukaValues, currentAxisAngle, currentVelocity);
+                    //double[] axisComand = _TrajectoryHandler.RobotChange(currentPose, currentVelocity, _InverseJacobian);
+                    //_axisCommand = checkLimits(axisComand);
+                    //_CommandPose = new TimeCoordinate(new Pose(_axisCommand), _Position.LastElement.Ipoc);
                 }
 
 
@@ -1102,9 +1135,6 @@ namespace LightWeight_Server
                 }
             }
         }
-         * 
-         * 
-         */
         public void newPosition(double x, double y, double z)
         {
             lock (trajectoryLock)

@@ -1,20 +1,198 @@
-﻿using System;
+﻿using Microsoft.Xna.Framework;
+using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace LightWeight_Server
 {
+    public delegate void updatedCommandCompletedEventHandler(object sender, UpdatedCommandCompleatedEventArgs e);
+    public delegate void UpdateCommandProgressChangedEventHandler(UpdatedCommandProgressEventArgs e);
+
+    public class UpdatedCommandProgressEventArgs : ProgressChangedEventArgs
+    {
+        long _Ipoc;
+        double[] _newCommand = new double[6];
+        public long Ipoc { get { return _Ipoc; } }
+        public double[] newCommand { get { return _newCommand; } }
+
+        public UpdatedCommandProgressEventArgs(long ipoc, double[] newCommand, int percent, object state)
+            : base(percent, state)
+        {
+            this._Ipoc = ipoc;
+            newCommand.CopyTo(_newCommand, 0);
+        }
+    }
+
+    public class UpdatedCommandCompleatedEventArgs : AsyncCompletedEventArgs
+    {
+        long _Ipoc;
+        double[] _newCommand = new double[6];
+        public long Ipoc { get { RaiseExceptionIfNecessary(); return _Ipoc; } }
+        public double[] newCommand { get { RaiseExceptionIfNecessary(); return _newCommand; } }
+
+        public UpdatedCommandCompleatedEventArgs(long ipoc, double[] newCommand, Exception e, bool canceled, object state)
+            : base(e, canceled, state)
+        {
+            this._Ipoc = ipoc;
+            newCommand.CopyTo(_newCommand, 0);
+        }
+    }
 
     class TrajectoryHandler
     {
+        public event updatedCommandCompletedEventHandler updateCommandCompleted;
+        public event UpdateCommandProgressChangedEventHandler updatedCommandProgressChanged;
+
+        private SendOrPostCallback onProgressReportDelegate;
+        private SendOrPostCallback onCompletedDelegate;
+        private delegate void WorkerEventhandler(long ipoc, double[] newPosition, double[] newAngles, Pose currentVelocity, AsyncOperation asyncOp);
+
+        protected virtual void InitialiseDelegates()
+        {
+            onProgressReportDelegate = new SendOrPostCallback(ReportProgress);
+            onCompletedDelegate = new SendOrPostCallback(UpdateCommandCompleted);
+        }
+
+        private HybridDictionary userStateToLifetime = new HybridDictionary();
+
+        private void UpdateCommandCompleted(object operationState)
+        {
+            UpdatedCommandCompleatedEventArgs e = operationState as UpdatedCommandCompleatedEventArgs;
+            OnUpdateCommandCompleted(e);
+        }
+
+        private void ReportProgress(object state)
+        {
+            UpdatedCommandProgressEventArgs e = state as UpdatedCommandProgressEventArgs;
+            OnProgressChanged(e);
+        }
+
+        protected void OnUpdateCommandCompleted(UpdatedCommandCompleatedEventArgs e)
+        {
+            if (updateCommandCompleted != null)
+            {
+                updateCommandCompleted(this, e);
+            }
+        }
+
+        protected void OnProgressChanged(UpdatedCommandProgressEventArgs e)
+        {
+            if (updatedCommandProgressChanged != null)
+            {
+                updatedCommandProgressChanged(e);
+            }
+        }
+
+        private void CompleationMethod(long ipoc, double[] newCommand, Exception exception, bool canceled, AsyncOperation asyncOp)
+        {
+            if (!canceled)
+            {
+                lock (userStateToLifetime.SyncRoot)
+                {
+                    userStateToLifetime.Remove(asyncOp.UserSuppliedState);
+                }
+            }
+
+            UpdatedCommandCompleatedEventArgs e = new UpdatedCommandCompleatedEventArgs(ipoc, newCommand, exception, canceled, asyncOp.UserSuppliedState);
+
+            asyncOp.PostOperationCompleted(onCompletedDelegate, e);
+        }
+
+        private bool TaskCanceled(object taskId)
+        {
+            return (userStateToLifetime[taskId] == null);
+        }
+
+        private void updateCommandWorker(long ipocStart, double[] newPosition, double[] newAngles, Pose currentVelocity, AsyncOperation asyncOp)
+        {
+            double[] newCommand = new double[] { 0, 0, 0, 0, 0, 0 };
+            long Ipoc = ipocStart;
+            Exception e = null;
+
+            if (!TaskCanceled(asyncOp.UserSuppliedState))
+            {
+                try
+                {
+                    newCommand = getNextControllEffort(ipocStart, newPosition, newAngles,currentVelocity, asyncOp);
+                }
+                catch (Exception ex)
+                {
+                    e = ex;
+                }
+            }
+            this.CompleationMethod(Ipoc, newCommand, e, TaskCanceled(asyncOp.UserSuppliedState), asyncOp);
+
+        }
+
+        private double[] getNextControllEffort(long ipocStart, double[] newPosition, double[] newAngles, Pose CurrentVelocity, AsyncOperation asyncOp)
+        {
+            UpdatedCommandProgressEventArgs e = null;
+            double[] newCommand = new double[] { 0, 0, 0, 0, 0, 0 };
+            int stepsAhead = 10;
+            int n = 0;
+            Pose LastsimulatedPose = new Pose(newPosition);
+            Pose simulatedPose = new Pose(newPosition);
+            Pose simulatedVelocity = CurrentVelocity;
+            double[] simulatedAngles = new double[6];
+            newAngles.CopyTo(simulatedAngles, 0);
+            double[,] InverseJacobian = SF.GetInverseJacobian(simulatedAngles, _ThisRobot.EndEffector);
+
+            // Do work:
+            while (n < stepsAhead && !TaskCanceled(asyncOp.UserSuppliedState))
+            {
+                // sync call to get controll effort:
+                double[] nCommand = RobotChange(simulatedPose, simulatedVelocity, InverseJacobian);
+                e = new UpdatedCommandProgressEventArgs(ipocStart + 4 * n * TimeSpan.TicksPerMillisecond, nCommand, (n + 1) * 10, asyncOp.UserSuppliedState);
+                asyncOp.Post(this.onProgressReportDelegate, e);
+
+                SF.addtoDoubles(simulatedAngles, nCommand);
+                InverseJacobian = SF.GetInverseJacobian(simulatedAngles, _ThisRobot.EndEffector);
+                LastsimulatedPose = simulatedPose;
+                simulatedPose = SF.forwardKinimatics(simulatedAngles,_ThisRobot.EndEffector);
+                simulatedVelocity = new Pose(LastsimulatedPose, simulatedPose, 4);
+                n++;
+                Thread.Sleep(0);
+            }
+            return RobotChange(simulatedPose, simulatedVelocity, InverseJacobian);
+        }
+
+        public virtual void getRobotChangeAsync(long ipocStart, double[] newPosition, double[] newAngle, Pose currentVelocity, object taskId)
+        {
+            AsyncOperation asyncOp = AsyncOperationManager.CreateOperation(taskId);
+            lock (userStateToLifetime.SyncRoot)
+            {
+                if (userStateToLifetime.Contains(taskId))
+                {
+                    throw new ArgumentException("Task ID parameter must be unique", "taskId");
+                }
+                userStateToLifetime[taskId] = asyncOp;
+            }
+            WorkerEventhandler workerDelegate = new WorkerEventhandler(updateCommandWorker);
+            workerDelegate.BeginInvoke(ipocStart, newPosition, newAngle, currentVelocity, asyncOp, null, null);
+        }
+
+        public void CancelAsync(object taskId)
+        {
+            AsyncOperation asuncOp = userStateToLifetime[taskId] as AsyncOperation;
+            if (asuncOp != null)
+            {
+                lock (userStateToLifetime.SyncRoot)
+                {
+                    userStateToLifetime.Remove(taskId);
+                }
+            }
+        }
+
         object BufferLock = new object();
         object DesiredPoseLock = new object();
 
         Stopwatch _TrajectoryTime;
-        double Timer = 0;
         bool _isActive, _BufferLoaded;
         int _nSegments, _CurrentSegment;
         Trajectory[] _ActiveTrajectories;
@@ -45,6 +223,7 @@ namespace LightWeight_Server
         public TrajectoryHandler(RobotInfo robot)
         {
             _ThisRobot = robot;
+            InitialiseDelegates();
             _ReferencePose = new FixedSizedQueue<Pose>(10);
             _ReferenceVelocity = new FixedSizedQueue<Pose>(10);
             _ReferencePose.Enqueue(Pose.Zero);
@@ -214,13 +393,13 @@ namespace LightWeight_Server
             }
         }
 
+
         public double[] RobotChange(Pose currentPose, Pose CurrentVelocity, double[,] inverseJacobian)
         {
             // Check if its active
             if (_isActive)
             {
                 _TrajectoryTime.Start();
-                Timer += 4;
                 // Check and load from buffer
                 LodeBuffer(currentPose, CurrentVelocity);
 
@@ -242,7 +421,6 @@ namespace LightWeight_Server
                     {
                         _CurrentSegment++;
                         _TrajectoryTime.Restart();
-                        Timer = 0;
                         if (_CurrentSegment == _nSegments)
                         {
                             Stop(currentPose);
