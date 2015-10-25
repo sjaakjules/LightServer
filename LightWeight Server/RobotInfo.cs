@@ -38,9 +38,10 @@ namespace LightWeight_Server
         Guid lastController;
         int bufferAmount;
         int maxBuffer = 3;
+        long lastPoseTimeStamp;
 
         object TrajectoryPrintLock = new object();
-        object trajectoryLock = new object();
+        object loadLock = new object();
         object RobotInfoLock = new object();
         object gripperLock = new object();
         object linearVelocityLock = new object();
@@ -50,9 +51,10 @@ namespace LightWeight_Server
         object axisComandLock = new object();
         object axisRotateLock = new object();
         object EEposeLock = new object();
+        object telemetryLock = new object();
 
         Stopwatch _KukaCycleTime = new Stopwatch();
-        public Stopwatch IPOC = new Stopwatch();
+       // public Stopwatch IPOC = new Stopwatch();
 
         // Time of loop in SECONDS
         double _loopTime = 0;
@@ -67,6 +69,10 @@ namespace LightWeight_Server
         public FixedSizedQueue<double> serverTimer = new FixedSizedQueue<double>(5);
         public FixedSizedQueue<double> MaxserverTimer = new FixedSizedQueue<double>(5);
 
+        Pose _lastPose;
+        Pose _lastVelocity;
+        Pose _lastAcceleration;
+
         FixedSizedQueue<TimeCoordinate> _Position = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<TimeCoordinate> _acceleration = new FixedSizedQueue<TimeCoordinate>(5);
@@ -74,6 +80,8 @@ namespace LightWeight_Server
         FixedSizedQueue<double[]> _Angles = new FixedSizedQueue<double[]>(5);
         FixedSizedQueue<Pose> _ReferencePosition = new FixedSizedQueue<Pose>(5);
         FixedSizedQueue<Pose> _ReferenceVelocity = new FixedSizedQueue<Pose>(5);
+
+        public ConcurrentQueue<double[]> _Commands = new ConcurrentQueue<double[]>();
 
         public readonly Guid _RobotID;
         ScreenWriter _GUI;
@@ -89,7 +97,7 @@ namespace LightWeight_Server
         TrajectoryOld[] _TrajectoryList, _NewTrajectoryList;
         TrajectoryHandler _TrajectoryHandler;
 
-        TimeCoordinate _CommandPose;
+        Pose _CommandPose;
 
         Pose _StartPose, _StartTipPose;
         Pose _EndEffectorPose;
@@ -122,7 +130,7 @@ namespace LightWeight_Server
         bool _isConnecting = false;
         bool _isCommanded = false;
 
-        bool _newCommandLoaded = false;
+       // bool _newCommandLoaded = false;
         bool _newPosesLoaded = false;
 
         public double[] _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
@@ -268,12 +276,16 @@ namespace LightWeight_Server
             _TrajectoryHandler.updatedCommandProgressChanged += new UpdateCommandProgressChangedEventHandler(updateCommandProgresslistener);
             _CurrentTrajectory = new TrajectoryOld();
             _Controller = new Controller(this);
-            _Position.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0));
-            _velocity.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0, 0));
-            _acceleration.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
-            _Torque.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
+            _lastPose = new Pose(new double[] { 540.5, -18.1, 833.3, 180.0, 0.0, 180.0 });
+            _lastVelocity= new Pose(new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 });
+            _lastAcceleration= new Pose(new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 });
+
+            _Position.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0,0));
+            _velocity.Enqueue(new TimeCoordinate( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ,0));
+            _acceleration.Enqueue(new TimeCoordinate( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ,0));
+            _Torque.Enqueue(new TimeCoordinate( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ,0));
             _Angles.Enqueue(new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
-            _CommandPose = new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0);
+            _CommandPose = new Pose(new double[] {0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
             _ReferencePosition.Enqueue(Pose.Zero);
             _ReferenceVelocity.Enqueue(Pose.Zero);
             MaxJocTimer.Enqueue(0);
@@ -285,6 +297,9 @@ namespace LightWeight_Server
 
         public void AsyncGetCommandEffort(long ipocStart, double[] currentPose, double[] currentAngle, Pose CurrentVelocity)
         {
+            Guid taskID = Guid.NewGuid();
+            _TrajectoryHandler.getRobotChangeAsync(ipocStart, currentPose, currentAngle, CurrentVelocity, taskID);
+            /*
             if (lastController != Guid.Empty)
             {
                 if (bufferAmount >= maxBuffer)
@@ -301,6 +316,8 @@ namespace LightWeight_Server
                 bufferAmount = 0;
                 _TrajectoryHandler.getRobotChangeAsync(ipocStart, currentPose, currentAngle, CurrentVelocity, lastController);
             }
+             * 
+             */
         }
 
         private void updateCommandCompleatedlistener(object sender, UpdatedCommandCompleatedEventArgs e)
@@ -319,6 +336,8 @@ namespace LightWeight_Server
             {
                 double[] newControl = e.newCommand;
                 long ipoc = e.Ipoc;
+                _Commands.Enqueue(newControl);
+                updateLog(string.Format("{0:0.0}ms calculation. \t({1})", 1.0*(ipoc - DateTime.Now.Ticks) / TimeSpan.TicksPerMillisecond, SF.printDouble(newControl)));
             }
         }
 
@@ -340,11 +359,12 @@ namespace LightWeight_Server
             }
         }
 
-        public void Connect()
+        public bool Connect()
         {
             if (_isConnecting)
             {
-                IPOC.Start();
+                lastPoseTimeStamp = DateTime.Now.Ticks;
+             //   IPOC.Start();
                 _KukaCycleTime.Start();
                 homeAngles = _Angles.LastElement;
                 homePosition = _Position.LastElement.kukaValues;
@@ -361,30 +381,15 @@ namespace LightWeight_Server
                 _isConnected = true;
                 _GUI.IsConnected = true;
                 _isConnecting = false;
+                return true;
             }
             if (!_isConnected)
             {
                 _isConnecting = true;
             }
+            return false;
         }
 
-        public void Disconnect()
-        {
-            lock (trajectoryLock)
-            {
-                try
-                {
-                    _isConnected = false;
-                    _KukaCycleTime.Reset();
-
-                }
-                catch (Exception e)
-                {
-
-                }
-
-            }
-        }
 
         public void updateServerTime(double t)
         {
@@ -394,9 +399,9 @@ namespace LightWeight_Server
                 MaxserverTimer.Enqueue(t);
             }
         }
-        public void updateprocesstime(double readXML, double Connect, double loadCommands, double updateCommand, double writeXML, double processDataTimers)
+        public void updateprocesstime(double readXML, double Connect, double loadCommands, double updateCommand, double processDataTimers)
         {
-            updateError(string.Format("Slow process time of {0:0.00}ms\r\nRead XML\t{1:0.0}%\r\nConnection\t{2:0.0}%\r\nLoad Command\t{3:0.0}%\r\nUpdate Command\t{4:0.0}%\r\nWrite XML\t{5:0.0}%\r\n", processDataTimers, 100.0 * (readXML) / processDataTimers, 100.0 * (Connect - readXML) / processDataTimers, 100.0 * (loadCommands - Connect) / processDataTimers, 100.0 * (updateCommand - loadCommands) / processDataTimers, 100.0 * (writeXML - updateCommand) / processDataTimers), new KukaException("Lag:"));
+            updateError(string.Format("Slow process time of {0:0.00}ms\r\nRead XML\t{1:0.0}%\r\nConnection\t{2:0.0}%\r\nLoad Command\t{3:0.0}%\r\nUpdate Command\t{4:0.0}%\r\n", processDataTimers, 100.0 * (readXML) / processDataTimers, 100.0 * (Connect - readXML) / processDataTimers, 100.0 * (loadCommands - Connect) / processDataTimers, 100.0 * (updateCommand - loadCommands) / processDataTimers), new KukaException("Lag:"));
         }
         /// <summary>
         /// Loads the _desiredPosition data in Base coordinates and the _desiredRotation in local SartPose coordinates. 
@@ -404,7 +409,7 @@ namespace LightWeight_Server
         /// </summary>
         public void LoadCommand()
         {
-            lock (trajectoryLock)
+            lock (loadLock)
             {
                 try
                 {
@@ -448,36 +453,48 @@ namespace LightWeight_Server
             return saturatedComand;
         }
 
-        public void updateComandPosition()
+        public void updateComandPosition(Pose newPose, double[] newAngle)
         {
-            lock (trajectoryLock)
+            if (_isConnected && _isCommanded && _TrajectoryHandler.IsActive)
             {
-
-                if (_isConnected && _isCommanded && _TrajectoryHandler.IsActive)
-                {
-                    AsyncGetCommandEffort(DateTime.Now.Ticks, currentPose.kukaValues, currentAxisAngle, currentVelocity);
-                    //double[] axisComand = _TrajectoryHandler.RobotChange(currentPose, currentVelocity, _InverseJacobian);
-                    //_axisCommand = checkLimits(axisComand);
-                    //_CommandPose = new TimeCoordinate(new Pose(_axisCommand), _Position.LastElement.Ipoc);
-                }
-
-
-                else
-                {
-                    // End condition, or disconnected, command position is zero
-                    flushCommands();
-                }
-
+                _InverseJacobian = GetInverseJacobian(newAngle, EndEffector);
+                // AsyncGetCommandEffort(DateTime.Now.Ticks, currentPose.kukaValues, currentAxisAngle, currentVelocity);
+                double[] axisComand = _TrajectoryHandler.RobotChange(_lastPose, _lastVelocity, _InverseJacobian);
+                _Commands.Enqueue(checkLimits(axisComand));
+                // _CommandPose = new TimeCoordinate(new Pose(_axisCommand), _Position.LastElement.Ipoc);
+            }
+            else
+            {
+                // End condition, or disconnected, command position is zero
+                flushCommands();
             }
         }
 
         public void flushCommands()
         {
-            _CommandPose = new TimeCoordinate(0, 0, 0, 0, 0, 0, _Position.LastElement.Ipoc);
+            _CommandPose = new Pose(new double[]{0, 0, 0, 0, 0, 0});
             _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
         }
 
         #region Process data methods, first to call from kuka server
+
+        public void updateRobotPose(Pose newPose)
+        {
+            lock (telemetryLock)
+            {
+                double delT = 1.0 * (DateTime.Now.Ticks - lastPoseTimeStamp) / TimeSpan.TicksPerMillisecond;
+                _lastVelocity = new Pose(_lastPose, newPose, delT);
+                _lastPose = newPose;
+            }
+        }
+
+        public void updateRobotPosition(Pose newPose, long ipoc)
+        {
+            double delT = 1.0 * (DateTime.Now.Ticks - lastPoseTimeStamp) / TimeSpan.TicksPerMillisecond;
+            _velocity.Enqueue(new TimeCoordinate(new Pose(_Position.LastElement.Pose, newPose, delT),ipoc));
+            TimeCoordinate newPosition = new TimeCoordinate(newPose, ipoc);
+            _Position.Enqueue(newPosition);
+        }
 
         public void updateRobotPosition(long LIpoc, long Ipoc, double x, double y, double z, double a, double b, double c)
         {
@@ -493,6 +510,11 @@ namespace LightWeight_Server
            // _velocity.Enqueue(SF.AverageRateOfChange(positions, _loopTime));
            // TimeCoordinate[] velocities = _velocity.ThreadSafeToArray;
            // _acceleration.Enqueue(SF.AverageRateOfChange(velocities, _loopTime));
+        }
+
+        public void UpdateAngles(double[] newAngles)
+        {
+            _Angles.Enqueue(newAngles);
         }
 
         public void updateRobotAngles(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
@@ -518,10 +540,10 @@ namespace LightWeight_Server
 
         public void updateRobotTorque(double a1, double a2, double a3, double a4, double a5, double a6, long Ipoc)
         {
-            _Torque.Enqueue(new TimeCoordinate(a1, a2, a3, a4, a5, a6, Ipoc));
+            _Torque.Enqueue(new TimeCoordinate(a1, a2, a3, a4, a5, a6,Ipoc));
         }
 
-        public void updateSignal(double a, double b, long Ipoc)
+        public void updateSignal(double a, double b)
         {
             if (a == 65)
             {
@@ -570,6 +592,12 @@ namespace LightWeight_Server
             T0 = new Matrix[] { T01, T02, T03, T04, T05, T06, T07 };
         }
 
+
+        double[,] GetInverseJacobian(double[] newAngles, Vector3 EE)
+        {
+            double[,] InvWristJacobian = InverseJacobianWrist(newAngles, 1e-6);
+            return getTipInverseJacobian(InvWristJacobian, EE);
+        }
 
         double[,] GetInverseJacobian(double error)
         {
@@ -987,6 +1015,7 @@ namespace LightWeight_Server
 
         #region External server 30Hz speeds.... maybe
 
+        /*
         public void LoadedCommand()
         {
             lock (trajectoryLock)
@@ -994,6 +1023,8 @@ namespace LightWeight_Server
                 _newCommandLoaded = true;
             }
         }
+
+         */
 
         public bool newPoses(int n, Pose[] new_Poses, double[] AverageVelocity, double[] EndVelocity)
         {
@@ -1055,6 +1086,11 @@ namespace LightWeight_Server
         public void updateError(string newError, Exception Error)
         {
             _GUI.updateError(newError, Error);
+        }
+
+        public void updateLog(string Logmsg)
+        {
+            _GUI.updateLog(Logmsg);
         }
         #endregion
 

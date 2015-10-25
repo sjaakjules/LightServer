@@ -38,18 +38,27 @@ namespace LightWeight_Server
         public string MessageOut;
         // Received IPOC.
         public long IPOC = 0;
-        // Received cartesian coordinates.
-        public double[] cartPos = new double[6];
+        // Received timestamp
+        public long timstamp = 0;
+        // Received motor angles.
+        public double[] Angles = new double[6];
+        // Received cartesian pose
+        public Pose EEPose = Pose.Zero;
         // trigger that the message is loaded into the state holder
         public bool hasLoadedMessageOut;
 
     }
 
+
     class KukaServer
     {
+        object stateObjectLock = new object();
+
         // Thread signals to pause until data has been received
         ManualResetEvent haveReceived = new ManualResetEvent(false);
+        ManualResetEvent haveUpdatedPositions = new ManualResetEvent(false);
 
+        StateObject lastPacket;
 
         int _BufferSize = 1024;
         byte[] _buffer;
@@ -64,6 +73,8 @@ namespace LightWeight_Server
 
         RobotInfo _Robot;
 
+        Thread constantSender;
+
         #region Constructor:
         /// <summary>
         /// Creates a UDP server with XML read and write via a port with threadSafe shared robot information
@@ -73,12 +84,10 @@ namespace LightWeight_Server
         public KukaServer(int port, RobotInfo robot)
         {
             _Robot = robot;
+            constantSender = new Thread(ConstantSend);
             _Port = port;
             _IPOC = 0;
             _LIPOC = 0;
-
-
-
 
             SetupXML();
 
@@ -104,7 +113,6 @@ namespace LightWeight_Server
             // Binds the socket to local IP.
             bindSocket();
         }
-
 
 
         void setupDictionaries(ConcurrentDictionary<string, double> dic)
@@ -246,7 +254,7 @@ namespace LightWeight_Server
 
         public void FinishReceiveFrom(IAsyncResult ar)
         {
-            _Robot.Connect();
+           // _Robot.Connect();
             string catchStatement = "while receive data is active, reading data:";
             try
             {
@@ -271,10 +279,12 @@ namespace LightWeight_Server
                 // _Robot.addMsg(connectedState.MessageIn);
 
                 // Send return message to same connection that the data was received.
-                SendData(connectedState);
+               // SendData(connectedState);
                 serverTime.Stop();
                 _Robot.updateServerTime(serverTimer.Elapsed.TotalMilliseconds);
                 serverTimer.Reset();
+
+                haveReceived.Set();
             }
             catch (SocketException se)
             {
@@ -298,11 +308,6 @@ namespace LightWeight_Server
             try
             {
                 processDataTimer.Restart();
-                double readXML = 0;
-                double Connect = 0;
-                double loadCommands = 0;
-                double updateCommand = 0;
-                double writeXML = 0;
                 // Encode msg from state object
                 State.MessageIn = Encoding.UTF8.GetString(State.PacketIn, 0, State.PacketInSize);
 
@@ -327,55 +332,91 @@ namespace LightWeight_Server
 
                 XmlNodeList parentNode = xmlIn.ChildNodes;
                 XmlNodeList KukaInfoNodes = parentNode.Item(0).ChildNodes;
+                Pose newPose = Pose.Zero;
+                double[] newAngles = new double[6];
+                bool updatedPosition = false;
+                bool updatedAngles = false;
                 foreach (XmlNode Node in KukaInfoNodes)
                 {
                     switch (Node.Name)
                     {
                         case "RIst":
-                            _Robot.updateRobotPosition(_LIPOC,_IPOC, double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value),
+                            newPose = new Pose(new double[] {double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value),
                                             double.Parse(Node.Attributes["Z"].Value), double.Parse(Node.Attributes["A"].Value),
-                                            double.Parse(Node.Attributes["B"].Value), double.Parse(Node.Attributes["C"].Value));
+                                            double.Parse(Node.Attributes["B"].Value), double.Parse(Node.Attributes["C"].Value)});
+                            State.EEPose = newPose;
+                            updatedPosition = true;
+                            //_Robot.updateRobotPosition(_LIPOC,_IPOC, double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value),
+                            //                double.Parse(Node.Attributes["Z"].Value), double.Parse(Node.Attributes["A"].Value),
+                            //                double.Parse(Node.Attributes["B"].Value), double.Parse(Node.Attributes["C"].Value));
                             break;
 
                         case "AIPos":
-                            _Robot.updateRobotAngles(double.Parse(Node.Attributes["A1"].Value) * 1.0 * Math.PI / 180, double.Parse(Node.Attributes["A2"].Value) * 1.0 * Math.PI / 180,
-                                                    double.Parse(Node.Attributes["A3"].Value) * 1.0 * Math.PI / 180, double.Parse(Node.Attributes["A4"].Value) * 1.0 * Math.PI / 180,
-                                                    double.Parse(Node.Attributes["A5"].Value) * 1.0 * Math.PI / 180, double.Parse(Node.Attributes["A6"].Value) * 1.0 * Math.PI / 180, _IPOC);
+                            newAngles[0] = double.Parse(Node.Attributes["A1"].Value) * 1.0 * Math.PI / 180;
+                            newAngles[1] = double.Parse(Node.Attributes["A2"].Value) * 1.0 * Math.PI / 180;
+                            newAngles[2] = double.Parse(Node.Attributes["A3"].Value) * 1.0 * Math.PI / 180;
+                            newAngles[3] = double.Parse(Node.Attributes["A4"].Value) * 1.0 * Math.PI / 180;
+                            newAngles[4] = double.Parse(Node.Attributes["A5"].Value) * 1.0 * Math.PI / 180;
+                            newAngles[5] = double.Parse(Node.Attributes["A6"].Value) * 1.0 * Math.PI / 180;
+                            State.Angles = newAngles;
+                            updatedAngles = true;
+                           // _Robot.updateRobotAngles(double.Parse(Node.Attributes["A1"].Value) * 1.0 * Math.PI / 180, double.Parse(Node.Attributes["A2"].Value) * 1.0 * Math.PI / 180,
+                           //                         double.Parse(Node.Attributes["A3"].Value) * 1.0 * Math.PI / 180, double.Parse(Node.Attributes["A4"].Value) * 1.0 * Math.PI / 180,
+                           //                         double.Parse(Node.Attributes["A5"].Value) * 1.0 * Math.PI / 180, double.Parse(Node.Attributes["A6"].Value) * 1.0 * Math.PI / 180, _IPOC);
                             break;
 
                         case "Torque":
-                            _Robot.updateRobotTorque(double.Parse(Node.Attributes["A1"].Value), double.Parse(Node.Attributes["A2"].Value),
-                                                    double.Parse(Node.Attributes["A3"].Value), double.Parse(Node.Attributes["A4"].Value),
-                                                    double.Parse(Node.Attributes["A5"].Value), double.Parse(Node.Attributes["A6"].Value), _IPOC);
+                          //  _Robot.updateRobotTorque(double.Parse(Node.Attributes["A1"].Value), double.Parse(Node.Attributes["A2"].Value),
+                         //                           double.Parse(Node.Attributes["A3"].Value), double.Parse(Node.Attributes["A4"].Value),
+                          //                          double.Parse(Node.Attributes["A5"].Value), double.Parse(Node.Attributes["A6"].Value), _IPOC);
                             break;
                         case "Robot":
-                            _Robot.updateSignal(double.Parse(Node.Attributes["Active1"].Value), double.Parse(Node.Attributes["Active2"].Value), _IPOC);
+                            _Robot.updateSignal(double.Parse(Node.Attributes["Active1"].Value), double.Parse(Node.Attributes["Active2"].Value));
                             break;
                         default:
                             break;
                     }
                 }
-                readXML = processDataTimer.Elapsed.TotalMilliseconds;
-                _Robot.Connect();
-                Connect = processDataTimer.Elapsed.TotalMilliseconds;
+                State.timstamp = DateTime.Now.Ticks;
+
+                if (updatedAngles)
+                {
+                    _Robot.UpdateAngles(newAngles);
+                }
+                if (updatedPosition)
+                {
+                    _Robot.updateRobotPose(newPose);
+                }
+
+                lock (stateObjectLock)
+                {
+                    lastPacket = State;
+                }
+
+                if (_Robot.Connect())
+                {
+                    constantSender.Start();
+                }
+                haveUpdatedPositions.Set();
+
+
                 //_Robot.SaveInfo();
                 _Robot.LoadCommand();
                 //_Robot.LoadTrajectory();
-                loadCommands = processDataTimer.Elapsed.TotalMilliseconds;
+
                 // As the robot positions have been updated, calculate change in position and update command dictionary
-                _Robot.updateComandPosition();
-                updateCommand = processDataTimer.Elapsed.TotalMilliseconds;
-                // Write the new command to the robot accessing the command dictionary
-                UpdateXML(State);
-                writeXML = processDataTimer.Elapsed.TotalMilliseconds;
+
+                _Robot.updateComandPosition(newPose, newAngles);
+
+                //_Robot.UpdateAngles(newAngles);
+                _Robot.updateRobotPosition(newPose, _IPOC);
+
                 processDataTimer.Stop();
                 _Robot._processDataTimer.Enqueue(processDataTimer.Elapsed.TotalMilliseconds);
                 if (processDataTimer.Elapsed.TotalMilliseconds > 4)
                 {
-                    _Robot.updateprocesstime(readXML, Connect, loadCommands, updateCommand, writeXML, processDataTimer.Elapsed.TotalMilliseconds);
                     _Robot._maxProcessDataTimer.Enqueue(processDataTimer.Elapsed.TotalMilliseconds);
                 }
-
             }
             catch (SocketException se)
             {
@@ -419,7 +460,7 @@ namespace LightWeight_Server
             }
             // Save state of the kuka server
             //_Robot.DataHistory.Push(state);
-            haveReceived.Set();
+           // haveReceived.Set();
         }
 
         private void FinishSendTo(IAsyncResult ar)
@@ -442,6 +483,27 @@ namespace LightWeight_Server
             catch (Exception e)
             {
                 _Robot.updateError("Generic error " + catchStatement,e);
+            }
+        }
+
+        public void ConstantSend()
+        {
+            while (true)
+            {
+                haveUpdatedPositions.Reset();
+                double[] newCommand;
+                if (!_Robot._Commands.TryDequeue(out newCommand))
+                {
+                    newCommand = new double[] { 0, 0, 0, 0, 0, 0 };
+                }
+
+                // Write the new command to the robot accessing the command dictionary
+                lock (stateObjectLock)
+                {
+                    UpdateXML(lastPacket, newCommand);
+                    SendData(lastPacket);
+                }
+                haveUpdatedPositions.WaitOne();
             }
         }
 
@@ -511,7 +573,7 @@ namespace LightWeight_Server
             attribute.Value = "0.0000";
             comPosNode.Attributes.Append(attribute);
             rootNode.AppendChild(comPosNode);
-            
+
             XmlNode gripper = _SendXML.CreateElement("GRIPPER");
             attribute = _SendXML.CreateAttribute("A");
             attribute.Value = "0";
@@ -520,14 +582,14 @@ namespace LightWeight_Server
             attribute.Value = "0";
             gripper.Attributes.Append(attribute);
             rootNode.AppendChild(gripper);
-            
+
             XmlNode IpocNode = _SendXML.CreateElement("IPOC");
             IpocNode.InnerText = "0";
             rootNode.AppendChild(IpocNode);
 
         }
 
-        public void UpdateXML(StateObject state)
+        public void UpdateXML(StateObject state, double[] newCommand)
         {
             XmlNode IpocNode = _SendXML.SelectSingleNode("//Sen/IPOC");
             IpocNode.InnerText = state.IPOC.ToString();
@@ -535,10 +597,10 @@ namespace LightWeight_Server
             XmlNode comAxisNode = _SendXML.SelectSingleNode("//Sen/AKorr");
             for (int i = 0; i < 6; i++)
             {
-                comAxisNode.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.000000}", _Robot._axisCommand[i]*4.0*180.0/Math.PI);
+                comAxisNode.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.000000}", newCommand[i] * 4.0 * 180.0 / Math.PI);
             }
             XmlNode gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER");
-            if (_Robot.gripperIsOpen)
+            if (false)
             {
                 gripperNode.Attributes["A"].Value = "1";
                 gripperNode.Attributes["B"].Value = "0";
@@ -553,7 +615,6 @@ namespace LightWeight_Server
 
             state.PacketOut = Encoding.UTF8.GetBytes(Beautify(state.XMLout));
             state.hasLoadedMessageOut = true;
-
         }
 
         public string Beautify(XmlDocument doc)

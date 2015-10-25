@@ -19,6 +19,7 @@ namespace LightWeight_Server
         object ErrorWriteLock = new object();
         object telemetryLock = new object();
         object ScreenLock = new object();
+        object debuggerLock = new object();
 
         bool _isConnected;
 
@@ -51,6 +52,7 @@ namespace LightWeight_Server
 
         double TGetReference, TGetController, TloadTrajectory, T1, T2, T3;
         public double PGetReference, PGetController, PloadTrajectory, P1, P2, P3, P4;
+        long lastLog;
 
         public bool IsConnected
         {
@@ -92,6 +94,7 @@ namespace LightWeight_Server
             }
             _ConnectedRobots = new RobotInfo[_nConnectedRobots];
             // Initialises the screen variables.
+            lastLog = DateTime.Now.Ticks;
         }
 
         public void ConnectRobot(RobotInfo newRobot, int number)
@@ -130,6 +133,18 @@ namespace LightWeight_Server
                                 
                             file.WriteLine(_ErrorWriter);
                             _ErrorWriter.Clear();
+                            }
+                        }
+                    }
+                    using (StreamWriter file = new StreamWriter("DebuggerLog" + ".txt", true))
+                    {
+                        lock (debuggerLock)
+                        {
+                            if (_Debugger.Length != 0)
+                            {
+
+                                file.WriteLine(_Debugger);
+                                _ErrorWriter.Clear();
                             }
                         }
                     }
@@ -428,6 +443,17 @@ namespace LightWeight_Server
             // RETURN bool if data was added,
             // TODO: Don't use bool but use errors and event handeler.
             return false;
+        }
+
+        internal void updateLog(string Logmsg)
+        {
+            lock (debuggerLock)
+            {
+                long timestamp = DateTime.Now.Ticks;
+                _Debugger.AppendLine(string.Format("{0:hh:mm:ss:fff} | {1:0.0}ms ago.", timestamp, 1.0 * (lastLog - timestamp) / TimeSpan.TicksPerMillisecond));
+                _Debugger.AppendLine(Logmsg);
+                lastLog = timestamp;
+            }
         }
     }
 }

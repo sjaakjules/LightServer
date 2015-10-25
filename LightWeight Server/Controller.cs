@@ -93,6 +93,7 @@ namespace LightWeight_Server
            // R.P3 = R.IPOC.Elapsed.TotalMilliseconds - JacTimer;
             double[] TipVeloicty = new double[] { ControlTranslation.X, ControlTranslation.Y, ControlTranslation.Z, ControlOrientation.X, ControlOrientation.Y, ControlOrientation.Z };
             double[] AxisSpeed =  SF.multiplyMatrix(inverseJoc, TipVeloicty);
+            /*
             double[] ReferenceAngle = robot.IKSolver(referencePosition);
             SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, ReferenceAngle, robot.currentAxisAngle, DataWriter);
             using ( StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true))
@@ -100,6 +101,7 @@ namespace LightWeight_Server
                 Datafile.WriteLine(DataWriter);
             }
             DataWriter.Clear();
+             */
             return AxisSpeed;
         }
     }

@@ -134,6 +134,11 @@ namespace LightWeight_Server
         {
             UpdatedCommandProgressEventArgs e = null;
             double[] newCommand = new double[] { 0, 0, 0, 0, 0, 0 };
+            Pose newPose = new Pose(newPosition);
+            double[,] InverseJacobian = SF.GetInverseJacobian(newAngles, _ThisRobot.EndEffector);
+            return RobotChange(newPose, CurrentVelocity, InverseJacobian);
+
+            /*
             int stepsAhead = 10;
             int n = 0;
             Pose LastsimulatedPose = new Pose(newPosition);
@@ -141,7 +146,6 @@ namespace LightWeight_Server
             Pose simulatedVelocity = CurrentVelocity;
             double[] simulatedAngles = new double[6];
             newAngles.CopyTo(simulatedAngles, 0);
-            double[,] InverseJacobian = SF.GetInverseJacobian(simulatedAngles, _ThisRobot.EndEffector);
 
             // Do work:
             while (n < stepsAhead && !TaskCanceled(asyncOp.UserSuppliedState))
@@ -159,7 +163,7 @@ namespace LightWeight_Server
                 n++;
                 Thread.Sleep(0);
             }
-            return RobotChange(simulatedPose, simulatedVelocity, InverseJacobian);
+             */
         }
 
         public virtual void getRobotChangeAsync(long ipocStart, double[] newPosition, double[] newAngle, Pose currentVelocity, object taskId)
@@ -417,7 +421,7 @@ namespace LightWeight_Server
 
                     // Jacobian method
                     double[] AxisCommand = TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, inverseJacobian, _ThisRobot);
-                    if (_ActiveTrajectories[_CurrentSegment].trajectoryTime < _TrajectoryTime.Elapsed )//&& currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 1.0))
+                    if (_ActiveTrajectories[_CurrentSegment].trajectoryTime < _TrajectoryTime.Elapsed && currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 1.0))
                     {
                         _CurrentSegment++;
                         _TrajectoryTime.Restart();

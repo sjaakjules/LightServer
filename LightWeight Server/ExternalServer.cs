@@ -30,7 +30,7 @@ namespace LightWeight_Server
         bool _loadedPoses = false;
         string[] splitter = new string[] { "," };
         FixedSizedQueue<IPEndPoint> ClientIEP;
-        int _SendRefreshRate = 30; // Refresh rate of send data, Hz
+        int _SendRefreshRate = 10; // Refresh rate of send data, Hz
 
         StringBuilder _errorMessage = new StringBuilder();
 
@@ -749,12 +749,9 @@ namespace LightWeight_Server
                                 break;
                         }
                     }
-                    if (_loadedPosition || _loadedRotation || _loadedPoses)
+                    if (_loadedPoses)
                     {
                         _loadedPoses = false;
-                        _loadedPosition = false;
-                        _loadedRotation = false;
-                        _Robot[nRobot].LoadedCommand();
                         _GUI.updateError("Loaded both rotation and position", new Exception("external server:"));
                     }
                 }

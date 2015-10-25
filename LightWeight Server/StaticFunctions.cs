@@ -1106,7 +1106,7 @@ namespace LightWeight_Server
                 outAxis.X = quaternion.X;
                 outAxis.Y = quaternion.Y;
                 outAxis.Z = quaternion.Z;
-                if (quaternion.Z == double.NaN)
+                if (Single.IsNaN(quaternion.Z))
                 {
                     outAxis.Z = 1;
                 }
