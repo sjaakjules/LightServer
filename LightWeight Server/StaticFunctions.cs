@@ -221,6 +221,10 @@ namespace LightWeight_Server
 
         public Pose(Pose lastPose, Pose newPose, double elapsedTime)
         {
+            if (elapsedTime == 0)
+            {
+                elapsedTime = 4;
+            }
             Vector3 translation = newPose.Translation - lastPose.Translation;
             float angle;
             Vector3 axis;
@@ -235,6 +239,13 @@ namespace LightWeight_Server
             _kukaValues[0] = (float)_x;
             _kukaValues[1] = (float)_y;
             _kukaValues[2] = (float)_z;
+            for (int i = 0; i < _kukaValues.Length; i++)
+            {
+                 if (double.IsNaN(_kukaValues[i]))
+                {
+                    _kukaValues[i] = 0;
+                }
+            }
         }
 
 
@@ -276,7 +287,7 @@ namespace LightWeight_Server
 
         public bool Equals(Pose pose2, double error)
         {
-            if (Vector3.Distance(this.Translation, pose2.Translation) <= error)// && SF.isOrientationAligned(this.Orientation, pose2.Orientation, error))
+            if (Vector3.Distance(this.Translation, pose2.Translation) <= error && SF.isOrientationAligned(this.Orientation, pose2.Orientation, error))
             {
                 return true;
             }
@@ -814,14 +825,14 @@ namespace LightWeight_Server
             return printingstring.ToString();
         }
 
-        public static void updateDataFile(Pose refPos, Pose refVel, Pose actPos, Pose actVel, double time,double[] tipVel, double[] axisComand, StringBuilder tableRow)
+        public static void updateDataFile(Pose refPos, Pose refVel, Pose actPos, Pose actVel, double time, double[] controlAngles, double[] satControl, double[] IKloop, double[] IKmethod,StringBuilder tableRow)
         {
-            tableRow.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data},{5},{6}", time, refPos, actPos, refVel, actVel, printDouble(tipVel), printDouble(axisComand)));
+            tableRow.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data},{5},{6},{7},{8}", time, refPos, actPos, refVel, actVel, printDouble(controlAngles), printDouble(satControl), printDouble(IKloop), printDouble(IKmethod)));
         }
 
-        internal static void updateDataFile(Pose referencePosition, Pose measuredPosition, Pose measuredVelocity, double time, double[] referenceAngles, double[] controlAngles, double[] measuredAngles, StringBuilder DataWriter)
+        internal static void updateDataFile(Pose referencePosition, Pose measuredPosition, Pose measuredVelocity, double time, double[] referenceAngles, double[] controlAngles, double[] measuredangles, StringBuilder DataWriter)
         {
-            DataWriter.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data},{5},{6};", time, referencePosition, measuredPosition, measuredVelocity, printDouble(referenceAngles), printDouble(measuredAngles), printDouble(controlAngles)));
+            DataWriter.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data},{5},{6};", time, referencePosition, measuredPosition, measuredVelocity, printDouble(referenceAngles), printDouble(referenceAngles), printDouble(controlAngles)));
         }
 
         #endregion
@@ -1044,7 +1055,11 @@ namespace LightWeight_Server
 
         public static bool isOrientationAligned(Quaternion Q1, Quaternion Q2, double error)
         {
-            if (getOrientationError(Matrix.CreateFromQuaternion(Q1),Matrix.CreateFromQuaternion(Q2)).Length() < error)
+            float angle;
+            Vector3 axis;
+            Quaternion change = Quaternion.Inverse(Q1) * Q2;
+            getAxisAngle(change, out axis, out angle);
+            if (Math.Abs(angle) < error)
             {
                 return true;
             }

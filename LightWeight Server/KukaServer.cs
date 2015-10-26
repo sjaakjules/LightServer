@@ -552,7 +552,29 @@ namespace LightWeight_Server
             attribute.Value = "10.00";
             techNode.Attributes.Append(attribute);
             rootNode.AppendChild(techNode);
-
+            /*
+            XmlNode comPosNode = _SendXML.CreateElement("RKorr");
+            attribute = _SendXML.CreateAttribute("X");
+            attribute.Value = "0.0000";
+            comPosNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("Y");
+            attribute.Value = "0.0000";
+            comPosNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("Z");
+            attribute.Value = "0.0000";
+            comPosNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("A");
+            attribute.Value = "0.0000";
+            comPosNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("B");
+            attribute.Value = "0.0000";
+            comPosNode.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("C");
+            attribute.Value = "0.0000";
+            comPosNode.Attributes.Append(attribute);
+            rootNode.AppendChild(comPosNode);
+            */
+            
             XmlNode comPosNode = _SendXML.CreateElement("AKorr");
             attribute = _SendXML.CreateAttribute("A1");
             attribute.Value = "0.0000";
@@ -573,6 +595,7 @@ namespace LightWeight_Server
             attribute.Value = "0.0000";
             comPosNode.Attributes.Append(attribute);
             rootNode.AppendChild(comPosNode);
+             
 
             XmlNode gripper = _SendXML.CreateElement("GRIPPER");
             attribute = _SendXML.CreateAttribute("A");
@@ -597,7 +620,7 @@ namespace LightWeight_Server
             XmlNode comAxisNode = _SendXML.SelectSingleNode("//Sen/AKorr");
             for (int i = 0; i < 6; i++)
             {
-                comAxisNode.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.000000}", newCommand[i] * 4.0 * 180.0 / Math.PI);
+                comAxisNode.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.0000000}", newCommand[i] * 4.0 * 180.0 / Math.PI); //* 180.0 / Math.PI
             }
             XmlNode gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER");
             if (false)

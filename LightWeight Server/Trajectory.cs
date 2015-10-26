@@ -15,7 +15,7 @@ using System.Diagnostics;
 
 namespace LightWeight_Server
 {
-    enum TrajectoryTypes { Joint, Quintic, Linear, Spline };
+    enum TrajectoryTypes { Joint, Quintic, Linear, Spline, Cubic };
 
     abstract class Trajectory
     {
@@ -110,11 +110,14 @@ namespace LightWeight_Server
 
         public override double[] getReferenceVelocity(double t)
         {
-            return (t > trajectoryTime.TotalMilliseconds) ? SF.createDouble(0, finalJoint.Length) : SF.getCol(_LinearPerameters, 1);
+            return new double[] { 0, 0, 0, 0, 0, 0 };
+            //return (t > trajectoryTime.TotalMilliseconds) ? SF.createDouble(0, finalJoint.Length) : SF.getCol(_LinearPerameters, 1);
         }
 
         public override double[] getReferencePosition(double t)
         {
+            return finalJoint;
+            /*
             if (t > trajectoryTime.TotalMilliseconds)
             {
                 return finalJoint;
@@ -128,16 +131,21 @@ namespace LightWeight_Server
                 }
                 return newPos;
             }
+             */
         }
     }
 
     class TrajectoryLinear : TaskTrajectory
     {
+        public double[,] _LinearPerameters;
+
+        public int nSteps;
+        public double[][] nAnglePositions;
 
         public override float finalAngle { get { return _finalAngle; } }
         public override Vector3 trajectoryAxis { get { return _TrajectoryAxis; } }
 
-        public TrajectoryLinear(Pose EndPose, double AverageVelocity, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID)
+        public TrajectoryLinear(Pose EndPose, double AverageVelocity, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID, double[] StartAngle, RobotInfo robot)
             : base(TrajectoryTypes.Linear)
         {
             averageVelocity = AverageVelocity;
@@ -148,24 +156,42 @@ namespace LightWeight_Server
             finalVelocity = new Pose(Quaternion.Identity, FinalVelocity);
             Vector3 x0 = StartPose.Translation;
             Vector3 xf = EndPose.Translation;
-            trajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)AverageVelocity);
+            trajectoryTime = TimeSpan.FromMilliseconds(1.0f * (xf - x0).Length() / (float)AverageVelocity);
             changePose = new Pose(Quaternion.Inverse(StartPose.Orientation) * EndPose.Orientation, xf - x0);
             SF.getAxisAngle(changePose.Orientation, out _TrajectoryAxis, out _finalAngle);
             _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
+            nSteps = (int)trajectoryTime.TotalMilliseconds / 40;
+            _LinearPerameters = new double[4, 2];
+            _LinearPerameters[0, 0] = x0.X;
+            _LinearPerameters[1, 0] = x0.Y;
+            _LinearPerameters[2, 0] = x0.Z;
+            _LinearPerameters[3, 0] = 0;
+            _LinearPerameters[0, 1] = 1.0 * (xf.X - x0.X) / trajectoryTime.TotalMilliseconds;
+            _LinearPerameters[1, 2] = 1.0 * (xf.Y - x0.Y) / trajectoryTime.TotalMilliseconds;
+            _LinearPerameters[2, 3] = 1.0 * (xf.Z - x0.Z) / trajectoryTime.TotalMilliseconds;
+            _LinearPerameters[3, 4] = _finalAngle;
+            nAnglePositions = new double[nSteps][];
         }
 
 
         public override Pose getReferenceVelocity(double t)
         {
-            return startVelocity;
+            return new Pose(Quaternion.CreateFromAxisAngle(_TrajectoryAxis, 1.0f*_finalAngle / (float)trajectoryTime.TotalMilliseconds), Vector3.Multiply(Vector3.Normalize(finalPose.Translation - startPose.Translation), (float)averageVelocity));
         }
         public override Pose getReferencePosition(double t)
         {
-            return startPose;
+            return finalPose;
         }
+
         public override void updateStartPosition(Pose StartPose, Pose StartVelocity)
         {
-
+            startPose = StartPose;
+            Vector3 x0 = StartPose.Translation;
+            Vector3 xf = finalPose.Translation;
+            trajectoryTime = TimeSpan.FromMilliseconds(1.0f * (xf - x0).Length() / (float)averageVelocity);
+            changePose = new Pose(Quaternion.Inverse(StartPose.Orientation) * finalPose.Orientation, xf - x0);
+            SF.getAxisAngle(changePose.Orientation, out _TrajectoryAxis, out _finalAngle);
+            _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
         }
         /*
         Vector3 getDisplacement(Vector3 currentPosition, double maxChange, double linearAcceleration)
@@ -259,19 +285,87 @@ namespace LightWeight_Server
          */
     }
 
+    class TrajectoryCubic : TaskTrajectory
+    {
+        public double[][] _CubicPerameters;
+
+        public int nSteps;
+        public double[][] nAnglePositions;
+
+        public override float finalAngle { get { return _finalAngle; } }
+        public override Vector3 trajectoryAxis { get { return _TrajectoryAxis; } }
+
+        public TrajectoryCubic(Pose EndPose, double AverageVelocty, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID,double[] startAngles, RobotInfo robot)
+            : base(TrajectoryTypes.Cubic)
+        {
+            _CubicPerameters = new double[4][];
+            averageVelocity = AverageVelocty;
+            segmentID = SegmentID;
+            startPose = StartPose;
+            finalPose = EndPose;
+            startVelocity = new Pose(Quaternion.Identity, StartVelocity);
+            finalVelocity = new Pose(Quaternion.Identity, FinalVelocity);
+            Vector3 x0 = StartPose.Translation;
+            Vector3 xf = EndPose.Translation;
+            Vector3 x0d = StartVelocity;
+            Vector3 xfd = FinalVelocity;
+            trajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)AverageVelocty);
+            changePose = new Pose(Quaternion.Inverse(StartPose.Orientation)*EndPose.Orientation, xf-x0);
+            SF.getAxisAngle(changePose.Orientation, out _TrajectoryAxis, out _finalAngle);
+            _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
+            _CubicPerameters[0] = cubic(x0.X, xf.X, x0d.X, xfd.X, trajectoryTime.TotalMilliseconds);
+            _CubicPerameters[1] = cubic(x0.Y, xf.Y, x0d.Y, xfd.Y, trajectoryTime.TotalMilliseconds);
+            _CubicPerameters[2] = cubic(x0.Z, xf.Z, x0d.Z, xfd.Z, trajectoryTime.TotalMilliseconds);
+            _CubicPerameters[3] = cubic(0, finalAngle, 0, 0, trajectoryTime.TotalMilliseconds);
+        }
+
+        public override Pose getReferencePosition(double t)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Pose getReferenceVelocity(double t)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void updateStartPosition(Pose StartPose, Pose StartVelocity)
+        {
+            throw new NotImplementedException();
+        }
+
+        double[] cubic(double x0, double xf, double x0d, double xfd, double tf)
+        {
+            double a0 = x0;
+            double a1 = x0d;
+            double a2 = - (3*x0 - 3*xf)/(tf*tf) - (2*x0d + xfd)/tf;
+            double a3 = (2 * x0 - 2 * xf + tf * (x0d + xfd)) / (tf * tf * tf);
+            return new double[] { a0, a1, a2, a3 };
+        }
+    }
+
     class TrajectoryQuintic : TaskTrajectory
     {
         public double[][] _QuinticPerameters;
+
+      //  public int nSteps;
+     //   public double[][] nAnglePositions;
+     //   public Pose[] nPose;
+
+        public ElbowPosition elb;
+        public BasePosition bas;
 
         public override float finalAngle { get { return _finalAngle; } }
         public override Vector3 trajectoryAxis { get { return _TrajectoryAxis; } }
 
 
-        
-        public TrajectoryQuintic(Pose EndPose, double AverageVelocty, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID) : base(TrajectoryTypes.Quintic)
+
+        public TrajectoryQuintic(Pose EndPose, double AverageVelocty, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID, double[] startAngles, RobotInfo robot)
+            : base(TrajectoryTypes.Quintic)
         {
             _QuinticPerameters = new double[4][];
-            averageVelocity = AverageVelocty;
+            elb = robot._elbow;
+            bas = robot._base;
             segmentID = SegmentID;
             startPose = StartPose;
             finalPose = EndPose;
@@ -283,7 +377,8 @@ namespace LightWeight_Server
             Vector3 x0d = StartVelocity;
             Vector3 xfd = FinalVelocity;
             Vector3 xmd = (float)AverageVelocty * Vector3.Normalize(xf - x0);
-            trajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)AverageVelocty);
+            averageVelocity = (AverageVelocty == 0) ? (Vector3.Distance(xf, x0)) / 0.1 : AverageVelocty;
+            trajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)averageVelocity);
             changePose = new Pose(Quaternion.Inverse(StartPose.Orientation)*EndPose.Orientation, xf-x0);
             SF.getAxisAngle(changePose.Orientation, out _TrajectoryAxis, out _finalAngle);
             _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
@@ -291,6 +386,19 @@ namespace LightWeight_Server
             _QuinticPerameters[1] = Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[2] = Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, xfd.Z, xmd.Z, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[3] = Quintic(0, finalAngle, finalAngle / 2, 0, 0, trajectoryTime.TotalMilliseconds);
+
+            /*
+            nSteps = (int)(trajectoryTime.TotalMilliseconds / 40) +1;
+            nAnglePositions = new double[nSteps][];
+            nPose = new Pose[nSteps];
+            nPose[0] = getReferencePosition(40);
+            nAnglePositions[0] = SF.IKSolver(nPose[0], robot.EndEffector, startAngles, ref elb, ref bas);
+            for (int i = 1; i < nSteps; i++)
+            {
+                nPose[i] = getReferencePosition((i + 1) * 40);
+                nAnglePositions[i] = SF.IKSolver(nPose[i], robot.EndEffector, nAnglePositions[i - 1], ref elb, ref bas);
+            }
+             */
         }
 
         public TrajectoryQuintic(Pose EndPose, Guid SegmentID)
@@ -317,7 +425,7 @@ namespace LightWeight_Server
             Vector3 xm = ((xf - x0) / 2) + x0;
             Vector3 x0d = StartVelocity.Translation;
             Vector3 xfd = finalVelocity.Translation;
-            averageVelocity = (averageVelocity == 0) ? (Vector3.Distance(xf, x0)) / 0.01 : averageVelocity;
+            averageVelocity = (averageVelocity == 0) ? (Vector3.Distance(xf, x0)) / 0.1 : averageVelocity;
             Vector3 xmd = (float)averageVelocity * Vector3.Normalize(xf - x0);
             trajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)averageVelocity);
             changePose = new Pose(Quaternion.Inverse(StartPose.Orientation) * finalPose.Orientation, xf - x0);

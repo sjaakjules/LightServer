@@ -38,7 +38,7 @@ namespace LightWeight_Server
         Guid lastController;
         int bufferAmount;
         int maxBuffer = 3;
-        long lastPoseTimeStamp;
+        long lastPoseTimeStamp = DateTime.Now.Ticks;
 
         object TrajectoryPrintLock = new object();
         object loadLock = new object();
@@ -52,6 +52,7 @@ namespace LightWeight_Server
         object axisRotateLock = new object();
         object EEposeLock = new object();
         object telemetryLock = new object();
+        object incrimentLock = new object();
 
         Stopwatch _KukaCycleTime = new Stopwatch();
        // public Stopwatch IPOC = new Stopwatch();
@@ -69,9 +70,9 @@ namespace LightWeight_Server
         public FixedSizedQueue<double> serverTimer = new FixedSizedQueue<double>(5);
         public FixedSizedQueue<double> MaxserverTimer = new FixedSizedQueue<double>(5);
 
-        Pose _lastPose;
-        Pose _lastVelocity;
-        Pose _lastAcceleration;
+        FixedSizedQueue<Pose> _lastPose = new FixedSizedQueue<Pose>(5);
+        FixedSizedQueue<Pose> _lastVelocity = new FixedSizedQueue<Pose>(5);
+        FixedSizedQueue<Pose> _lastAcceleration = new FixedSizedQueue<Pose>(5);
 
         FixedSizedQueue<TimeCoordinate> _Position = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(5);
@@ -96,6 +97,7 @@ namespace LightWeight_Server
         double[] _newVelocitys;
         TrajectoryOld[] _TrajectoryList, _NewTrajectoryList;
         TrajectoryHandler _TrajectoryHandler;
+        int incriment = 0;
 
         Pose _CommandPose;
 
@@ -117,9 +119,9 @@ namespace LightWeight_Server
         public BasePosition _base = BasePosition.front;
 
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
-        readonly double _MaxCartesianChange = 1;
-        readonly double _MaxAngularChange = 0.1;
-        readonly double _MaxAxisChange = 0.0003;
+        public readonly double _MaxCartesianChange = 1;
+        public readonly double _MaxAngularChange = 0.1;
+        public readonly double _MaxAxisChange = 0.002;
 
         double _maxLinearVelocity = .12; // in mm/ms
         double _maxAngularVelocity = .012; // in mm/ms
@@ -129,6 +131,7 @@ namespace LightWeight_Server
         bool _isConnected = false;
         bool _isConnecting = false;
         bool _isCommanded = false;
+        bool _DrivesOn = false;
 
        // bool _newCommandLoaded = false;
         bool _newPosesLoaded = false;
@@ -138,6 +141,9 @@ namespace LightWeight_Server
         double[] _homePosition = new double[6];
         double[] _HomeAngles = new double[6];
 
+       // StreamWriter Datafile;
+        //string dataWriterFile = "QuinticPeramerters";
+       // StringBuilder DataWriter = new StringBuilder();
 
         #region Properties
         public double[] homePosition { get { return _homePosition; } private set { _homePosition = value; } }
@@ -276,9 +282,9 @@ namespace LightWeight_Server
             _TrajectoryHandler.updatedCommandProgressChanged += new UpdateCommandProgressChangedEventHandler(updateCommandProgresslistener);
             _CurrentTrajectory = new TrajectoryOld();
             _Controller = new Controller(this);
-            _lastPose = new Pose(new double[] { 540.5, -18.1, 833.3, 180.0, 0.0, 180.0 });
-            _lastVelocity= new Pose(new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 });
-            _lastAcceleration= new Pose(new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 });
+            _lastPose.Enqueue( new Pose(new double[] { 540.5, -18.1, 833.3, 180.0, 0.0, 180.0 }));
+            _lastVelocity.Enqueue( new Pose(new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }));
+            _lastAcceleration.Enqueue( new Pose(new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }));
 
             _Position.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0,0));
             _velocity.Enqueue(new TimeCoordinate( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ,0));
@@ -349,7 +355,7 @@ namespace LightWeight_Server
                 UpdatedCommandProgressEventArgs progressEventArgs = e as UpdatedCommandProgressEventArgs;
                 double[] newControl = e.newCommand;
                 long ipoc = e.Ipoc;
-                _axisCommand = checkLimits(newControl);
+                checkLimits(newControl);
                 updateError(string.Format("{2:ss.ffff}:\nNew Command:\t({0})\nIpoc: \t{1:0.0}\nms:  \t{3:0.00}", SF.printDouble(newControl), ipoc, DateTime.Now.Ticks, (ipoc-DateTime.Now.Ticks)/TimeSpan.TicksPerMillisecond), new Exception("Progress"));
                 bufferAmount++;
             }
@@ -435,32 +441,44 @@ namespace LightWeight_Server
         }
 
 
-        double[] checkLimits(double[] axisComand)
+        public double[] checkLimits(double[] axisComand)
         {
-            double[] saturatedComand = new double[axisComand.Length];
+            double[] isSaturated = new double[axisComand.Length];
             for (int i = 0; i < axisComand.Length; i++)
             {
+                isSaturated[i] = axisComand[i];
                 if (Math.Abs(axisComand[i]) > _MaxAxisChange)
                 {
-                    saturatedComand[i] = Math.Sign(axisComand[i]) * _MaxAxisChange;
+                    isSaturated[i] = Math.Sign(axisComand[i]) * _MaxAxisChange;
                 }
-                else
-                {
-                    saturatedComand[i] = axisComand[i];
-                }
-                
             }
-            return saturatedComand;
+            return isSaturated;
         }
 
         public void updateComandPosition(Pose newPose, double[] newAngle)
         {
             if (_isConnected && _isCommanded && _TrajectoryHandler.IsActive)
             {
+                /*
+                lock (incrimentLock)
+                {
+                    if (incriment >100)
+                    {
+                        _TrajectoryHandler.RobotChange(_lastPose.LastElement, _lastVelocity.LastElement, newAngle, EndEffector);
+                        incriment=0;
+                    }
+                    else
+                    {
+                        incriment++;
+                    }
+                }
+                 * */
+
                 _InverseJacobian = GetInverseJacobian(newAngle, EndEffector);
+                _TrajectoryHandler.GetCommandAxis(newPose, _lastVelocity.LastElement, newAngle);
                 // AsyncGetCommandEffort(DateTime.Now.Ticks, currentPose.kukaValues, currentAxisAngle, currentVelocity);
-                double[] axisComand = _TrajectoryHandler.RobotChange(_lastPose, _lastVelocity, _InverseJacobian);
-                _Commands.Enqueue(checkLimits(axisComand));
+               // _TrajectoryHandler.RobotChange(_lastPose.LastElement, _lastVelocity.LastElement,  newAngle, EndEffector);
+                //_Commands.Enqueue(axisComand);
                 // _CommandPose = new TimeCoordinate(new Pose(_axisCommand), _Position.LastElement.Ipoc);
             }
             else
@@ -482,16 +500,21 @@ namespace LightWeight_Server
         {
             lock (telemetryLock)
             {
-                double delT = 1.0 * (DateTime.Now.Ticks - lastPoseTimeStamp) / TimeSpan.TicksPerMillisecond;
-                _lastVelocity = new Pose(_lastPose, newPose, delT);
-                _lastPose = newPose;
+                _loopTime = 1.0 * (DateTime.Now.Ticks - lastPoseTimeStamp) / TimeSpan.TicksPerMillisecond;
+                _lastVelocity.Enqueue(new Pose(_lastPose.LastElement, newPose, _loopTime));
+                _lastPose.Enqueue( newPose);
+                lastPoseTimeStamp = DateTime.Now.Ticks;
             }
         }
 
         public void updateRobotPosition(Pose newPose, long ipoc)
         {
-            double delT = 1.0 * (DateTime.Now.Ticks - lastPoseTimeStamp) / TimeSpan.TicksPerMillisecond;
-            _velocity.Enqueue(new TimeCoordinate(new Pose(_Position.LastElement.Pose, newPose, delT),ipoc));
+            double delT = 4;
+            lock (telemetryLock)
+            {
+                delT = _loopTime;
+            }
+            _velocity.Enqueue(new TimeCoordinate(new Pose(_Position.LastElement.Pose, newPose, delT), ipoc));
             TimeCoordinate newPosition = new TimeCoordinate(newPose, ipoc);
             _Position.Enqueue(newPosition);
         }
@@ -499,7 +522,6 @@ namespace LightWeight_Server
         public void updateRobotPosition(long LIpoc, long Ipoc, double x, double y, double z, double a, double b, double c)
         {
             //updateError(x.ToString() + " : " + y.ToString() + " : " + z.ToString() + " : " + a.ToString() + " : " + b.ToString() + " : " + c.ToString());
-            _loopTime = _KukaCycleTime.Elapsed.TotalMilliseconds;
             _KukaCycleTime.Restart();
             a = (Math.Abs(a + 180) < 1e-3) ? 180 : a;
             b = (Math.Abs(b + 180) < 1e-3) ? 180 : b;
@@ -552,10 +574,21 @@ namespace LightWeight_Server
             if (b == 3)
             {
                 // Robot Drives are on
+                if (!_DrivesOn)
+                {
+                    _TrajectoryHandler.ReStart(_lastPose.LastElement, _lastVelocity.LastElement);
+                    _DrivesOn = true;
+                }
             }
             else if (b == 4)
             {
                 // Robot Drives are off
+                if (_DrivesOn)
+                {
+                    _TrajectoryHandler.Pause(_lastPose.LastElement);
+                    _DrivesOn = false;
+                }
+
             }
         }
         #endregion
@@ -1025,8 +1058,21 @@ namespace LightWeight_Server
         }
 
          */
+        Trajectory getTrajectory(Pose EndPose, double AverageVelocity, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID, TrajectoryTypes type)
+        {
+            switch (type)
+            {
+                case TrajectoryTypes.Quintic:
+                    return new TrajectoryQuintic(EndPose, AverageVelocity, StartPose, StartVelocity, FinalVelocity, SegmentID, currentAxisAngle, this);
+                case TrajectoryTypes.Linear:
+                    return new TrajectoryLinear(EndPose, AverageVelocity, StartPose, StartVelocity, FinalVelocity, SegmentID, currentAxisAngle, this);
+                case TrajectoryTypes.Spline:
+                default:
+                    return new TrajectoryQuintic(EndPose, AverageVelocity, StartPose, StartVelocity, FinalVelocity, SegmentID, currentAxisAngle, this);
+            }
+        }
 
-        public bool newPoses(int n, Pose[] new_Poses, double[] AverageVelocity, double[] EndVelocity)
+        public bool newPoses(int n, Pose[] new_Poses, double[] AverageVelocity, double[] EndVelocity, TrajectoryTypes[] types)
         {
             try
             {
@@ -1034,33 +1080,70 @@ namespace LightWeight_Server
                 if (!_newPosesLoaded)
                 {
                     Guid PoseList = Guid.NewGuid();
-                    TrajectoryQuintic[] QuinticTrajectories = new TrajectoryQuintic[n];
+                    Trajectory[] newTrajectories = new Trajectory[n];
+                   // TrajectoryQuintic[] QuinticTrajectories = new TrajectoryQuintic[n];
                     Stopwatch trajectoryLoader = new Stopwatch();
                     trajectoryLoader.Start();
                     //  Check if no veloicty was specified or if mm/s or mm/ms was specified. Must used mm/ms for trajectory generation
-                    AverageVelocity[0] = (AverageVelocity[0] == -1) ? 1.0 * _maxLinearVelocity / 2 : ((AverageVelocity[0] > 0.1) ? 1.0 * AverageVelocity[0] / 1000 : AverageVelocity[0]);
+                    AverageVelocity[0] = (AverageVelocity[0] == -1) ? 1.0 * _maxLinearVelocity / 2 : ((AverageVelocity[0] > 1) ? 1.0 * AverageVelocity[0] / 1000 : AverageVelocity[0]);
                     for (int i = 1; i < AverageVelocity.Length; i++)
                     {
-                        AverageVelocity[i] = (AverageVelocity[i] == -1) ? AverageVelocity[i - 1] : ((AverageVelocity[i] > 0.1) ? 1.0 * AverageVelocity[i] / 1000 : AverageVelocity[i]);
+                        AverageVelocity[i] = (AverageVelocity[i] == -1) ? AverageVelocity[i - 1] : ((AverageVelocity[i] > 1) ? 1.0 * AverageVelocity[i] / 1000 : AverageVelocity[i]);
                     }
                     //_NewTrajectoryList = new TrajectoryOld[n];
                     Vector3[] PointVelocitys = new Vector3[n + 1];
                     PointVelocitys[0] = Vector3.Zero;
                     PointVelocitys[n] = Vector3.Zero;
-                    PointVelocitys[1] = (float)((AverageVelocity[0] + 0.2 * AverageVelocity[1]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[0].Translation - currentPose.Translation) + Vector3.Normalize(new_Poses[1].Translation - new_Poses[0].Translation)));
-
+                    if (n > 1)
+                    {
+                        PointVelocitys[1] = (float)((AverageVelocity[0] + 0.2 * AverageVelocity[1]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[0].Translation - currentPose.Translation) + Vector3.Normalize(new_Poses[1].Translation - new_Poses[0].Translation)));
+                    }
+                    else
+                    {
+                        PointVelocitys[1] = Vector3.Zero;
+                    }
+                    
                     for (int i = 2; i < n; i++)
                     {
                         PointVelocitys[i] = (float)((AverageVelocity[i - 1] + 0.2 * AverageVelocity[i]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[i - 1].Translation - new_Poses[i - 2].Translation) + Vector3.Normalize(new_Poses[i].Translation - new_Poses[i - 1].Translation)));
                     }
                     //_NewTrajectoryList[0] = new TrajectoryOld(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1]);
-                    QuinticTrajectories[0] = new TrajectoryQuintic(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1], PoseList);
+                    newTrajectories[0] = getTrajectory(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1], PoseList, types[0]);
                     for (int i = 1; i < n; i++)
                     {
                         //_NewTrajectoryList[i] = new TrajectoryOld(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
-                        QuinticTrajectories[i] = new TrajectoryQuintic(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1], PoseList);
+                        newTrajectories[i] = getTrajectory(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1], PoseList, types[i]);
                     }
-                    _TrajectoryHandler.Load(QuinticTrajectories);
+
+                    /*
+                    // Quintic writer
+                    try
+                    {
+                        Datafile = new StreamWriter(dataWriterFile + ".csv");
+                    }
+                    catch (Exception)
+                    {
+                        dataWriterFile = dataWriterFile + Guid.NewGuid().ToString("N");
+                        Datafile = new StreamWriter(dataWriterFile + ".csv");
+                    }
+                    DataWriter.AppendLine("New Trajectories:");
+                    for (int i = 0; i < QuinticTrajectories.Length; i++)
+                    {
+
+                        for (int j = 0; j < 6; j++)
+                        {
+
+                            DataWriter.AppendLine(string.Format("{0:0.00000},{1:0.00000},{2:0.00000},{3:0.00000}", QuinticTrajectories[i]._QuinticPerameters[0][j], QuinticTrajectories[i]._QuinticPerameters[1][j], QuinticTrajectories[i]._QuinticPerameters[2][j], QuinticTrajectories[i]._QuinticPerameters[3][j]));
+                        }
+                    }
+                    Datafile.WriteLine(DataWriter);
+                    DataWriter.Clear();
+                    Datafile.Flush();
+                    Datafile.Close();
+
+                     */
+
+                    _TrajectoryHandler.Load(newTrajectories);
                     _newPosesLoaded = true;
                     trajectoryLoader.Stop();
                     _trajectoryLoaderTime.Enqueue(trajectoryLoader.Elapsed.TotalMilliseconds);

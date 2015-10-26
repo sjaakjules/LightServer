@@ -15,9 +15,11 @@ namespace LightWeight_Server
 {
     class ExternalServer
     {
+
         // Thread signals to pause until data has been received
         ManualResetEvent haveReceived = new ManualResetEvent(false);
         object errorMsgLock = new object();
+        object lastPoseLock = new object();
 
         int _BufferSize = 20*1024;
         byte[] _buffer;
@@ -36,7 +38,8 @@ namespace LightWeight_Server
 
         Stopwatch _sendTimer = new Stopwatch();
 
-        
+        Pose[] _lastPoseList = null;
+        XmlNodeList _LastXMLPoseList = null;
 
         RobotInfo[] _Robot;
         ScreenWriter _GUI;
@@ -480,6 +483,19 @@ namespace LightWeight_Server
                                     if (Node.HasChildNodes && Node.FirstChild.Name != "#text")
                                     {
                                         XmlNodeList PoseList = Node.ChildNodes;
+
+                                        lock (lastPoseLock)
+                                        {
+                                            if (isRepeated(PoseList))
+                                            {
+                                                break;
+                                            }
+                                            else
+                                            {
+                                                _LastXMLPoseList = PoseList;
+
+                                            }
+                                        }
                                         if (PoseList.Count == N)
                                         {
                                             foreach (XmlNode newPose in PoseList)
@@ -536,10 +552,15 @@ namespace LightWeight_Server
 
                                 if (!failedUpdate)
                                 {
+
+                                    _GUI.updateError(string.Format("Loaded pose of type: {0}", Trajectorys[0].ToString()), new Exception("external server:"));
+                                        _loadedPoses = _Robot[nRobot].newPoses(N, FinalPoseList, AveVelocityList, EndVelocityList, Trajectorys);
+
+                                    
                                     // Loaded all poses and velocities associated with the trajectory of each new pose.
                                     // If errors are encounted during the load it uses last pose as default values
                                     // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
-                                    _loadedPoses = _Robot[nRobot].newPoses(N, FinalPoseList,AveVelocityList, EndVelocityList );
+
                                 }
 
                                 /*
@@ -617,7 +638,9 @@ namespace LightWeight_Server
                                     // Loaded all poses and velocities associated with the trajectory of each new pose.
                                     // If errors are encounted during the load it uses last pose as default values
                                     // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
-                                    _loadedPoses = _Robot[nRobot].newPoses(1, new Pose[] {newFinalPoseList}, new double[] {newEndVelocityList}, new double[] {newAveVelocityList});
+
+                                    _GUI.updateError(string.Format("Loaded pose of type: {0}",trajType.ToString()), new Exception("external server:"));
+                                    _loadedPoses = _Robot[nRobot].newPoses(1, new Pose[] { newFinalPoseList }, new double[] { newEndVelocityList }, new double[] { newAveVelocityList }, new TrajectoryTypes[] {trajType});
                                 }
                                 else
                                 {
@@ -768,6 +791,30 @@ namespace LightWeight_Server
             {
                 _GUI.updateError("Generic error " + catchStatement, e);
             }
+        }
+
+
+        bool isRepeated(XmlNodeList PoseList)
+        {
+            bool isEqual = true;
+            if (_LastXMLPoseList != null && PoseList.Count == _LastXMLPoseList.Count)
+            {
+                for (int i = 0; i < PoseList.Count; i++)
+                {
+                    string innerNow = PoseList[i].OuterXml;
+                    string innerlast = _LastXMLPoseList[i].OuterXml;
+                    if (!PoseList[i].OuterXml.Equals(_LastXMLPoseList[i].OuterXml, StringComparison.Ordinal))
+                    {
+                        isEqual = false;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                isEqual = false;
+            }
+            return isEqual;
         }
 
         private void SetupXML()
