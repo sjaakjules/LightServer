@@ -396,11 +396,6 @@ namespace LightWeight_Server
                 }
                 haveUpdatedPositions.Set();
 
-
-                //_Robot.SaveInfo();
-                _Robot.LoadCommand();
-                //_Robot.LoadTrajectory();
-
                 // As the robot positions have been updated, calculate change in position and update command dictionary
 
                 _Robot.updateComandPosition(newPose, newAngles);

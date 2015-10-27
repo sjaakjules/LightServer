@@ -48,8 +48,7 @@ namespace TestBot
     class UDP_Client
     {
         // Thread signals to pause until data has been received
-        ManualResetEvent haveReceived = new ManualResetEvent(false);
-        public ManualResetEvent isReadyToSend = new ManualResetEvent(false);
+        ManualResetEventSlim haveReceived = new ManualResetEventSlim(false);
 
         object speedlock = new object();
         object positionLock = new object();
@@ -254,7 +253,7 @@ namespace TestBot
                     errorString.AppendLine(e.Message);
                 }
                 // pause This thread until a packet has been returned.
-                haveReceived.WaitOne();
+                haveReceived.Wait();
             }
 
         }
