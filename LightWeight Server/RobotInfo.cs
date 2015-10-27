@@ -92,12 +92,7 @@ namespace LightWeight_Server
         Matrix[] _T0 = new Matrix[7];
         double[,] _InverseJacobian = new double[6, 6];
 
-        Pose _newPose;
-        Pose[] _newPoses;
-        double[] _newVelocitys;
-        TrajectoryOld[] _TrajectoryList, _NewTrajectoryList;
         TrajectoryHandler _TrajectoryHandler;
-        int incriment = 0;
 
         Pose _CommandPose;
 
@@ -124,7 +119,7 @@ namespace LightWeight_Server
         public readonly double _MaxAxisChange = 0.002;
 
         double _maxLinearVelocity = .12; // in mm/ms
-        double _maxAngularVelocity = .012; // in mm/ms
+        double _maxAngularVelocity = .012; // in deg/ms
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
         
@@ -133,11 +128,10 @@ namespace LightWeight_Server
         bool _isCommanded = false;
         bool _DrivesOn = false;
 
-       // bool _newCommandLoaded = false;
-        bool _newPosesLoaded = false;
-
         public double[] _axisCommand = new double[] { 0, 0, 0, 0, 0, 0 };
-        public readonly double[] _defaultHomeAngles = new double[] { 0, 0 };
+
+        public readonly double[] _defaultHomeAngles = new double[] { 0.0, -1.0 * Math.PI / 2, 1.0 * Math.PI / 2, 0.0, 1.0 * Math.PI / 2, 0.0 };
+
         double[] _homePosition = new double[6];
         double[] _HomeAngles = new double[6];
 
@@ -147,7 +141,10 @@ namespace LightWeight_Server
 
         #region Properties
         public double[] homePosition { get { return _homePosition; } private set { _homePosition = value; } }
+
         public double[] homeAngles { get { return _HomeAngles; } private set { _HomeAngles = value; } }
+
+        public Pose _defaultHomePose { get { return forwardKinimatics(_defaultHomeAngles, this.EndEffector); } }
 
         public Pose currentPose { get { return _Position.LastElement.Pose; } }
 
@@ -160,6 +157,8 @@ namespace LightWeight_Server
         public Vector3 EndEffector { get { return _EndEffector; } }
 
         public Pose currentDesiredPositon { get { return _TrajectoryHandler.DesiredPose; } }
+
+        public Pose lastDesiredPositon { get { return _TrajectoryHandler.LastDesiredPose; } }
 
         public Pose currentReferencePosition { get { return _ReferencePosition.LastElement; } }
 
@@ -290,7 +289,7 @@ namespace LightWeight_Server
             _velocity.Enqueue(new TimeCoordinate( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ,0));
             _acceleration.Enqueue(new TimeCoordinate( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ,0));
             _Torque.Enqueue(new TimeCoordinate( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ,0));
-            _Angles.Enqueue(new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
+            _Angles.Enqueue(new double[] { 0.0, -1.0 * Math.PI / 2, 1.0 * Math.PI / 2, 0.0, 1.0 * Math.PI / 2, 0.0 });
             _CommandPose = new Pose(new double[] {0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
             _ReferencePosition.Enqueue(Pose.Zero);
             _ReferenceVelocity.Enqueue(Pose.Zero);
@@ -378,11 +377,10 @@ namespace LightWeight_Server
                 _StartTipPose = _Position.LastElement.Pose;
                 _EndEffectorPose = Pose.inverse(_StartPose) * _StartTipPose;
                 _EndEffector = _EndEffectorPose.Translation;
-                getLinkTransforms(homeAngles[0], homeAngles[1], homeAngles[2], homeAngles[3], homeAngles[4], homeAngles[5], _EndEffector, out _T, out _T0);
                 double[] inverseAngles = IKSolver(_StartTipPose, _EndEffector, _Angles.LastElement, ref _elbow, ref _base);
                 if (!SF.IsClose(homeAngles, inverseAngles))
                 {
-                    updateError(string.Format("Inverse Home not equal\nMeasured: (0}\nInverse: {1}", SF.DoublesToString(homeAngles), SF.DoublesToString(inverseAngles)), new KukaException("IK solver error"));
+                    updateError(string.Format("Inverse Home not equal\nMeasured: {0}\nInverse: {1}", SF.DoublesToString(homeAngles), SF.DoublesToString(inverseAngles)), new KukaException("IK solver error"));
                 }
                 _isConnected = true;
                 _GUI.IsConnected = true;
@@ -409,37 +407,6 @@ namespace LightWeight_Server
         {
             updateError(string.Format("Slow process time of {0:0.00}ms\r\nRead XML\t{1:0.0}%\r\nConnection\t{2:0.0}%\r\nLoad Command\t{3:0.0}%\r\nUpdate Command\t{4:0.0}%\r\n", processDataTimers, 100.0 * (readXML) / processDataTimers, 100.0 * (Connect - readXML) / processDataTimers, 100.0 * (loadCommands - Connect) / processDataTimers, 100.0 * (updateCommand - loadCommands) / processDataTimers), new KukaException("Lag:"));
         }
-        /// <summary>
-        /// Loads the _desiredPosition data in Base coordinates and the _desiredRotation in local SartPose coordinates. 
-        /// The _desiredRotation is a rotation, which when applied, will rotate the current pose to desired final pose.
-        /// </summary>
-        public void LoadCommand()
-        {
-            lock (loadLock)
-            {
-                try
-                {
-                    if (_newPosesLoaded)
-                    {
-                        _TrajectoryHandler.LodeBuffer(currentPose, currentVelocity);
-                        //  _TrajectoryList = new TrajectoryOld[_NewTrajectoryList.Length];
-                        // _NewTrajectoryList.CopyTo(_TrajectoryList, 0);
-                        //  _NewTrajectoryList = null;
-                        // _CurrentTrajectory = _TrajectoryList[0];
-                        _newPosesLoaded = false;
-                        _isCommanded = true;
-                    }
-
-                }
-                catch (Exception e)
-                {
-                    updateError("Exception " + e.Message, e);
-                    _newPosesLoaded = false;
-                    _isCommanded = false;
-                }
-            }
-        }
-
 
         public double[] checkLimits(double[] axisComand)
         {
@@ -459,27 +426,7 @@ namespace LightWeight_Server
         {
             if (_isConnected && _isCommanded && _TrajectoryHandler.IsActive)
             {
-                /*
-                lock (incrimentLock)
-                {
-                    if (incriment >100)
-                    {
-                        _TrajectoryHandler.RobotChange(_lastPose.LastElement, _lastVelocity.LastElement, newAngle, EndEffector);
-                        incriment=0;
-                    }
-                    else
-                    {
-                        incriment++;
-                    }
-                }
-                 * */
-
-                _InverseJacobian = GetInverseJacobian(newAngle, EndEffector);
                 _TrajectoryHandler.GetCommandAxis(newPose, _lastVelocity.LastElement, newAngle);
-                // AsyncGetCommandEffort(DateTime.Now.Ticks, currentPose.kukaValues, currentAxisAngle, currentVelocity);
-               // _TrajectoryHandler.RobotChange(_lastPose.LastElement, _lastVelocity.LastElement,  newAngle, EndEffector);
-                //_Commands.Enqueue(axisComand);
-                // _CommandPose = new TimeCoordinate(new Pose(_axisCommand), _Position.LastElement.Ipoc);
             }
             else
             {
@@ -504,6 +451,24 @@ namespace LightWeight_Server
                 _lastVelocity.Enqueue(new Pose(_lastPose.LastElement, newPose, _loopTime));
                 _lastPose.Enqueue( newPose);
                 lastPoseTimeStamp = DateTime.Now.Ticks;
+            }
+        }
+
+        public void checkCartVelocty(double[] cartVel)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                if (Math.Abs(cartVel[i]) > _MaxCartesianChange)
+                {
+                    cartVel[i] = Math.Sign(cartVel[i]) * _MaxCartesianChange;
+                }
+            }
+            for (int i = 3; i < 6; i++)
+            {
+                if (Math.Abs(cartVel[i]) > _MaxAngularChange)
+                {
+                    cartVel[i] = Math.Sign(cartVel[i]) * _MaxAngularChange;
+                }
             }
         }
 
@@ -1076,79 +1041,54 @@ namespace LightWeight_Server
         {
             try
             {
-
-                if (!_newPosesLoaded)
+                Guid PoseList = Guid.NewGuid();
+                Trajectory[] newTrajectories = new Trajectory[n];
+                // TrajectoryQuintic[] QuinticTrajectories = new TrajectoryQuintic[n];
+                Stopwatch trajectoryLoader = new Stopwatch();
+                trajectoryLoader.Start();
+                //  Check if no veloicty was specified or if mm/s or mm/ms was specified. Must used mm/ms for trajectory generation
+                AverageVelocity[0] = (AverageVelocity[0] == -1) ? 1.0 * _maxLinearVelocity / 2 : ((AverageVelocity[0] > 1) ? 1.0 * AverageVelocity[0] / 1000 : AverageVelocity[0]);
+                for (int i = 1; i < AverageVelocity.Length; i++)
                 {
-                    Guid PoseList = Guid.NewGuid();
-                    Trajectory[] newTrajectories = new Trajectory[n];
-                   // TrajectoryQuintic[] QuinticTrajectories = new TrajectoryQuintic[n];
-                    Stopwatch trajectoryLoader = new Stopwatch();
-                    trajectoryLoader.Start();
-                    //  Check if no veloicty was specified or if mm/s or mm/ms was specified. Must used mm/ms for trajectory generation
-                    AverageVelocity[0] = (AverageVelocity[0] == -1) ? 1.0 * _maxLinearVelocity / 2 : ((AverageVelocity[0] > 1) ? 1.0 * AverageVelocity[0] / 1000 : AverageVelocity[0]);
-                    for (int i = 1; i < AverageVelocity.Length; i++)
-                    {
-                        AverageVelocity[i] = (AverageVelocity[i] == -1) ? AverageVelocity[i - 1] : ((AverageVelocity[i] > 1) ? 1.0 * AverageVelocity[i] / 1000 : AverageVelocity[i]);
-                    }
-                    //_NewTrajectoryList = new TrajectoryOld[n];
-                    Vector3[] PointVelocitys = new Vector3[n + 1];
-                    PointVelocitys[0] = Vector3.Zero;
-                    PointVelocitys[n] = Vector3.Zero;
-                    if (n > 1)
-                    {
-                        PointVelocitys[1] = (float)((AverageVelocity[0] + 0.2 * AverageVelocity[1]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[0].Translation - currentPose.Translation) + Vector3.Normalize(new_Poses[1].Translation - new_Poses[0].Translation)));
-                    }
-                    else
-                    {
-                        PointVelocitys[1] = Vector3.Zero;
-                    }
-                    
-                    for (int i = 2; i < n; i++)
-                    {
-                        PointVelocitys[i] = (float)((AverageVelocity[i - 1] + 0.2 * AverageVelocity[i]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[i - 1].Translation - new_Poses[i - 2].Translation) + Vector3.Normalize(new_Poses[i].Translation - new_Poses[i - 1].Translation)));
-                    }
-                    //_NewTrajectoryList[0] = new TrajectoryOld(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1]);
-                    newTrajectories[0] = getTrajectory(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1], PoseList, types[0]);
-                    for (int i = 1; i < n; i++)
-                    {
-                        //_NewTrajectoryList[i] = new TrajectoryOld(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
-                        newTrajectories[i] = getTrajectory(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1], PoseList, types[i]);
-                    }
-
-                    /*
-                    // Quintic writer
-                    try
-                    {
-                        Datafile = new StreamWriter(dataWriterFile + ".csv");
-                    }
-                    catch (Exception)
-                    {
-                        dataWriterFile = dataWriterFile + Guid.NewGuid().ToString("N");
-                        Datafile = new StreamWriter(dataWriterFile + ".csv");
-                    }
-                    DataWriter.AppendLine("New Trajectories:");
-                    for (int i = 0; i < QuinticTrajectories.Length; i++)
-                    {
-
-                        for (int j = 0; j < 6; j++)
-                        {
-
-                            DataWriter.AppendLine(string.Format("{0:0.00000},{1:0.00000},{2:0.00000},{3:0.00000}", QuinticTrajectories[i]._QuinticPerameters[0][j], QuinticTrajectories[i]._QuinticPerameters[1][j], QuinticTrajectories[i]._QuinticPerameters[2][j], QuinticTrajectories[i]._QuinticPerameters[3][j]));
-                        }
-                    }
-                    Datafile.WriteLine(DataWriter);
-                    DataWriter.Clear();
-                    Datafile.Flush();
-                    Datafile.Close();
-
-                     */
-
-                    _TrajectoryHandler.Load(newTrajectories);
-                    _newPosesLoaded = true;
-                    trajectoryLoader.Stop();
-                    _trajectoryLoaderTime.Enqueue(trajectoryLoader.Elapsed.TotalMilliseconds);
-                    return true;
+                    AverageVelocity[i] = (AverageVelocity[i] == -1) ? AverageVelocity[i - 1] : ((AverageVelocity[i] > 1) ? 1.0 * AverageVelocity[i] / 1000 : AverageVelocity[i]);
                 }
+                for (int i = 0; i < AverageVelocity.Length; i++)
+                {
+                    if (AverageVelocity[i] > 0.1)
+                    {
+                        AverageVelocity[i] = 0.1;
+                    }
+                }
+                //_NewTrajectoryList = new TrajectoryOld[n];
+                Vector3[] PointVelocitys = new Vector3[n + 1];
+                PointVelocitys[0] = Vector3.Zero;
+                PointVelocitys[n] = Vector3.Zero;
+                if (n > 1)
+                {
+                    PointVelocitys[1] = (float)((AverageVelocity[0] + 0.2 * AverageVelocity[1]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[0].Translation - currentPose.Translation) + Vector3.Normalize(new_Poses[1].Translation - new_Poses[0].Translation)));
+                }
+                else
+                {
+                    PointVelocitys[1] = Vector3.Zero;
+                }
+
+                for (int i = 2; i < n; i++)
+                {
+                    PointVelocitys[i] = (float)((AverageVelocity[i - 1] + 0.2 * AverageVelocity[i]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[i - 1].Translation - new_Poses[i - 2].Translation) + Vector3.Normalize(new_Poses[i].Translation - new_Poses[i - 1].Translation)));
+                }
+                //_NewTrajectoryList[0] = new TrajectoryOld(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1]);
+                newTrajectories[0] = getTrajectory(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1], PoseList, types[0]);
+                for (int i = 1; i < n; i++)
+                {
+                    //_NewTrajectoryList[i] = new TrajectoryOld(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
+                    newTrajectories[i] = getTrajectory(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1], PoseList, types[i]);
+                }
+
+                _TrajectoryHandler.Load(newTrajectories);
+                _isCommanded = true;
+                trajectoryLoader.Stop();
+                _trajectoryLoaderTime.Enqueue(trajectoryLoader.Elapsed.TotalMilliseconds);
+                return true;
             }
             catch (Exception e)
             {

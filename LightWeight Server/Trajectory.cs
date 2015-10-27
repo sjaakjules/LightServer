@@ -137,7 +137,7 @@ namespace LightWeight_Server
 
     class TrajectoryLinear : TaskTrajectory
     {
-        public double[,] _LinearPerameters;
+        public double[][] _LinearPerameters;
 
         public int nSteps;
         public double[][] nAnglePositions;
@@ -161,21 +161,21 @@ namespace LightWeight_Server
             SF.getAxisAngle(changePose.Orientation, out _TrajectoryAxis, out _finalAngle);
             _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
             nSteps = (int)trajectoryTime.TotalMilliseconds / 40;
-            _LinearPerameters = new double[4, 2];
-            _LinearPerameters[0, 0] = x0.X;
-            _LinearPerameters[1, 0] = x0.Y;
-            _LinearPerameters[2, 0] = x0.Z;
-            _LinearPerameters[3, 0] = 0;
-            _LinearPerameters[0, 1] = 1.0 * (xf.X - x0.X) / trajectoryTime.TotalMilliseconds;
-            _LinearPerameters[1, 2] = 1.0 * (xf.Y - x0.Y) / trajectoryTime.TotalMilliseconds;
-            _LinearPerameters[2, 3] = 1.0 * (xf.Z - x0.Z) / trajectoryTime.TotalMilliseconds;
-            _LinearPerameters[3, 4] = _finalAngle;
+            _LinearPerameters = new double[4][];
+            _LinearPerameters[0] = new double[] { x0.X, 1.0 * (xf.X - x0.X) / trajectoryTime.TotalMilliseconds };
+            _LinearPerameters[1] = new double[] {x0.Y,1.0 * (xf.Y - x0.Y) / trajectoryTime.TotalMilliseconds};
+            _LinearPerameters[2] = new double[] {x0.Z, 1.0 * (xf.Z - x0.Z) / trajectoryTime.TotalMilliseconds};
+            _LinearPerameters[3] = new double[] {0, _finalAngle};
             nAnglePositions = new double[nSteps][];
         }
 
 
         public override Pose getReferenceVelocity(double t)
         {
+            if (t > trajectoryTime.TotalMilliseconds)
+            {
+                return Pose.Zero;
+            }
             return new Pose(Quaternion.CreateFromAxisAngle(_TrajectoryAxis, 1.0f*_finalAngle / (float)trajectoryTime.TotalMilliseconds), Vector3.Multiply(Vector3.Normalize(finalPose.Translation - startPose.Translation), (float)averageVelocity));
         }
         public override Pose getReferencePosition(double t)
@@ -193,96 +193,6 @@ namespace LightWeight_Server
             SF.getAxisAngle(changePose.Orientation, out _TrajectoryAxis, out _finalAngle);
             _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
         }
-        /*
-        Vector3 getDisplacement(Vector3 currentPosition, double maxChange, double linearAcceleration)
-        {
-            if (!_isTranslating && !_isRotating)
-            {
-                IsActive = false;
-            }
-            if (_isTranslating && IsActive)
-            {
-
-                if ((Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition))) < maxChange)
-                {
-                    _isTranslating = false;
-                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange / 2);
-                }
-                if (!_ViaMode)
-                {
-                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange);
-                }
-
-                float d = (float)(maxChange * maxChange / (32 * linearAcceleration));
-                float accelerationDistance = 10.0f;
-                if ((Math.Abs(Vector3.Distance(_startPose.Translation, _finalPose.Translation)) > accelerationDistance))
-                {
-                    // in the start/final region
-                    // Check for last step occurance
-
-                    if ((Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition))) < 0.1f)
-                    {
-                        _isTranslating = false;
-                        return _finalPose.Translation - currentPosition;
-                    }
-                    else if (Math.Abs(Vector3.Distance(_startPose.Translation, currentPosition)) < accelerationDistance / 2 ||
-                        (Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition)) < accelerationDistance / 2))
-                    {
-                        // If its in start or final region find two distances
-                        float disFromStart = Math.Abs(Vector3.Distance(_startPose.Translation, currentPosition)) + .01f;
-                        float disFromFinal = Math.Abs(Vector3.Distance(_finalPose.Translation, currentPosition));
-                        return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition),
-                            (float)maxChange * ((disFromStart < disFromFinal) ? disFromStart : disFromFinal) / (accelerationDistance / 2));
-                    }
-                    else
-                    {
-                        return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange);
-                    }
-                }
-                else
-                {
-                    return Vector3.Multiply(Vector3.Normalize(_finalPose.Translation - currentPosition), (float)maxChange / 2);
-                    // TODO code when agent is on robot, ie less than 1mm commands
-                }
-
-
-            }
-            return Vector3.Zero;
-        }
-
-
-        Vector3 getOrientation(Quaternion currentOrientation, float maxChange)
-        {
-            // float Duration = (float)(_elapsedTime.Elapsed.TotalMilliseconds / _trajectoryTime.TotalMilliseconds);
-            // Duration = (Duration >= 1.0) ? 1.0f : Duration;
-
-            if (!_isTranslating && !_isRotating)
-            {
-                IsActive = false;
-            }
-            if (_isRotating && IsActive)
-            {
-                Quaternion changeQ = Quaternion.Identity;
-                Quaternion currentInvers = Quaternion.Inverse(currentOrientation);
-                Quaternion toFinal = __FinalOrientation * currentInvers;
-                Vector3 toFinalAxis = Vector3.Zero;
-                float toFinalAngle = 0;
-                SF.getAxisAngle(toFinal, ref toFinalAxis, ref toFinalAngle);
-                if (Math.Abs(MathHelper.ToDegrees(toFinalAngle)) < maxChange)
-                {
-                    _isRotating = false;
-                }
-                toFinalAxis.Normalize();
-                changeQ = Quaternion.CreateFromAxisAngle(toFinalAxis, Math.Sign(toFinalAngle) * MathHelper.ToRadians(maxChange));
-                float[] kukaAngles = new float[6];
-                SF.getKukaAngles(changeQ, ref kukaAngles);
-                return new Vector3(kukaAngles[3], kukaAngles[4], kukaAngles[5]);
-            }
-            return Vector3.Zero;
-        }
-         * 
-         * 
-         */
     }
 
     class TrajectoryCubic : TaskTrajectory

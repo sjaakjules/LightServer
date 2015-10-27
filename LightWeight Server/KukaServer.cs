@@ -52,13 +52,13 @@ namespace LightWeight_Server
 
     class KukaServer
     {
-        object stateObjectLock = new object();
 
         // Thread signals to pause until data has been received
-        ManualResetEvent haveReceived = new ManualResetEvent(false);
-        ManualResetEvent haveUpdatedPositions = new ManualResetEvent(false);
+        ManualResetEventSlim haveReceived = new ManualResetEventSlim(false);
+        ManualResetEventSlim haveUpdatedPositions = new ManualResetEventSlim(false);
 
-        StateObject lastPacket;
+        StateObject lastPacket = null;
+        ConcurrentQueue<StateObject> FreshPackets = new ConcurrentQueue<StateObject>();
 
         int _BufferSize = 1024;
         byte[] _buffer;
@@ -247,7 +247,7 @@ namespace LightWeight_Server
                 }
                 // pause This thread until a packet has been returned.
 
-                haveReceived.WaitOne();
+                haveReceived.Wait();
             }
 
         }
@@ -388,10 +388,7 @@ namespace LightWeight_Server
                     _Robot.updateRobotPose(newPose);
                 }
 
-                lock (stateObjectLock)
-                {
-                    lastPacket = State;
-                }
+                FreshPackets.Enqueue(State);
 
                 if (_Robot.Connect())
                 {
@@ -496,14 +493,22 @@ namespace LightWeight_Server
                 {
                     newCommand = new double[] { 0, 0, 0, 0, 0, 0 };
                 }
-
-                // Write the new command to the robot accessing the command dictionary
-                lock (stateObjectLock)
+                if (FreshPackets.TryDequeue(out lastPacket))
                 {
                     UpdateXML(lastPacket, newCommand);
                     SendData(lastPacket);
                 }
-                haveUpdatedPositions.WaitOne();
+                else if (lastPacket != null)
+                {
+                    _Robot.updateError("Last packet was not updated by the time to send!!", new KukaException("Constrant sender error"));
+                    UpdateXML(lastPacket, newCommand);
+                    SendData(lastPacket);
+                }
+                else
+                {
+                    _Robot.updateError("Last packet was not updated by the time to send ever!!", new KukaException("Constrant sender error"));
+                }
+                haveUpdatedPositions.Wait();
             }
         }
 
