@@ -215,13 +215,13 @@ namespace LightWeight_Server
 
         public void getControllerEffort(Pose referencePosition, Pose referenceVelocity, Pose measuredPosition, Pose measuredVelocity, double[,] inverseJoc, double[] measuredAngle, RobotInfo robot, bool hasElapsed, double averageSpeed)
         {
-            double[] ReferenceAngle = SF.IKSolver(referencePosition, robot.EndEffector, measuredAngle, ref robot._elbow, ref robot._base);
-            double[] AngleError = new double[6];
-            for (int i = 0; i < 6; i++)
-            {
-                AngleError[i] = ReferenceAngle[i] - measuredAngle[i];
-            }
-            double[] AngleError2 = SF.addDoubles(ReferenceAngle,SF.multiplyMatrix(measuredAngle,-1.0));
+    //        double[] ReferenceAngle = SF.IKSolver(referencePosition, robot.EndEffector, measuredAngle, ref robot._elbow, ref robot._base);
+      //      double[] AngleError = new double[6];
+     //       for (int i = 0; i < 6; i++)
+       //     {
+      //          AngleError[i] = ReferenceAngle[i] - measuredAngle[i];
+     //       }
+       //     double[] AngleError2 = SF.addDoubles(ReferenceAngle,SF.multiplyMatrix(measuredAngle,-1.0));
 
             Vector3 ErrorTranslation = referencePosition.Translation - measuredPosition.Translation;
             Vector3 ErrorOrientation = SF.getOrientationError(Matrix.CreateFromQuaternion(referencePosition.Orientation), Matrix.CreateFromQuaternion(measuredPosition.Orientation));
@@ -240,12 +240,12 @@ namespace LightWeight_Server
             robot._Commands.Enqueue(SatAxisSpeed);
 
 
-            SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, AxisSpeed, SatAxisSpeed,AngleError,AngleError2, DataWriter);
-                using ( StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true))
-                {
-                    Datafile.WriteLine(DataWriter);
-                }
-                DataWriter.Clear();
+          //  SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, AxisSpeed, SatAxisSpeed,AngleError,AngleError2, DataWriter);
+        //        using ( StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true))
+        //        {
+       //             Datafile.WriteLine(DataWriter);
+       //         }
+        //        DataWriter.Clear();
              
                  
             //return AxisSpeed;
