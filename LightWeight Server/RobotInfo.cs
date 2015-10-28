@@ -33,11 +33,7 @@ namespace LightWeight_Server
 
     class RobotInfo
     {
-
-        public event SixDoubleHandler newPosition;
-        Guid lastController;
         int bufferAmount;
-        int maxBuffer = 3;
         long lastPoseTimeStamp = DateTime.Now.Ticks;
 
         object TrajectoryPrintLock = new object();
@@ -76,6 +72,7 @@ namespace LightWeight_Server
 
         FixedSizedQueue<TimeCoordinate> _Position = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(5);
+        FixedSizedQueue<TimeCoordinate> _Avevelocity = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<TimeCoordinate> _acceleration = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<TimeCoordinate> _Torque = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<double[]> _Angles = new FixedSizedQueue<double[]>(5);
@@ -103,11 +100,6 @@ namespace LightWeight_Server
         // Thread safe lists for updating and storing of robot information.
         // public ConcurrentStack<StateObject> DataHistory;
 
-
-        //Trajectory _CurrentTrajectory;
-        TrajectoryOld _CurrentTrajectory;
-        int _currentSegment = 1;
-        Controller _Controller;
 
         bool _gripperIsOpen = true;
         public ElbowPosition _elbow = ElbowPosition.up;
@@ -276,26 +268,26 @@ namespace LightWeight_Server
         {
             this._RobotID = id;
             this._GUI = GUI;
-            _TrajectoryHandler = new TrajectoryHandler(this);
-            _TrajectoryHandler.updateCommandCompleted += new updatedCommandCompletedEventHandler(updateCommandCompleatedlistener);
-            _TrajectoryHandler.updatedCommandProgressChanged += new UpdateCommandProgressChangedEventHandler(updateCommandProgresslistener);
-            _CurrentTrajectory = new TrajectoryOld();
-            _Controller = new Controller(this);
             _lastPose.Enqueue( new Pose(new double[] { 540.5, -18.1, 833.3, 180.0, 0.0, 180.0 }));
             _lastVelocity.Enqueue( new Pose(new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }));
             _lastAcceleration.Enqueue( new Pose(new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }));
 
             _Position.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0,0));
-            _velocity.Enqueue(new TimeCoordinate( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ,0));
+            _velocity.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
+            _Avevelocity.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
             _acceleration.Enqueue(new TimeCoordinate( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ,0));
             _Torque.Enqueue(new TimeCoordinate( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ,0));
             _Angles.Enqueue(new double[] { 0.0, -1.0 * Math.PI / 2, 1.0 * Math.PI / 2, 0.0, 1.0 * Math.PI / 2, 0.0 });
             _CommandPose = new Pose(new double[] {0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
-            _ReferencePosition.Enqueue(Pose.Zero);
-            _ReferenceVelocity.Enqueue(Pose.Zero);
+            _ReferencePosition.Enqueue(_Position.LastElement.Pose);
+            _ReferenceVelocity.Enqueue(_Position.LastElement.Pose);
             MaxJocTimer.Enqueue(0);
             MaxserverTimer.Enqueue(0);
+            _TrajectoryHandler = new TrajectoryHandler(this);
+            _TrajectoryHandler.updateCommandCompleted += new updatedCommandCompletedEventHandler(updateCommandCompleatedlistener);
+            _TrajectoryHandler.updatedCommandProgressChanged += new UpdateCommandProgressChangedEventHandler(updateCommandProgresslistener);
             GUI.ConnectRobot(this, RobotNumber);
+
         }
 
         #region 4ms Kuka server Methods
@@ -492,7 +484,7 @@ namespace LightWeight_Server
             b = (Math.Abs(b + 180) < 1e-3) ? 180 : b;
             c = (Math.Abs(c + 180) < 1e-3) ? 180 : c;
             TimeCoordinate newPosition = new TimeCoordinate(x, y, z, a, b, c, Ipoc);
-            _Position.Enqueue(newPosition);
+           // _Position.Enqueue(newPosition);
            // TimeCoordinate[] positions = _Position.ThreadSafeToArray;
            // _velocity.Enqueue(SF.AverageRateOfChange(positions, _loopTime));
            // TimeCoordinate[] velocities = _velocity.ThreadSafeToArray;

@@ -50,8 +50,6 @@ namespace LightWeight_Server
         
         Stopwatch _ErrorTimer = new Stopwatch();
 
-        double TGetReference, TGetController, TloadTrajectory, T1, T2, T3;
-        public double PGetReference, PGetController, PloadTrajectory, P1, P2, P3, P4;
         long lastLog;
 
         public bool IsConnected

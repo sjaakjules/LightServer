@@ -275,6 +275,7 @@ namespace LightWeight_Server
                 // Reset the global buffer to null ready to be initialised in next receive loop once packet as been sent.
                 _buffer = null;
 
+                haveReceived.Set();
                 sendTimer.Restart();
                 // Process byte information on state object
                 processData(connectedState);
@@ -286,7 +287,6 @@ namespace LightWeight_Server
                 _Robot.updateServerTime(serverTimer.Elapsed.TotalMilliseconds);
                 serverTimer.Reset();
 
-                haveReceived.Set();
             }
             catch (SocketException se)
             {
@@ -332,6 +332,9 @@ namespace LightWeight_Server
                     _Robot.updateError("Error not reading IPOC: ", new Exception("Kuka server:"));
                 }
 
+                FreshPackets.Enqueue(State);
+                haveUpdatedPositions.Set();
+
                 XmlNodeList parentNode = xmlIn.ChildNodes;
                 XmlNodeList KukaInfoNodes = parentNode.Item(0).ChildNodes;
                 Pose newPose = Pose.Zero;
@@ -348,9 +351,6 @@ namespace LightWeight_Server
                                             double.Parse(Node.Attributes["B"].Value), double.Parse(Node.Attributes["C"].Value)});
                             State.EEPose = newPose;
                             updatedPosition = true;
-                            //_Robot.updateRobotPosition(_LIPOC,_IPOC, double.Parse(Node.Attributes["X"].Value), double.Parse(Node.Attributes["Y"].Value),
-                            //                double.Parse(Node.Attributes["Z"].Value), double.Parse(Node.Attributes["A"].Value),
-                            //                double.Parse(Node.Attributes["B"].Value), double.Parse(Node.Attributes["C"].Value));
                             break;
 
                         case "AIPos":
@@ -362,15 +362,9 @@ namespace LightWeight_Server
                             newAngles[5] = double.Parse(Node.Attributes["A6"].Value) * 1.0 * Math.PI / 180;
                             State.Angles = newAngles;
                             updatedAngles = true;
-                           // _Robot.updateRobotAngles(double.Parse(Node.Attributes["A1"].Value) * 1.0 * Math.PI / 180, double.Parse(Node.Attributes["A2"].Value) * 1.0 * Math.PI / 180,
-                           //                         double.Parse(Node.Attributes["A3"].Value) * 1.0 * Math.PI / 180, double.Parse(Node.Attributes["A4"].Value) * 1.0 * Math.PI / 180,
-                           //                         double.Parse(Node.Attributes["A5"].Value) * 1.0 * Math.PI / 180, double.Parse(Node.Attributes["A6"].Value) * 1.0 * Math.PI / 180, _IPOC);
                             break;
 
                         case "Torque":
-                          //  _Robot.updateRobotTorque(double.Parse(Node.Attributes["A1"].Value), double.Parse(Node.Attributes["A2"].Value),
-                         //                           double.Parse(Node.Attributes["A3"].Value), double.Parse(Node.Attributes["A4"].Value),
-                          //                          double.Parse(Node.Attributes["A5"].Value), double.Parse(Node.Attributes["A6"].Value), _IPOC);
                             break;
                         case "Robot":
                             _Robot.updateSignal(double.Parse(Node.Attributes["Active1"].Value), double.Parse(Node.Attributes["Active2"].Value));
@@ -390,13 +384,11 @@ namespace LightWeight_Server
                     _Robot.updateRobotPose(newPose);
                 }
 
-                FreshPackets.Enqueue(State);
 
                 if (_Robot.Connect())
                 {
                     constantSender.Start();
                 }
-                haveUpdatedPositions.Set();
 
                 // As the robot positions have been updated, calculate change in position and update command dictionary
 
