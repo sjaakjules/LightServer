@@ -222,7 +222,7 @@ namespace LightWeight_Server
 
         public void getControllerEffort(Pose referencePosition, Pose referenceVelocity, Pose measuredPosition, Pose measuredVelocity, double[,] inverseJoc, double[] measuredAngle, RobotInfo robot, bool hasElapsed, double averageSpeed)
         {
-            double[] ReferenceAngle = SF.IKSolver(referencePosition, robot.EndEffector, measuredAngle, ref robot._elbow, ref robot._base);
+            double[] ReferenceAngle = robot.IKSolver(referencePosition,measuredAngle);
             double[] AngleError = SF.addDoubles(ReferenceAngle, SF.multiplyMatrix(measuredAngle, -1.0));
 
             Vector3 ErrorTranslation = referencePosition.Translation - measuredPosition.Translation;

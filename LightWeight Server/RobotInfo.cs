@@ -424,7 +424,7 @@ namespace LightWeight_Server
 
         public void updateComandPosition(Pose newPose, double[] newAngle)
         {
-            if (_isConnected && _isCommanded && _TrajectoryHandler.IsActive)
+            if (_isConnected && _isCommanded)
             {
                 _TrajectoryHandler.GetCommandAxis(newPose, _lastVelocity.LastElement, newAngle);
             }
@@ -951,6 +951,11 @@ namespace LightWeight_Server
             return new double[] { theta1, theta2, theta3 };
         }
 
+        public double[] IKSolver(Pose DesiredPose, double[] thetaLast)
+        {
+            return IKSolver(DesiredPose, EndEffector, thetaLast, ref _elbow, ref _base);
+        }
+
         public double[] IKSolver(Pose DesiredPose)
         {
             return IKSolver(DesiredPose,EndEffector,currentAxisAngle,ref _elbow, ref _base);
@@ -993,11 +998,12 @@ namespace LightWeight_Server
                 }
                 theta5 = (Math.Abs(Math.Cos(theta4)) > Math.Abs(Math.Sin(theta4))) ? Math.Atan2((-1.0 * T3t[0, 2] / (Math.Cos(theta4))), T3t[1, 2]) : Math.Atan2((-1.0 * T3t[2, 2] / (Math.Sin(theta4))), T3t[1, 2]);
             }
+            /*
             if (theta4 > (185.0 * Math.PI / 180) || theta4 < (-185.0 * Math.PI / 180))
             {
                 throw new InverseKinematicsException("Out of workspace");
             }
-            if (theta5 > (120.0 * Math.PI / 180) || theta5 < (-120.0 * Math.PI / 180))
+            if (theta5 > (130.0 * Math.PI / 180) || theta5 < (-120.0 * Math.PI / 180))
             {
                 throw new InverseKinematicsException("Out of workspace");
             }
@@ -1005,6 +1011,7 @@ namespace LightWeight_Server
             {
                 throw new InverseKinematicsException("Out of workspace");
             }
+             */
             return new double[] { theta1, theta2, theta3, theta4, theta5, theta6 };
         }
         #endregion

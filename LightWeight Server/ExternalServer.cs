@@ -818,7 +818,7 @@ namespace LightWeight_Server
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    currentAcceleration.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.0000}", _Robot[0].currentAxisAngle[i]);
+                    currentAxis.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.0000}", _Robot[0].currentAxisAngle[i]);
                 }
             }
 

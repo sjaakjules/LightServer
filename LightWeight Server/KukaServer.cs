@@ -70,6 +70,7 @@ namespace LightWeight_Server
 
         Stopwatch processDataTimer = new Stopwatch();
         Stopwatch serverTime = new Stopwatch();
+        Stopwatch sendTimer = new Stopwatch();
 
         RobotInfo _Robot;
 
@@ -274,6 +275,7 @@ namespace LightWeight_Server
                 // Reset the global buffer to null ready to be initialised in next receive loop once packet as been sent.
                 _buffer = null;
 
+                sendTimer.Restart();
                 // Process byte information on state object
                 processData(connectedState);
                 // _Robot.addMsg(connectedState.MessageIn);
@@ -480,6 +482,7 @@ namespace LightWeight_Server
 
         public void ConstantSend()
         {
+            sendTimer.Start();
             while (true)
             {
                 haveUpdatedPositions.Reset();
@@ -488,10 +491,15 @@ namespace LightWeight_Server
                 {
                     newCommand = new double[] { 0, 0, 0, 0, 0, 0 };
                 }
+                StateObject lastlastpacket = lastPacket;
                 if (FreshPackets.TryDequeue(out lastPacket))
                 {
                     UpdateXML(lastPacket, newCommand);
                     SendData(lastPacket);
+                    if (lastlastpacket != null && lastPacket.IPOC < lastlastpacket.IPOC)
+                    {
+                    _Robot.updateError(string.Format("send Ipoc was out of order with Ipoc{0} sent and {1} sent last time",lastPacket.IPOC,lastlastpacket.IPOC), new KukaException("Constrant sender error"));
+                    }
                 }
                 else if (lastPacket != null)
                 {
@@ -502,6 +510,16 @@ namespace LightWeight_Server
                 else
                 {
                     _Robot.updateError("Last packet was not updated by the time to send ever!!", new KukaException("Constrant sender error"));
+                }
+                if (sendTimer.Elapsed.TotalMilliseconds > 4)
+                {
+                    _Robot.updateError(string.Format("Send took more than 4ms!!!, was {0}ms",sendTimer.Elapsed.TotalMilliseconds), new KukaException("Constrant sender error"));
+                }
+                using (StreamWriter Datafile = new StreamWriter("SendInfo" + ".txt", true))
+                {
+                    Datafile.WriteLine("{0:mm:ss:ffff}", DateTime.Now);
+                    Datafile.WriteLine("{0:0.00}", sendTimer.Elapsed.TotalMilliseconds);
+                    Datafile.WriteLine(Encoding.ASCII.GetChars(lastPacket.PacketOut));
                 }
                 haveUpdatedPositions.Wait();
             }
