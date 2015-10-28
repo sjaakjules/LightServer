@@ -825,9 +825,9 @@ namespace LightWeight_Server
             return printingstring.ToString();
         }
 
-        public static void updateDataFile(Pose refPos, Pose refVel, Pose actPos, Pose actVel, double time, double[] controlAngles, double[] satControl, double[] IKloop, double[] IKmethod,StringBuilder tableRow)
+        public static void updateDataFile(Pose refPos, Pose refVel, Pose actPos, Pose actVel, double time, double[] controlAngles, double[] satControl, double[] IKmethod,StringBuilder tableRow)
         {
-            tableRow.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data},{5},{6},{7},{8}", time, refPos, actPos, refVel, actVel, printDouble(controlAngles), printDouble(satControl), printDouble(IKloop), printDouble(IKmethod)));
+            tableRow.Append(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data},{5},{6},{7},{8}", time, refPos, actPos, refVel, actVel, printDouble(controlAngles), printDouble(satControl), printDouble(IKmethod)));
         }
 
         internal static void updateDataFile(Pose referencePosition, Pose measuredPosition, Pose measuredVelocity, double time, double[] referenceAngles, double[] controlAngles, double[] measuredangles, StringBuilder DataWriter)

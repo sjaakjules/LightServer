@@ -11,6 +11,9 @@ using System.Threading.Tasks;
 
 namespace LightWeight_Server
 {
+
+#region async controller support
+
     public delegate void updatedCommandCompletedEventHandler(object sender, UpdatedCommandCompleatedEventArgs e);
     public delegate void UpdateCommandProgressChangedEventHandler(UpdatedCommandProgressEventArgs e);
 
@@ -43,9 +46,14 @@ namespace LightWeight_Server
             newCommand.CopyTo(_newCommand, 0);
         }
     }
+#endregion
+
 
     class TrajectoryHandler
     {
+
+        #region async controller support
+
         public event updatedCommandCompletedEventHandler updateCommandCompleted;
         public event UpdateCommandProgressChangedEventHandler updatedCommandProgressChanged;
 
@@ -193,8 +201,11 @@ namespace LightWeight_Server
             }
         }
 
+        #endregion
+
         object BufferLock = new object();
         object DesiredPoseLock = new object();
+
 
         Stopwatch _TrajectoryTime;
         bool _isActive, _BufferLoaded, _timerHasElapsed;
@@ -203,7 +214,8 @@ namespace LightWeight_Server
         Trajectory[] _bufferTrajectories;
         Controller TrajectoryController;
         FixedSizedQueue<Pose> _ReferencePose, _ReferenceVelocity;
-        Pose _desiredPose= Pose.Zero;
+        Pose _desiredPose = Pose.Zero;
+        Pose _lastdesiredPose = Pose.Zero;
         
 
         public bool IsActive { get { return _isActive; } }
@@ -218,6 +230,17 @@ namespace LightWeight_Server
                 {
                     return _desiredPose;
                 } 
+            }
+        }
+
+        public Pose LastDesiredPose
+        {
+            get
+            {
+                lock (DesiredPoseLock)
+                {
+                    return _lastdesiredPose;
+                }
             }
         }
 
@@ -256,6 +279,7 @@ namespace LightWeight_Server
                 _isActive = true;
                 _timerHasElapsed = false;
                 _TrajectoryTime.Reset();
+                _lastdesiredPose = _desiredPose;
                 _desiredPose = SF.forwardKinimatics((((JointTrajectory)_ActiveTrajectories[_CurrentSegment]).finalJoint),_ThisRobot.EndEffector);
             }
             catch (Exception e )
@@ -288,6 +312,7 @@ namespace LightWeight_Server
                 {
                     ((TaskTrajectory)_ActiveTrajectories[0]).updateStartPosition(startPose, startVelocity);
                 }
+                _lastdesiredPose = _desiredPose;
                 _desiredPose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose;
                 _isActive = true;
                 _TrajectoryTime.Reset();
@@ -305,6 +330,7 @@ namespace LightWeight_Server
             {
                 ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).updateStartPosition(CurrentPose, CurrentVelocity);
             }
+            _lastdesiredPose = _desiredPose;
             _desiredPose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose;
             _isActive = true;
             _TrajectoryTime.Reset();
@@ -355,7 +381,7 @@ namespace LightWeight_Server
                     {
                         _nSegments = _bufferTrajectories.Length;
                         _CurrentSegment = 0;
-                        if (!(currentPose == ((TaskTrajectory)_bufferTrajectories[0]).startPose))
+                        if (!(currentPose.Equals(((TaskTrajectory)_bufferTrajectories[0]).startPose,1e-1)))
                         {
                             ((TaskTrajectory)_bufferTrajectories[0]).updateStartPosition(currentPose, CurrentVelocity);
                         }
@@ -445,35 +471,23 @@ namespace LightWeight_Server
                         Vector3 ControlOrientation = Vector3.Multiply(ReferenceVelocity.axis, ReferenceVelocity.angle) + Vector3.Multiply(ErrorOrientation, 0.005f);
 
                         double[] TipVeloicty = new double[] { ControlTranslation.X, ControlTranslation.Y, ControlTranslation.Z, ControlOrientation.X, ControlOrientation.Y, ControlOrientation.Z };
-
-                      //  _ThisRobot.checkLimits(newCom);
+                        _ThisRobot.checkCartVelocty(TipVeloicty);
                         _ThisRobot._Commands.Enqueue(TipVeloicty);
-
-                        /*
-                        Pose ReferencePose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferencePosition(_TRajectoryTimestep);
-                        double[] referenceAngles = _ThisRobot.IKSolver(ReferencePose, EE, currentAngle, ref _ThisRobot._elbow, ref _ThisRobot._base);
-                        double[] stepChange = SF.addDoubles(referenceAngles, SF.multiplyMatrix(currentAngle, -1.0));
-                        for (int i = 0; i < 100; i++)
-                        {
-                            double[] newCom = SF.multiplyMatrix(stepChange, 0.010);
-                            _ThisRobot.checkLimits(newCom);
-                            _ThisRobot._Commands.Enqueue(newCom);
-                        }
-                        _TRajectoryTimestep += 400;
-                        */
                     }
                 }
             }
         }
 
 
+
         public void GetCommandAxis(Pose currentPose, Pose CurrentVelocity, double[] currentAngle)
         {
+            // Check and load from buffer
+            LodeBuffer(currentPose, CurrentVelocity);
+
             // Check if its active
-            if (_isActive)
+            if ( _isActive)
             {
-                // Check and load from buffer
-                LodeBuffer(currentPose, CurrentVelocity);
 
                 _TrajectoryTime.Start();
                 if (_ActiveTrajectories[_CurrentSegment].type != TrajectoryTypes.Joint)
@@ -483,21 +497,20 @@ namespace LightWeight_Server
                         _ReferencePose.Enqueue(ReferencePose);
                         _ReferenceVelocity.Enqueue(ReferenceVelocity);
 
-                        // IK solver method:
-                        //double[] AxisCommand = TrajectoryController.getControllerErrort(ReferencePose, _ThisRobot.currentAxisAngle,currentPose,CurrentVelocity,_ThisRobot);
                         double[,] InverseJacob = SF.GetInverseJacobian(currentAngle, _ThisRobot.EndEffector);
 
                         // Jacobian method
                         TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, InverseJacob, currentAngle, _ThisRobot, _timerHasElapsed, ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).averageVelocity);
+                        
                         if (_ActiveTrajectories[_CurrentSegment].trajectoryTime.TotalMilliseconds < _TrajectoryTime.Elapsed.TotalMilliseconds)
                         {
                             _timerHasElapsed = true;
-                            if (currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 0.1))
+                            if (!currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 0.1))
                             {
                                 ReStart(currentPose, CurrentVelocity);
                             }
                         }
-                        if (_timerHasElapsed && currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 0.1))
+                        if (_timerHasElapsed && currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 0.5))
                         {
                             _CurrentSegment++;
                             _TrajectoryTime.Reset();
@@ -509,11 +522,11 @@ namespace LightWeight_Server
                             }
                             else
                             {
+                                _lastdesiredPose = _desiredPose;
                                 _desiredPose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose;
                             }
                         }
 
-                        //_ThisRobot._Commands.Enqueue(AxisCommand);
                     
                 }
                 else

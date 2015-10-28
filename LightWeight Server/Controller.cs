@@ -23,22 +23,29 @@ namespace LightWeight_Server
         public Controller(RobotInfo ThisRobot)
         {
             //this._x, this._y, this._z, this.angle, this.axis.X, this.axis.Y, this.axis.Z
-            DataWriter.AppendFormat("time,ref_rx,ref_ry,ref_rz,ref_ra,ref_rax,ref_ray,ref_raz,act_rx,act_ry,act_rz,act_ra,act_rax,act_ray,act_raz,ref_vx,ref_vy,ref_vz,ref_va,ref_vax,ref_vay,ref_vaz,act_vx,act_vy,act_vz,act_va,act_vax,act_vay,act_vaz,axis1,axis2,axis3,axis4,axis5,axis6,Saxis1,Saxis2,Saxis3,Saxis4,Saxis5,Saxis6,IKaxis1,IKaxis2,IKaxis3,IKaxis4,IKaxis5,IKaxis6,Kaxis1,Kaxis2,Kaxis3,Kaxis4,Kaxis5,Kaxis6");
+            DataWriter.AppendFormat("time,ref_rx,ref_ry,ref_rz,ref_ra,ref_rax,ref_ray,ref_raz,act_rx,act_ry,act_rz,act_ra,act_rax,act_ray,act_raz,ref_vx,ref_vy,ref_vz,ref_va,ref_vax,ref_vay,ref_vaz,act_vx,act_vy,act_vz,act_va,act_vax,act_vay,act_vaz,axis1,axis2,axis3,axis4,axis5,axis6,Saxis1,Saxis2,Saxis3,Saxis4,Saxis5,Saxis6,Eaxis1,Eaxis2,Eaxis3,Eaxis4,Eaxis5,Eaxis6");
             //DataWriter.AppendFormat("time,ref_rx,ref_ry,ref_rz,ref_ra,ref_rax,ref_ray,ref_raz,act_rx,act_ry,act_rz,act_ra,act_rax,act_ray,act_raz,act_vx,act_vy,act_vz,act_va,act_vax,act_vay,act_vaz,refa1,refa2,refa3,refa4,refa5,refa6,axis1,axis2,axis3,axis4,axis5,axis6,err1,err2,err3,err4,err5,err6;");
             try
             {
-                Datafile = new StreamWriter(dataWriterFile + ".csv");
+                using (Datafile = new StreamWriter(dataWriterFile + ".csv"))
+                {
+                    Datafile.WriteLine(DataWriter);
+                    DataWriter.Clear();
+                    Datafile.Flush();
+                    Datafile.Close();
+                }
             }
             catch (Exception)
             {
                 dataWriterFile = dataWriterFile + Guid.NewGuid().ToString("N");
-                Datafile = new StreamWriter(dataWriterFile + ".csv");
+                using (Datafile = new StreamWriter(dataWriterFile + ".csv"))
+                {
+                    Datafile.WriteLine(DataWriter);
+                    DataWriter.Clear();
+                    Datafile.Flush();
+                    Datafile.Close();
+                }
             }
-            Datafile.WriteLine(DataWriter);
-            DataWriter.Clear();
-            Datafile.Flush();
-            Datafile.Close();
-
             _DataTime.Start();
         }
 
@@ -215,39 +222,34 @@ namespace LightWeight_Server
 
         public void getControllerEffort(Pose referencePosition, Pose referenceVelocity, Pose measuredPosition, Pose measuredVelocity, double[,] inverseJoc, double[] measuredAngle, RobotInfo robot, bool hasElapsed, double averageSpeed)
         {
-    //        double[] ReferenceAngle = SF.IKSolver(referencePosition, robot.EndEffector, measuredAngle, ref robot._elbow, ref robot._base);
-      //      double[] AngleError = new double[6];
-     //       for (int i = 0; i < 6; i++)
-       //     {
-      //          AngleError[i] = ReferenceAngle[i] - measuredAngle[i];
-     //       }
-       //     double[] AngleError2 = SF.addDoubles(ReferenceAngle,SF.multiplyMatrix(measuredAngle,-1.0));
+            double[] ReferenceAngle = SF.IKSolver(referencePosition, robot.EndEffector, measuredAngle, ref robot._elbow, ref robot._base);
+            double[] AngleError = SF.addDoubles(ReferenceAngle, SF.multiplyMatrix(measuredAngle, -1.0));
 
             Vector3 ErrorTranslation = referencePosition.Translation - measuredPosition.Translation;
             Vector3 ErrorOrientation = SF.getOrientationError(Matrix.CreateFromQuaternion(referencePosition.Orientation), Matrix.CreateFromQuaternion(measuredPosition.Orientation));
 
             setGain(ref ErrorTranslation, ref ErrorOrientation, ref Px, ref Pt, hasElapsed, averageSpeed);
-           
+
             Pt = 0;
             Vector3 ControlTranslation = referenceVelocity.Translation + Vector3.Multiply(ErrorTranslation, (float)Px);
             Vector3 ControlOrientation = Vector3.Multiply(referenceVelocity.axis, referenceVelocity.angle) + Vector3.Multiply(ErrorOrientation, (float)Pt);
 
             double[] TipVeloicty = new double[] { ControlTranslation.X, ControlTranslation.Y, ControlTranslation.Z, ControlOrientation.X, ControlOrientation.Y, ControlOrientation.Z };
-            double[] AxisSpeed =  SF.multiplyMatrix(inverseJoc, TipVeloicty);
+            double[] AxisSpeed = SF.multiplyMatrix(inverseJoc, TipVeloicty);
 
-             
+
             double[] SatAxisSpeed = robot.checkLimits(AxisSpeed);
             robot._Commands.Enqueue(SatAxisSpeed);
 
 
-          //  SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, AxisSpeed, SatAxisSpeed,AngleError,AngleError2, DataWriter);
-        //        using ( StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true))
-        //        {
-       //             Datafile.WriteLine(DataWriter);
-       //         }
-        //        DataWriter.Clear();
-             
-                 
+            SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, AxisSpeed, SatAxisSpeed, AngleError, DataWriter);
+            using (StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true))
+            {
+                Datafile.WriteLine(DataWriter);
+                DataWriter.Clear();
+            }
+
+
             //return AxisSpeed;
         }
     }
