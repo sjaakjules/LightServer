@@ -411,6 +411,14 @@ namespace LightWeight_Server
             }
         }
 
+        public void startDesired(Pose StartPose)
+        {
+            lock (DesiredPoseLock)
+            {
+                _lastdesiredPose = StartPose;
+            }
+        }
+
         public void Load(Trajectory[] NewTrajectoryList)
         {
             try
