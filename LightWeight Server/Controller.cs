@@ -241,14 +241,14 @@ namespace LightWeight_Server
             double[] SatAxisSpeed = robot.checkLimits(AxisSpeed);
             robot._Commands.Enqueue(SatAxisSpeed);
 
-
+            /*
             SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, AxisSpeed, SatAxisSpeed, AngleError, DataWriter);
             using (StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true))
             {
                 Datafile.WriteLine(DataWriter);
                 DataWriter.Clear();
             }
-
+            */
 
             //return AxisSpeed;
         }

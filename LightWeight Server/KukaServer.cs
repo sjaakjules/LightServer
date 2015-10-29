@@ -275,7 +275,6 @@ namespace LightWeight_Server
                 // Reset the global buffer to null ready to be initialised in next receive loop once packet as been sent.
                 _buffer = null;
 
-                haveReceived.Set();
                 sendTimer.Restart();
                 // Process byte information on state object
                 processData(connectedState);
@@ -286,6 +285,7 @@ namespace LightWeight_Server
                 serverTime.Stop();
                 _Robot.updateServerTime(serverTimer.Elapsed.TotalMilliseconds);
                 serverTimer.Reset();
+
 
             }
             catch (SocketException se)
@@ -331,6 +331,7 @@ namespace LightWeight_Server
                 {
                     _Robot.updateError("Error not reading IPOC: ", new Exception("Kuka server:"));
                 }
+
 
                 FreshPackets.Enqueue(State);
                 haveUpdatedPositions.Set();
@@ -390,13 +391,14 @@ namespace LightWeight_Server
                     constantSender.Start();
                 }
 
+                
                 // As the robot positions have been updated, calculate change in position and update command dictionary
 
                 _Robot.updateComandPosition(newPose, newAngles);
-
                 //_Robot.UpdateAngles(newAngles);
                 _Robot.updateRobotPosition(newPose, _IPOC);
 
+                haveReceived.Set();
                 processDataTimer.Stop();
                 _Robot._processDataTimer.Enqueue(processDataTimer.Elapsed.TotalMilliseconds);
                 if (processDataTimer.Elapsed.TotalMilliseconds > 4)
@@ -483,36 +485,36 @@ namespace LightWeight_Server
                 {
                     newCommand = new double[] { 0, 0, 0, 0, 0, 0 };
                 }
+                StateObject newState;
                 StateObject lastlastpacket = lastPacket;
-                if (FreshPackets.TryDequeue(out lastPacket))
+                int counter = 0;
+                while (FreshPackets.TryDequeue(out newState))
+                {
+                    lastPacket = newState;
+                    counter++;
+                }
+                if (counter > 0)
                 {
                     UpdateXML(lastPacket, newCommand);
                     SendData(lastPacket);
                     if (lastlastpacket != null && lastPacket.IPOC < lastlastpacket.IPOC)
                     {
-                    _Robot.updateError(string.Format("send Ipoc was out of order with Ipoc{0} sent and {1} sent last time",lastPacket.IPOC,lastlastpacket.IPOC), new KukaException("Constrant sender error"));
+                        _Robot.updateError(string.Format("send Ipoc was out of order with Ipoc{0} sent and {1} sent last time", lastPacket.IPOC, lastlastpacket.IPOC), new KukaException("Constrant sender error"));
                     }
-                }
-                else if (lastPacket != null)
-                {
-                    _Robot.updateError("Last packet was not updated by the time to send!!", new KukaException("Constrant sender error"));
-                    UpdateXML(lastPacket, newCommand);
-                    SendData(lastPacket);
-                }
-                else
-                {
-                    _Robot.updateError("Last packet was not updated by the time to send ever!!", new KukaException("Constrant sender error"));
                 }
                 if (sendTimer.Elapsed.TotalMilliseconds > 4)
                 {
                     _Robot.updateError(string.Format("Send took more than 4ms!!!, was {0}ms",sendTimer.Elapsed.TotalMilliseconds), new KukaException("Constrant sender error"));
                 }
+                /*
                 using (StreamWriter Datafile = new StreamWriter("SendInfo" + ".txt", true))
                 {
                     Datafile.WriteLine("{0:mm:ss:ffff}", DateTime.Now);
                     Datafile.WriteLine("{0:0.00}", sendTimer.Elapsed.TotalMilliseconds);
                     Datafile.WriteLine(Encoding.ASCII.GetChars(lastPacket.PacketOut));
                 }
+                 */
+
                 haveUpdatedPositions.Wait();
             }
         }

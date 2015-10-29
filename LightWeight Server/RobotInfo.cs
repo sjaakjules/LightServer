@@ -374,6 +374,9 @@ namespace LightWeight_Server
                 {
                     updateError(string.Format("Inverse Home not equal\nMeasured: {0}\nInverse: {1}", SF.DoublesToString(homeAngles), SF.DoublesToString(inverseAngles)), new KukaException("IK solver error"));
                 }
+                TrajectoryQuintic startTrajectory = new TrajectoryQuintic(_StartTipPose, 0.001, _StartTipPose, Vector3.Zero, Vector3.Zero, Guid.NewGuid(), inverseAngles,this);
+                _TrajectoryHandler.Load(new Trajectory[] { startTrajectory });
+                _TrajectoryHandler.LodeBuffer(_StartTipPose, Pose.Zero);
                 _isConnected = true;
                 _GUI.IsConnected = true;
                 _isConnecting = false;
