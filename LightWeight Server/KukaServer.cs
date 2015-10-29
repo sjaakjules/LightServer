@@ -54,8 +54,8 @@ namespace LightWeight_Server
     {
 
         // Thread signals to pause until data has been received
-        ManualResetEventSlim haveReceived = new ManualResetEventSlim(false);
-        ManualResetEventSlim haveUpdatedPositions = new ManualResetEventSlim(false);
+        ManualResetEvent haveReceived = new ManualResetEvent(false);
+        ManualResetEvent haveUpdatedPositions = new ManualResetEvent(false);
 
         StateObject lastPacket = null;
         ConcurrentQueue<StateObject> FreshPackets = new ConcurrentQueue<StateObject>();
@@ -248,7 +248,7 @@ namespace LightWeight_Server
                 }
                 // pause This thread until a packet has been returned.
 
-                haveReceived.Wait();
+                haveReceived.WaitOne();
             }
 
         }
@@ -515,7 +515,7 @@ namespace LightWeight_Server
                 }
                  */
 
-                haveUpdatedPositions.Wait();
+                haveUpdatedPositions.WaitOne();
             }
         }
 

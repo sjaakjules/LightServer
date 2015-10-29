@@ -17,7 +17,7 @@ namespace LightWeight_Server
     {
 
         // Thread signals to pause until data has been received
-        ManualResetEventSlim haveReceived = new ManualResetEventSlim(false);
+        ManualResetEvent haveReceived = new ManualResetEvent(false);
 
         object errorMsgLock = new object();
         object lastPoseLock = new object();
@@ -28,6 +28,7 @@ namespace LightWeight_Server
         Socket _UdpSocket;
         IPEndPoint _localEP;
         int _Port;
+        int _outPort = 5001;
         XmlDocument _SendXML;
         bool _loadedPoses = false;
         string[] splitter = new string[] { "," };
@@ -207,7 +208,7 @@ namespace LightWeight_Server
                 }
 
                 // pause This thread until a packet has been returned.
-                haveReceived.Wait();
+                haveReceived.WaitOne();
             }
 
         }
@@ -297,36 +298,42 @@ namespace LightWeight_Server
                 if (ClientIEP.Count > 0)
                 {
                     IPEndPoint[] clientList = ClientIEP.ThreadSafeToArray;
+                    IPAddress ip = null;
                     foreach (var Client in clientList)
                     {
-                        StateObject state = new StateObject();
-                        state.socket = _UdpSocket;
-                        state.clientEP = (EndPoint)Client;
-                        state.clientIpEP = Client;
-                        UpdateXML(state);
-                        string catchStatement = "while trying to send the data:";
-                        try
+                        if (ip == null || !ip.Equals(Client.Address))
                         {
-                            if (state.hasLoadedMessageOut)
+                            StateObject state = new StateObject();
+                            state.socket = _UdpSocket;
+                            ip = Client.Address;
+                            state.clientIpEP = new IPEndPoint(ip, _outPort);
+                            state.clientEP = (EndPoint)state.clientIpEP;
+
+                            UpdateXML(state);
+                            string catchStatement = "while trying to send the data:";
+                            try
                             {
-                                state.socket.BeginSendTo(state.PacketOut, 0, state.PacketOut.Length, SocketFlags.None, state.clientEP, new AsyncCallback(FinishSendTo), state);
+                                if (state.hasLoadedMessageOut)
+                                {
+                                    state.socket.BeginSendTo(state.PacketOut, 0, state.PacketOut.Length, SocketFlags.None, state.clientEP, new AsyncCallback(FinishSendTo), state);
+                                }
+                                else
+                                {
+                                    _GUI.updateError("Couldn't write message", new Exception("External Server:"));
+                                }
                             }
-                            else
+                            catch (SocketException se)
                             {
-                                _GUI.updateError("Couldn't write message", new Exception("External Server:"));
+                                _GUI.updateError("SocketException " + catchStatement, se);
                             }
-                        }
-                        catch (SocketException se)
-                        {
-                            _GUI.updateError("SocketException " + catchStatement, se);
-                        }
-                        catch (ObjectDisposedException ob)
-                        {
-                            _GUI.updateError("ObjectDisposedException " + catchStatement, ob);
-                        }
-                        catch (Exception e)
-                        {
-                            _GUI.updateError("Generic error " + catchStatement, e);
+                            catch (ObjectDisposedException ob)
+                            {
+                                _GUI.updateError("ObjectDisposedException " + catchStatement, ob);
+                            }
+                            catch (Exception e)
+                            {
+                                _GUI.updateError("Generic error " + catchStatement, e);
+                            }
                         }
                     }
                     Thread.Sleep(1000 / _SendRefreshRate);
@@ -447,7 +454,7 @@ namespace LightWeight_Server
                 else
                 {
                     XmlNodeList ExternalInfoNodes = parentNode.Item(0).ChildNodes;
-                    Pose lastPose = new Pose(_Robot[nRobot].lastDesiredPositon.Orientation, _Robot[nRobot].currentPose.Translation);
+                    Pose lastPose = new Pose(_Robot[nRobot].currentDesiredPositon.Orientation, _Robot[nRobot].currentPose.Translation);
                     foreach (XmlNode Node in ExternalInfoNodes)
                     {
                         switch (Node.Name)
@@ -572,6 +579,10 @@ namespace LightWeight_Server
                                     // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
 
                                 }
+                                else
+                                {
+                                    _GUI.updateError("Failed to update pose", new Exception("external server:"));
+                                }
 
                             
                                 break;
@@ -673,89 +684,18 @@ namespace LightWeight_Server
             XmlNode rootNode = _SendXML.CreateElement("Robot");
             _SendXML.AppendChild(rootNode);
 
-            XmlNode currentPosition = _SendXML.CreateElement("Position");
-            XmlAttribute attribute = _SendXML.CreateAttribute("X");
-            attribute.Value = "0.0000";
+            XmlNode currentPosition = _SendXML.CreateElement("Pose");
+            XmlAttribute attribute = _SendXML.CreateAttribute("Position");
+            attribute.Value = "0,0,0";
             currentPosition.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("Y");
-            attribute.Value = "0.0000";
+            attribute = _SendXML.CreateAttribute("Orientation");
+            attribute.Value = "1,0,0,0,0,1";
             currentPosition.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("Z");
-            attribute.Value = "0.0000";
-            currentPosition.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("A");
-            attribute.Value = "0.0000";
-            currentPosition.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("B");
-            attribute.Value = "0.0000";
-            currentPosition.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("C");
-            attribute.Value = "0.0000";
+            attribute = _SendXML.CreateAttribute("Axis");
+            attribute.Value = "0,0,0,0,0,0";
             currentPosition.Attributes.Append(attribute);
             rootNode.AppendChild(currentPosition);
 
-            XmlNode currentVelocity = _SendXML.CreateElement("Velocity");
-            attribute = _SendXML.CreateAttribute("X");
-            attribute.Value = "0.0000";
-            currentVelocity.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("Y");
-            attribute.Value = "0.0000";
-            currentVelocity.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("Z");
-            attribute.Value = "0.0000";
-            currentVelocity.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("A");
-            attribute.Value = "0.0000";
-            currentVelocity.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("B");
-            attribute.Value = "0.0000";
-            currentVelocity.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("C");
-            attribute.Value = "0.0000";
-            currentVelocity.Attributes.Append(attribute);
-            rootNode.AppendChild(currentVelocity);
-
-            XmlNode currentAcceleration = _SendXML.CreateElement("Acceleration");
-            attribute = _SendXML.CreateAttribute("X");
-            attribute.Value = "0.0000";
-            currentAcceleration.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("Y");
-            attribute.Value = "0.0000";
-            currentAcceleration.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("Z");
-            attribute.Value = "0.0000";
-            currentAcceleration.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("A");
-            attribute.Value = "0.0000";
-            currentAcceleration.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("B");
-            attribute.Value = "0.0000";
-            currentAcceleration.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("C");
-            attribute.Value = "0.0000";
-            currentAcceleration.Attributes.Append(attribute);
-            rootNode.AppendChild(currentAcceleration);
-
-            XmlNode currentAxis = _SendXML.CreateElement("Axis");
-            attribute = _SendXML.CreateAttribute("A1");
-            attribute.Value = "0.0000";
-            currentAxis.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("A2");
-            attribute.Value = "0.0000";
-            currentAxis.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("A3");
-            attribute.Value = "0.0000";
-            currentAxis.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("A4");
-            attribute.Value = "0.0000";
-            currentAxis.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("A5");
-            attribute.Value = "0.0000";
-            currentAxis.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("A6");
-            attribute.Value = "0.0000";
-            currentAxis.Attributes.Append(attribute);
-            rootNode.AppendChild(currentAxis);
 
             XmlNode errorNode = _SendXML.CreateElement("EMessage");
             rootNode.AppendChild(errorNode);
@@ -786,40 +726,21 @@ namespace LightWeight_Server
         /// <param name="state"></param> State oobject holding the information sent and rceived over the udp server
         void UpdateXML(StateObject state)
         {
-            XmlNode currentPosition = _SendXML.SelectSingleNode("//Robot/Position");
+            XmlNode currentPosition = _SendXML.SelectSingleNode("//Robot/Pose");
             if (currentPosition != null)
             {
-                for (int i = 0; i < 6; i++)
+                currentPosition.Attributes["Position"].Value = string.Format("{0:0.00},{1:0.00},{2:0.00}", _Robot[0].currentPose.Translation.X, _Robot[0].currentPose.Translation.Y, _Robot[0].currentPose.Translation.Z);
+                Matrix Orientation = Matrix.CreateFromQuaternion(_Robot[0].currentPose.Orientation);
+                Vector3 xAxis = Orientation.Up;
+                Vector3 zAxis = Orientation.Backward;
+                currentPosition.Attributes["Orientation"].Value = string.Format("{0:0.000},{1:0.000},{2:0.000},{3:0.000},{4:0.000},{5:0.000}", xAxis.X, xAxis.Y, xAxis.Z, zAxis.X, zAxis.Y, zAxis.Z);
+                StringBuilder axisInfo = new StringBuilder();
+                axisInfo.Append(String.Format("{0:0.0000}", _Robot[0].currentAxisAngle[0]));
+                for (int i = 1; i < 6; i++)
                 {
-                    currentPosition.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot[0].currentPose.kukaValues[i]);
+                    axisInfo.Append( String.Format(",{0:0.0000}", _Robot[0].currentAxisAngle[i]));
                 }
-            }
-
-            XmlNode currentVelocity = _SendXML.SelectSingleNode("//Robot/Velocity");
-            if (currentVelocity != null)
-            {
-                for (int i = 0; i < 6; i++)
-                {
-                    currentVelocity.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot[0].currentVelocity.kukaValues[i]);
-                }
-            }
-
-            XmlNode currentAcceleration = _SendXML.SelectSingleNode("//Robot/Acceleration");
-            if (currentAcceleration != null)
-            {
-                for (int i = 0; i < 6; i++)
-                {
-                    currentAcceleration.Attributes[SF.cardinalKeys[i]].Value = String.Format("{0:0.0000}", _Robot[0].currentAcceleration.kukaValues[i]);
-                }
-            }
-
-            XmlNode currentAxis = _SendXML.SelectSingleNode("//Robot/Axis");
-            if (currentAxis != null)
-            {
-                for (int i = 0; i < 6; i++)
-                {
-                    currentAxis.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.0000}", _Robot[0].currentAxisAngle[i]);
-                }
+                currentPosition.Attributes["Axis"].Value = axisInfo.ToString();
             }
 
             XmlNode ErrorMsg = _SendXML.SelectSingleNode("//Robot/EMessage");

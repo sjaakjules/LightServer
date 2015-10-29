@@ -12,6 +12,10 @@ namespace LightWeight_Server
     // Identity matrix. Forwards =   0, 0,-1
     //                  Down     =   0,-1, 0
     //                  Left     =  -1, 0, 0
+    //                  Xaxis    =   Right
+    //                  Yaxis    =   Up
+    //                  Zaxis    =   Backwards
+    //
     ///
     // Matrix are row basis, where litrature is column basis!
     // This requires transpose before and after any multiplication
@@ -1028,7 +1032,7 @@ namespace LightWeight_Server
 
         #region Orientation Functions
 
-        public static Quaternion QfromZX(Vector3 zAxis, Vector3 xAxis)
+        public static Quaternion QfromZX(Vector3 xAxis, Vector3 zAxis)
         {
             xAxis.Normalize();
             zAxis.Normalize();

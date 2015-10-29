@@ -108,9 +108,9 @@ namespace LightWeight_Server
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
         public readonly double _MaxCartesianChange = 1;
         public readonly double _MaxAngularChange = 0.1;
-        public readonly double _MaxAxisChange = 0.002;
+        public readonly double _MaxAxisChange = 0.0008;
 
-        double _maxLinearVelocity = .12; // in mm/ms
+        double _maxLinearVelocity = .1; // in mm/ms
         double _maxAngularVelocity = .012; // in deg/ms
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
@@ -284,8 +284,6 @@ namespace LightWeight_Server
             MaxJocTimer.Enqueue(0);
             MaxserverTimer.Enqueue(0);
             _TrajectoryHandler = new TrajectoryHandler(this);
-            _TrajectoryHandler.updateCommandCompleted += new updatedCommandCompletedEventHandler(updateCommandCompleatedlistener);
-            _TrajectoryHandler.updatedCommandProgressChanged += new UpdateCommandProgressChangedEventHandler(updateCommandProgresslistener);
             GUI.ConnectRobot(this, RobotNumber);
 
         }
@@ -375,6 +373,9 @@ namespace LightWeight_Server
                     updateError(string.Format("Inverse Home not equal\nMeasured: {0}\nInverse: {1}", SF.DoublesToString(homeAngles), SF.DoublesToString(inverseAngles)), new KukaException("IK solver error"));
                 }
                 _TrajectoryHandler.startDesired(_StartTipPose);
+                TrajectoryQuintic startTraj = new TrajectoryQuintic(_StartTipPose, 0.01, _StartTipPose, Vector3.Zero, Vector3.Zero, Guid.NewGuid(), homeAngles, this);
+                _TrajectoryHandler.Load(new Trajectory[] {startTraj});
+           //     _TrajectoryHandler.LodeBuffer(_StartTipPose, Pose.Zero);
                 _isConnected = true;
                 _GUI.IsConnected = true;
                 _isConnecting = false;

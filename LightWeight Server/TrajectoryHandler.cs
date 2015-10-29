@@ -415,6 +415,7 @@ namespace LightWeight_Server
         {
             lock (DesiredPoseLock)
             {
+                _desiredPose = StartPose;
                 _lastdesiredPose = StartPose;
             }
         }
@@ -523,6 +524,7 @@ namespace LightWeight_Server
                             _CurrentSegment++;
                             _TrajectoryTime.Reset();
                             _timerHasElapsed = false;
+                            _lastdesiredPose = _desiredPose;
                             if (_CurrentSegment == _nSegments)
                             {
                                 Stop(currentPose);
@@ -530,7 +532,6 @@ namespace LightWeight_Server
                             }
                             else
                             {
-                                _lastdesiredPose = _desiredPose;
                                 _desiredPose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose;
                             }
                         }

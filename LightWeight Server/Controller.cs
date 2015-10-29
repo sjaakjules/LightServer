@@ -229,26 +229,31 @@ namespace LightWeight_Server
             Vector3 ErrorOrientation = SF.getOrientationError(Matrix.CreateFromQuaternion(referencePosition.Orientation), Matrix.CreateFromQuaternion(measuredPosition.Orientation));
 
             setGain(ref ErrorTranslation, ref ErrorOrientation, ref Px, ref Pt, hasElapsed, averageSpeed);
-
+            
             Pt = 0;
             Vector3 ControlTranslation = referenceVelocity.Translation + Vector3.Multiply(ErrorTranslation, (float)Px);
             Vector3 ControlOrientation = Vector3.Multiply(referenceVelocity.axis, referenceVelocity.angle) + Vector3.Multiply(ErrorOrientation, (float)Pt);
 
             double[] TipVeloicty = new double[] { ControlTranslation.X, ControlTranslation.Y, ControlTranslation.Z, ControlOrientation.X, ControlOrientation.Y, ControlOrientation.Z };
             double[] AxisSpeed = SF.multiplyMatrix(inverseJoc, TipVeloicty);
-
-
             double[] SatAxisSpeed = robot.checkLimits(AxisSpeed);
+            double[] Com = new double[6];
+            double[] ComSat = new double[6];
+            for (int i = 0; i < 6; i++)
+            {
+                Com[i] = AxisSpeed[i];
+                ComSat[i] = SatAxisSpeed[i];
+            }
             robot._Commands.Enqueue(SatAxisSpeed);
 
-            /*
-            SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, AxisSpeed, SatAxisSpeed, AngleError, DataWriter);
+            
+            SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, Com, ComSat, AngleError, DataWriter);
             using (StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true))
             {
                 Datafile.WriteLine(DataWriter);
                 DataWriter.Clear();
             }
-            */
+            
 
             //return AxisSpeed;
         }
