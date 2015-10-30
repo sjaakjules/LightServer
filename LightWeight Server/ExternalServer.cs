@@ -32,7 +32,7 @@ namespace LightWeight_Server
         XmlDocument _SendXML;
         bool _loadedPoses = false;
         string[] splitter = new string[] { "," };
-        FixedSizedQueue<IPEndPoint> ClientIEP;
+        FixedSizedQueue<IPAddress> ClientIEP;
         int _SendRefreshRate = 10; // Refresh rate of send data, Hz
 
         StringBuilder _errorMessage = new StringBuilder();
@@ -57,7 +57,7 @@ namespace LightWeight_Server
             _Robot = robot;
             _GUI = Gui;
             _Port = port;
-            ClientIEP = new FixedSizedQueue<IPEndPoint>(1000);
+            ClientIEP = new FixedSizedQueue<IPAddress>(1000);
             _sendTimer.Start();
             SetupXML();
 
@@ -230,10 +230,10 @@ namespace LightWeight_Server
                 // Retrieve EP information and store in state
                 connectedState.clientIpEP = (IPEndPoint)connectedState.clientEP;
                 bool hasAdded = false;
-                IPEndPoint[] ClintList = ClientIEP.ThreadSafeToArray;
+                IPAddress[] ClintList = ClientIEP.ThreadSafeToArray;
                 foreach (var Client in ClintList)
                 {
-                    if (Client == connectedState.clientIpEP)
+                    if (Client.Equals(connectedState.clientIpEP.Address))
                     {
                         hasAdded = true;
                         break;
@@ -241,7 +241,7 @@ namespace LightWeight_Server
                 }
                 if (!hasAdded)
                 {
-                    ClientIEP.Enqueue(new IPEndPoint(connectedState.clientIpEP.Address, connectedState.clientIpEP.Port));
+                    ClientIEP.Enqueue(new IPAddress(connectedState.clientIpEP.Address.GetAddressBytes()));
                 }
 
                 // Reset the global buffer to null ready to be initialised in next receive loop once packet as been sent.
@@ -297,43 +297,38 @@ namespace LightWeight_Server
             {
                 if (ClientIEP.Count > 0)
                 {
-                    IPEndPoint[] clientList = ClientIEP.ThreadSafeToArray;
-                    IPAddress ip = null;
-                    foreach (var Client in clientList)
+                    IPAddress[] clientList = ClientIEP.ThreadSafeToArray;
+                    foreach (var ClientIP in clientList)
                     {
-                        if (ip == null || !ip.Equals(Client.Address))
-                        {
-                            StateObject state = new StateObject();
-                            state.socket = _UdpSocket;
-                            ip = Client.Address;
-                            state.clientIpEP = new IPEndPoint(ip, _outPort);
-                            state.clientEP = (EndPoint)state.clientIpEP;
+                        StateObject state = new StateObject();
+                        state.socket = _UdpSocket;
+                        state.clientIpEP = new IPEndPoint(ClientIP, _outPort);
+                        state.clientEP = (EndPoint)state.clientIpEP;
 
-                            UpdateXML(state);
-                            string catchStatement = "while trying to send the data:";
-                            try
+                        UpdateXML(state);
+                        string catchStatement = "while trying to send the data:";
+                        try
+                        {
+                            if (state.hasLoadedMessageOut)
                             {
-                                if (state.hasLoadedMessageOut)
-                                {
-                                    state.socket.BeginSendTo(state.PacketOut, 0, state.PacketOut.Length, SocketFlags.None, state.clientEP, new AsyncCallback(FinishSendTo), state);
-                                }
-                                else
-                                {
-                                    _GUI.updateError("Couldn't write message", new Exception("External Server:"));
-                                }
+                                state.socket.BeginSendTo(state.PacketOut, 0, state.PacketOut.Length, SocketFlags.None, state.clientEP, new AsyncCallback(FinishSendTo), state);
                             }
-                            catch (SocketException se)
+                            else
                             {
-                                _GUI.updateError("SocketException " + catchStatement, se);
+                                _GUI.updateError("Couldn't write message", new Exception("External Server:"));
                             }
-                            catch (ObjectDisposedException ob)
-                            {
-                                _GUI.updateError("ObjectDisposedException " + catchStatement, ob);
-                            }
-                            catch (Exception e)
-                            {
-                                _GUI.updateError("Generic error " + catchStatement, e);
-                            }
+                        }
+                        catch (SocketException se)
+                        {
+                            _GUI.updateError("SocketException " + catchStatement, se);
+                        }
+                        catch (ObjectDisposedException ob)
+                        {
+                            _GUI.updateError("ObjectDisposedException " + catchStatement, ob);
+                        }
+                        catch (Exception e)
+                        {
+                            _GUI.updateError("Generic error " + catchStatement, e);
                         }
                     }
                     Thread.Sleep(1000 / _SendRefreshRate);

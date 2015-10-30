@@ -108,7 +108,7 @@ namespace LightWeight_Server
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
         public readonly double _MaxCartesianChange = 1;
         public readonly double _MaxAngularChange = 0.1;
-        public readonly double _MaxAxisChange = 0.0008;
+        public readonly double _MaxAxisChange = 45e-5;
 
         double _maxLinearVelocity = .1; // in mm/ms
         double _maxAngularVelocity = .012; // in deg/ms
@@ -1085,16 +1085,45 @@ namespace LightWeight_Server
                     //_NewTrajectoryList[i] = new TrajectoryOld(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
                     newTrajectories[i] = getTrajectory(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1], PoseList, types[i]);
                 }
-
-                _TrajectoryHandler.Load(newTrajectories);
-                _isCommanded = true;
-                trajectoryLoader.Stop();
-                _trajectoryLoaderTime.Enqueue(trajectoryLoader.Elapsed.TotalMilliseconds);
-                return true;
+                if (checkTrajectories(newTrajectories,currentAxisAngle))
+                {
+                    _TrajectoryHandler.Load(newTrajectories);
+                    _isCommanded = true;
+                    trajectoryLoader.Stop();
+                    _trajectoryLoaderTime.Enqueue(trajectoryLoader.Elapsed.TotalMilliseconds);
+                    return true;
+                }
             }
             catch (Exception e)
             {
                 updateError("Error loading: " + e.Message, e);
+            }
+            return false;
+        }
+
+        bool checkTrajectories(Trajectory[] newTrajectories, double[] startAngle)
+        {
+            if (newTrajectories!= null && newTrajectories.Length > 0)
+            {
+                double[] simangles = new double[6];
+                startAngle.CopyTo(simangles,0);
+                for (int i = 0; i < newTrajectories.Length; i++)
+                {
+                    for (double t = 0; t <= newTrajectories[i].trajectoryTime.TotalMilliseconds; t++)
+                    {
+                        try
+                        {
+                            simangles = IKSolver(((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t),simangles);
+                            t += 12;
+                        }
+                        catch (Exception)
+                        {
+                            updateError(string.Format("Trajectory exits worskspace at {0}ms at {1}", t, ((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t)), new KukaException("While checking trajectory"));
+                            return false;
+                        }
+                    }
+                }
+                return true;
             }
             return false;
         }

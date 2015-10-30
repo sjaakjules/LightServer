@@ -821,10 +821,10 @@ namespace LightWeight_Server
         public static string printDouble(double[] array)
         {
             StringBuilder printingstring = new StringBuilder();
-            printingstring.Append(string.Format("{0:0.000}", array[0]));
+            printingstring.Append(string.Format("{0:0.0000000}", array[0]));
             for (int i = 1; i < array.Length; i++)
             {
-                printingstring.Append(string.Format(",{0:0.000}", array[i]));
+                printingstring.Append(string.Format(",{0:0.0000000}", array[i]));
             }
             return printingstring.ToString();
         }

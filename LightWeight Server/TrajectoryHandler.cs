@@ -463,8 +463,8 @@ namespace LightWeight_Server
                     if (_ActiveTrajectories[_CurrentSegment].type == TrajectoryTypes.Quintic)
                     {
                         
-                        Pose ReferencePose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferencePosition(_TrajectoryTime.Elapsed.TotalMilliseconds);
-                        Pose ReferenceVelocity = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferenceVelocity(_TrajectoryTime.Elapsed.TotalMilliseconds);
+                        Pose ReferencePose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferencePosition(_TrajectoryTime.Elapsed.TotalMilliseconds+4);
+                        Pose ReferenceVelocity = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferenceVelocity(_TrajectoryTime.Elapsed.TotalMilliseconds+4);
                         _ReferencePose.Enqueue(ReferencePose);
                         _ReferenceVelocity.Enqueue(ReferenceVelocity);
 
@@ -501,7 +501,7 @@ namespace LightWeight_Server
                 _TrajectoryTime.Start();
                 if (_ActiveTrajectories[_CurrentSegment].type != TrajectoryTypes.Joint)
                 {
-                        Pose ReferencePose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferencePosition(_TrajectoryTime.Elapsed.TotalMilliseconds +4);
+                        Pose ReferencePose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferencePosition(_TrajectoryTime.Elapsed.TotalMilliseconds+4);
                         Pose ReferenceVelocity = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferenceVelocity(_TrajectoryTime.Elapsed.TotalMilliseconds);
                         _ReferencePose.Enqueue(ReferencePose);
                         _ReferenceVelocity.Enqueue(ReferenceVelocity);
@@ -514,12 +514,12 @@ namespace LightWeight_Server
                         if (_ActiveTrajectories[_CurrentSegment].trajectoryTime.TotalMilliseconds < _TrajectoryTime.Elapsed.TotalMilliseconds)
                         {
                             _timerHasElapsed = true;
-                            if (!currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 0.1))
+                            if (!currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 1))
                             {
                                 ReStart(currentPose, CurrentVelocity);
                             }
                         }
-                        if (_timerHasElapsed && currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 0.5))
+                        if (_timerHasElapsed && currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 2))
                         {
                             _CurrentSegment++;
                             _TrajectoryTime.Reset();
