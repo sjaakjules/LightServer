@@ -525,7 +525,7 @@ namespace LightWeight_Server
                             _TrajectoryTime.Reset();
                             _timerHasElapsed = false;
                             _lastdesiredPose = _desiredPose;
-                            if (_CurrentSegment == _nSegments)
+                            if (_CurrentSegment >= _nSegments)
                             {
                                 Stop(currentPose);
                                 Reset();

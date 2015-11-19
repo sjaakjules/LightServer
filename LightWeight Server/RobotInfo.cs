@@ -49,6 +49,7 @@ namespace LightWeight_Server
         object EEposeLock = new object();
         object telemetryLock = new object();
         object incrimentLock = new object();
+        object connectionLock = new object();
 
         Stopwatch _KukaCycleTime = new Stopwatch();
        // public Stopwatch IPOC = new Stopwatch();
@@ -108,7 +109,7 @@ namespace LightWeight_Server
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
         public readonly double _MaxCartesianChange = 0.8;
         public readonly double _MaxAngularChange = 0.08;
-        public readonly double _MaxAxisChange = 4e-5;
+        public readonly double _MaxAxisChange = 40e-5;
 
         double _maxLinearVelocity = .1; // in mm/ms
         double _maxAngularVelocity = .012; // in deg/ms
@@ -157,6 +158,17 @@ namespace LightWeight_Server
         public Pose currentReferenceVelocity { get { return _ReferenceVelocity.LastElement; } }
 
         public IPEndPoint EndPoint { get { return ConnectedIP; } set { ConnectedIP = value; } }
+
+        public bool IsConnected
+        {
+            get
+            {
+                lock (connectionLock)
+                {
+                    return _isConnected;
+                }
+            }
+        }
 
         public double LinearVelocity
         {
@@ -376,7 +388,10 @@ namespace LightWeight_Server
                 TrajectoryQuintic startTraj = new TrajectoryQuintic(_StartTipPose, 0.01, _StartTipPose, Vector3.Zero, Vector3.Zero, Guid.NewGuid(), homeAngles, this);
                 _TrajectoryHandler.Load(new Trajectory[] {startTraj});
            //     _TrajectoryHandler.LodeBuffer(_StartTipPose, Pose.Zero);
-                _isConnected = true;
+                lock (connectionLock)
+                {
+                    _isConnected = true;
+                }
                 _GUI.IsConnected = true;
                 _isConnecting = false;
                 return true;
@@ -388,6 +403,17 @@ namespace LightWeight_Server
             return false;
         }
 
+
+        public void disconnect()
+        {
+            
+            _GUI.disconnect();
+            _isConnecting = false;
+            lock (connectionLock)
+            {
+                _isConnected = false;
+            }
+        }
 
         public void updateServerTime(double t)
         {
@@ -816,11 +842,11 @@ namespace LightWeight_Server
 
         double[] IK1to3(Pose des, Vector3 EE, double[] lastVal, ref ElbowPosition elbow, ref BasePosition basePos)
         {
-
+            double Zmin = -50;
             double wristOffset = Math.Atan2(35, 515);
             double theta1a, theta1b, theta1, theta2u, theta2d, theta2, theta3u, theta3d, theta3;
             Vector3 Wrist = des * (-EE - new Vector3(0, 0, 80));
-            if (Wrist.Z < 0) throw new InverseKinematicsException("Out of workspace");
+            if (Wrist.Z < Zmin) throw new InverseKinematicsException("Out of workspace, under minZ");
             theta1a = -Math.Atan2(Wrist.Y, Wrist.X);
             theta1b = (theta1a > 0) ? theta1a - Math.PI : theta1a + Math.PI;
             if (Math.Abs(lastVal[0] - theta1a) < Math.Abs(lastVal[0] - theta1b))
@@ -835,13 +861,13 @@ namespace LightWeight_Server
             }
             if (theta1 < -170.0 * Math.PI / 180 || theta1 > 170.0 * Math.PI / 180)
             {
-                throw new InverseKinematicsException("Out of workspace");
+                throw new InverseKinematicsException("Out of workspace, Axis 1 error");
             }
             Vector3 Base = new Vector3(25 * (float)Math.Cos(-theta1), 25 * (float)Math.Sin(-theta1), 400f);
             Vector3 LinkBW = Wrist - Base;
             if (Math.Abs(LinkBW.Length() - (560 + Math.Sqrt(515 * 515 + 35 * 35))) < 1e-6)
             {
-                throw new InverseKinematicsException("Out of workspace");
+                throw new InverseKinematicsException("Out of workspace, Beyond arm reach");
             }
             if (LinkBW.Length() == (560 + Math.Sqrt(515 * 515 + 35 * 35)))
             {
@@ -902,7 +928,7 @@ namespace LightWeight_Server
                 }
                 else
                 {
-                    throw new InverseKinematicsException("Out of workspace");
+                    throw new InverseKinematicsException("Out of workspace, Axis 2 error");
                 }
             }
             else if (elbow == ElbowPosition.down)
@@ -920,7 +946,7 @@ namespace LightWeight_Server
                 }
                 else
                 {
-                    throw new InverseKinematicsException("Out of workspace");
+                    throw new InverseKinematicsException("Out of workspace, Axis 3 Error");
                 }
             }
             else
@@ -940,7 +966,7 @@ namespace LightWeight_Server
                 }
                 else
                 {
-                    throw new InverseKinematicsException("Out of workspace");
+                    throw new InverseKinematicsException("Out of workspace, Axis 2/3 Error");
                 }
             }
             return new double[] { theta1, theta2, theta3 };
@@ -1116,9 +1142,9 @@ namespace LightWeight_Server
                             simangles = IKSolver(((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t),simangles);
                             t += 12;
                         }
-                        catch (Exception)
+                        catch (Exception e)
                         {
-                            updateError(string.Format("Trajectory exits worskspace at {0}ms at {1}", t, ((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t)), new KukaException("While checking trajectory"));
+                            updateError(string.Format("Trajectory exits worskspace at {0}ms at {1}", t, ((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t)), e);
                             return false;
                         }
                     }

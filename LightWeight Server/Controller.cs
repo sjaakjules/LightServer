@@ -261,7 +261,7 @@ namespace LightWeight_Server
             }
             robot._Commands.Enqueue(SatAxisSpeed);
 
-            
+            /*
             SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, Com, ComSat, AngleError, DataWriter);
             using (StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true))
             {
@@ -269,6 +269,7 @@ namespace LightWeight_Server
                 DataWriter.Clear();
             }
             
+             */
 
             //return AxisSpeed;
         }

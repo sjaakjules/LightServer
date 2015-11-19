@@ -6,14 +6,20 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using System.Runtime.InteropServices;
 
 namespace LightWeight_Server
 {
     class Program
     {
+
+        static ScreenWriter GUI = new ScreenWriter();
+
         static int Main(string[] args)
         {
-            ScreenWriter GUI = new ScreenWriter();
+            HandlerRoutine hr = new HandlerRoutine(InspectControlType);
+            SetConsoleCtrlHandler(hr, true);
+
             RobotInfo[] ConnectedRobots = new RobotInfo[GUI._nConnectedRobots];
             KukaServer[] KukaServer = new KukaServer[GUI._nConnectedRobots];
             Thread[] KukaServerThread = new Thread[GUI._nConnectedRobots];
@@ -40,7 +46,6 @@ namespace LightWeight_Server
             GUI_Writer.Start();
 
             Console.WriteLine("press O to open, P to close");
-
             while (true)
             {
                     switch (System.Console.ReadKey(true).Key)
@@ -65,93 +70,35 @@ namespace LightWeight_Server
                             break;
                         case ConsoleKey.H:
                             ConnectedRobots[0].goHome();
-                            break;
-
+                            break;                         
                     }
             }
-
-            /*
-            Stopwatch timer = new Stopwatch();
-            timer.Start();
-
-
-
-            bool expectCom = true;
-            bool circleMove = false;
-            double speed = 0.1;
-            double amplitude = 1.0;
-            double WaveLength = 10.0;
-            while (expectCom)
-            {
-                if (!circleMove)
-                {
-                    switch (System.Console.ReadKey(true).Key)
-                    {
-
-                        case ConsoleKey.DownArrow:
-                            Console.WriteLine("Key pressed, It's ALIVE!!!");
-                            KukaServer.CommandedPosition["Z"] = -1.0 * speed;
-                            break;
-                        case ConsoleKey.UpArrow:
-                            Console.WriteLine("Key pressed, It's ALIVE!!!");
-                            KukaServer.CommandedPosition["Z"] = speed;
-                            break;
-                        case ConsoleKey.LeftArrow:
-                            Console.WriteLine("Key pressed, It's ALIVE!!!");
-                            KukaServer.CommandedPosition["Y"] = -1.0 * speed;
-                            break;
-                        case ConsoleKey.RightArrow:
-                            Console.WriteLine("Key pressed, It's ALIVE!!!");
-                            KukaServer.CommandedPosition["Y"] = speed;
-                            break;
-                        case ConsoleKey.OemPlus:
-                            Console.WriteLine("Speeding up, now {0} mm per cycle", speed);
-                            speed = speed + 0.1;
-                            break;
-                        case ConsoleKey.OemMinus:
-                            Console.WriteLine("Speeding up, now {0} mm per cycle", speed);
-                            speed = speed - 0.1;
-                            break;
-                        case ConsoleKey.A:
-                            amplitude = amplitude + 0.1;
-                            Console.WriteLine("Amplitude increased: {0}", amplitude);
-                            break;
-                        case ConsoleKey.Z:
-                            amplitude = amplitude - 0.1;
-                            Console.WriteLine("Amplitude decreased: {0}", amplitude);
-                            break;
-                        case ConsoleKey.S:
-                            WaveLength = WaveLength + 0.1;
-                            Console.WriteLine("Amplitude increased: {0}", WaveLength);
-                            break;
-                        case ConsoleKey.X:
-                            WaveLength = WaveLength - 0.1;
-                            Console.WriteLine("Amplitude decreased: {0}", WaveLength);
-                            break;
-                        case ConsoleKey.P:
-                            Console.WriteLine("You spin me right round baby right round....");
-                            circleMove = true;
-                            break;
-
-                        case ConsoleKey.Escape:
-                            Console.WriteLine("Get me outta here!!");
-                            expectCom = false;
-                            break;
-                    }
-                }
-
-
-                if (circleMove)
-                {
-                    KukaServer.CommandedPosition["Z"] = amplitude * Math.Sin(2 * Math.PI * timer.ElapsedMilliseconds / (WaveLength * 1000.0));
-                    KukaServer.CommandedPosition["Y"] = -1.0 * amplitude * Math.Sin(2 * Math.PI * timer.ElapsedMilliseconds / (WaveLength * 1000.0));
-                    Console.WriteLine("Commanded correction, Z: {0} X {1}", KukaServer.CommandedPosition["Z"], KukaServer.CommandedPosition["X"]);
-                }
-            }
-            */
             return 0;
         }
 
+        [DllImport("Kernel32")]
+        public static extern bool SetConsoleCtrlHandler(HandlerRoutine Handler, bool Add);
+
+        //This delegate type used as handler routine to SetConsoleControlHandler.
+        public delegate bool HandlerRoutine(ControlTypes CtrlType);
+
+        //Enumerated control types for handlers
+        public enum ControlTypes
+        {
+            CTRL_C_EVENT = 0,
+            CTRL_BREAK_EVENT,
+            CTRL_CLOSE_EVENT,
+            CTRL_LOGOFF_EVENT = 5,
+            CTRL_SHUTDOWN_EVENT
+        }
+
+        private static bool InspectControlType(ControlTypes ctrlType)
+        {
+            GUI.WriteToFile();
+            GUI.closing = true;
+           // Console.ReadLine();
+            return true;
+        }
 
     }
 }

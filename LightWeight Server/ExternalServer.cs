@@ -46,6 +46,8 @@ namespace LightWeight_Server
         RobotInfo[] _Robot;
         ScreenWriter _GUI;
 
+        public bool disconnect = false;
+
         #region Constructor:
         /// <summary>
         /// Creates a UDP server with XML read and write via a port with threadSafe shared robot information
@@ -242,8 +244,13 @@ namespace LightWeight_Server
                 if (!hasAdded)
                 {
                     ClientIEP.Enqueue(new IPAddress(connectedState.clientIpEP.Address.GetAddressBytes()));
+                    _GUI.ConnectExternal(connectedState.clientIpEP);
                 }
-
+                if (!_Robot[0].IsConnected)
+                {
+                    IPAddress garbagge = null;
+                    while (ClientIEP.TryDequeue(out garbagge)) ;
+                }
                 // Reset the global buffer to null ready to be initialised in next receive loop once packet as been sent.
                 _buffer = null;
 
@@ -295,7 +302,7 @@ namespace LightWeight_Server
         {
             while (true)
             {
-                if (ClientIEP.Count > 0)
+                if (ClientIEP.Count > 0 && _Robot[0].IsConnected)
                 {
                     IPAddress[] clientList = ClientIEP.ThreadSafeToArray;
                     foreach (var ClientIP in clientList)
@@ -331,8 +338,14 @@ namespace LightWeight_Server
                             _GUI.updateError("Generic error " + catchStatement, e);
                         }
                     }
-                    Thread.Sleep(1000 / _SendRefreshRate);
                 }
+                else
+                {
+                    IPAddress garbagge = null;
+                    while (ClientIEP.TryDequeue(out garbagge)) ;
+                }
+
+                Thread.Sleep(1000 / _SendRefreshRate);
             }
 
         }
@@ -726,7 +739,7 @@ namespace LightWeight_Server
             {
                 currentPosition.Attributes["Position"].Value = string.Format("{0:0.00},{1:0.00},{2:0.00}", _Robot[0].currentPose.Translation.X, _Robot[0].currentPose.Translation.Y, _Robot[0].currentPose.Translation.Z);
                 Matrix Orientation = Matrix.CreateFromQuaternion(_Robot[0].currentPose.Orientation);
-                Vector3 xAxis = Orientation.Up;
+                Vector3 xAxis = Orientation.Right;
                 Vector3 zAxis = Orientation.Backward;
                 currentPosition.Attributes["Orientation"].Value = string.Format("{0:0.000},{1:0.000},{2:0.000},{3:0.000},{4:0.000},{5:0.000}", xAxis.X, xAxis.Y, xAxis.Z, zAxis.X, zAxis.Y, zAxis.Z);
                 StringBuilder axisInfo = new StringBuilder();
