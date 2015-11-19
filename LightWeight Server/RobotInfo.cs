@@ -106,9 +106,9 @@ namespace LightWeight_Server
         public BasePosition _base = BasePosition.front;
 
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
-        public readonly double _MaxCartesianChange = 1;
-        public readonly double _MaxAngularChange = 0.1;
-        public readonly double _MaxAxisChange = 45e-5;
+        public readonly double _MaxCartesianChange = 0.8;
+        public readonly double _MaxAngularChange = 0.08;
+        public readonly double _MaxAxisChange = 4e-5;
 
         double _maxLinearVelocity = .1; // in mm/ms
         double _maxAngularVelocity = .012; // in deg/ms
