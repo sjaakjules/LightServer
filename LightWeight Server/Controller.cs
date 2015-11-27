@@ -11,9 +11,9 @@ namespace LightWeight_Server
 {
     class Controller
     {
-        StringBuilder DataWriter = new StringBuilder();
-        string dataWriterFile = "ControllerData";
-        StreamWriter Datafile;
+    //    StringBuilder DataWriter = new StringBuilder();
+    //    string dataWriterFile = "ControllerData";
+    //    StreamWriter Datafile;
         //object movementLock = new object();
         Stopwatch _DataTime = new Stopwatch();
         double Pa = 0.0001, Px = 0.005, Pt = 0.0001;
@@ -23,6 +23,7 @@ namespace LightWeight_Server
         public Controller(RobotInfo ThisRobot)
         {
             //this._x, this._y, this._z, this.angle, this.axis.X, this.axis.Y, this.axis.Z
+            /*
             DataWriter.AppendFormat("time,ref_rx,ref_ry,ref_rz,ref_ra,ref_rax,ref_ray,ref_raz,act_rx,act_ry,act_rz,act_ra,act_rax,act_ray,act_raz,ref_vx,ref_vy,ref_vz,ref_va,ref_vax,ref_vay,ref_vaz,act_vx,act_vy,act_vz,act_va,act_vax,act_vay,act_vaz,axis1,axis2,axis3,axis4,axis5,axis6,Saxis1,Saxis2,Saxis3,Saxis4,Saxis5,Saxis6,Eaxis1,Eaxis2,Eaxis3,Eaxis4,Eaxis5,Eaxis6");
             //DataWriter.AppendFormat("time,ref_rx,ref_ry,ref_rz,ref_ra,ref_rax,ref_ray,ref_raz,act_rx,act_ry,act_rz,act_ra,act_rax,act_ray,act_raz,act_vx,act_vy,act_vz,act_va,act_vax,act_vay,act_vaz,refa1,refa2,refa3,refa4,refa5,refa6,axis1,axis2,axis3,axis4,axis5,axis6,err1,err2,err3,err4,err5,err6;");
             try
@@ -46,6 +47,7 @@ namespace LightWeight_Server
                     Datafile.Close();
                 }
             }
+             */
             _DataTime.Start();
         }
 
@@ -70,12 +72,14 @@ namespace LightWeight_Server
             robot.checkLimits(controlAngles);
             robot._Commands.Enqueue(controlAngles);
 
+            /*
             SF.updateDataFile(referencePosition, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, referenceAngles, controlAngles,measuredAngles, DataWriter);
             using (StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true))
             {
                 Datafile.WriteLine(DataWriter);
             }
             DataWriter.Clear();
+             */
             
         }
 
@@ -261,7 +265,7 @@ namespace LightWeight_Server
             }
             robot._Commands.Enqueue(SatAxisSpeed);
 
-            
+            /*
             SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, Com, ComSat, AngleError, DataWriter);
             using (StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true))
             {
@@ -269,6 +273,7 @@ namespace LightWeight_Server
                 DataWriter.Clear();
             }
             
+             */
 
             //return AxisSpeed;
         }
