@@ -22,6 +22,7 @@ namespace LightWeight_Server
         object debuggerLock = new object();
 
         bool _isConnected;
+        public bool closing = false;
 
         public int _nConnectedRobots, _nConnectedExternalServers;
 
@@ -44,8 +45,8 @@ namespace LightWeight_Server
         //ConcurrentDictionary<string, Stopwatch> _Timers = new ConcurrentDictionary<string,Stopwatch>();
 
         TimeSpan A3 = TimeSpan.Zero, A4 = TimeSpan.Zero, A5 = TimeSpan.Zero, A6 = TimeSpan.Zero;
-        
 
+        ConcurrentQueue<IPEndPoint> ClientList = new ConcurrentQueue<IPEndPoint>();
         
         
         Stopwatch _ErrorTimer = new Stopwatch();
@@ -63,9 +64,17 @@ namespace LightWeight_Server
             }
         }
 
+        public void disconnect()
+        {
+            IsConnected = false;
+            IPEndPoint garbage = null;
+            while (ClientList.TryDequeue(out garbage)) ;
+        }
+
         public ScreenWriter()
         {
-
+            Console.WriteLine("Welcome to Kuka RSI server.");
+            /*
             Console.WriteLine("Type the number of connected robots...");
             // Selects the first IP in the list and writes it to screen
             while (true)
@@ -81,15 +90,8 @@ namespace LightWeight_Server
                     Console.WriteLine("Type numbers only followed by enter.");
                 }
             }
-            using (StreamWriter file = new StreamWriter("ErrorMsg" + ".txt"))
-            {
-                lock (ErrorWriteLock)
-                {
-                    file.WriteLine("Error Log: {0} {1}", System.DateTime.Now.Date.ToShortTimeString(), System.DateTime.Now.ToShortTimeString());
-                    file.WriteLine(_ErrorWriter);
-                    _ErrorWriter.Clear();
-                }
-            }
+             */
+            _nConnectedRobots = 1;
             _ConnectedRobots = new RobotInfo[_nConnectedRobots];
             // Initialises the screen variables.
             lastLog = DateTime.Now.Ticks;
@@ -103,11 +105,17 @@ namespace LightWeight_Server
             SetupTelemetryInfo(newRobot);
         }
 
+        public void ConnectExternal(IPEndPoint newClient)
+        {
+            ClientList.Enqueue(newClient);
+        }
+
 
         public void updateError(string newError, Exception Error)
         {
             lock (ErrorWriteLock)
             {
+                _ErrorWriter.AppendLine(string.Format("Error Log: {0}", System.DateTime.Now.ToShortTimeString()));
                 _ErrorWriter.AppendLine(string.Format("Local IPOC: {0:0.0}", _ErrorTimer.Elapsed.TotalMilliseconds));
                 _ErrorWriter.AppendLine(newError);
                 _ErrorWriter.AppendLine(Error.Message);
@@ -122,56 +130,57 @@ namespace LightWeight_Server
             {
                 try
                 {
-                    using (StreamWriter file = new StreamWriter("ErrorMsg" + ".txt", true))
-                    {
-                        lock (ErrorWriteLock)
-                        {
-                            if (_ErrorWriter.Length != 0)
-                            {
-                                
-                            file.WriteLine(_ErrorWriter);
-                            _ErrorWriter.Clear();
-                            }
-                        }
-                    }
-                    using (StreamWriter file = new StreamWriter("DebuggerLog" + ".txt", true))
-                    {
-                        lock (debuggerLock)
-                        {
-                            if (_Debugger.Length != 0)
-                            {
-
-                                file.WriteLine(_Debugger);
-                                _ErrorWriter.Clear();
-                            }
-                        }
-                    }
                     lock (ScreenLock)
                     {
-                        if (_isConnected)
+                        if (closing)
                         {
-                            foreach (var robot in _ConnectedRobots)
-                            {
-                                try
-                                {
-                                    _DisplayMsg.AppendLine(_RobotName[robot._RobotID.ToString()] + " info:");
-                                    _DisplayMsg.AppendLine(string.Format("Connected Port: {0}\nConnected IP: {1}\n", robot.EndPoint.Port.ToString(), robot.EndPoint.Address.ToString()));
-                                    updateTelemetryInfo(robot);
-                                    updateMsg(robot);
-                                }
-                                catch (Exception e)
-                                {
-                                    updateError("Error writing to screen", e);
-                                }
-                            }
                             Console.Clear();
-                            Console.WriteLine(_DisplayMsg);
-                            _DisplayMsg.Clear();
+                            Console.WriteLine("Saving progress and errors...");
                         }
                         else
                         {
-                            Console.Clear();
-                            Console.WriteLine("---------------------------------\n   Not Connected to Kuka Robot");
+                            if (_isConnected)
+                            {
+                                if (!ClientList.IsEmpty)
+                                {
+                                    IPEndPoint[] clintIPList = ClientList.ToArray();
+                                    int n = 1;
+                                    foreach (IPEndPoint IP in clintIPList)
+                                    {
+                                        try
+                                        {
+                                            _DisplayMsg.AppendLine("Client " + n.ToString() + " info:");
+                                            _DisplayMsg.AppendLine(string.Format("Connected Port: {0}\nConnected IP: {1}\n", IP.Port.ToString(), IP.Address.ToString()));
+                                        }
+                                        catch (Exception e)
+                                        {
+                                            updateError("Error writing to screen", e);
+                                        }
+                                    }
+                                }
+                                foreach (var robot in _ConnectedRobots)
+                                {
+                                    try
+                                    {
+                                        _DisplayMsg.AppendLine(_RobotName[robot._RobotID.ToString()] + " info:");
+                                        _DisplayMsg.AppendLine(string.Format("Connected Port: {0}\nConnected IP: {1}\n", robot.EndPoint.Port.ToString(), robot.EndPoint.Address.ToString()));
+                                        updateTelemetryInfo(robot);
+                                        updateMsg(robot);
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        updateError("Error writing to screen", e);
+                                    }
+                                }
+                                Console.Clear();
+                                Console.WriteLine(_DisplayMsg);
+                                _DisplayMsg.Clear();
+                            }
+                            else
+                            {
+                                Console.Clear();
+                                Console.WriteLine("---------------------------------\n   Not Connected to Kuka Robot.....Start RSI");
+                            }
                         }
                     }
                     System.Threading.Thread.Sleep(100);
@@ -179,6 +188,34 @@ namespace LightWeight_Server
                 catch (Exception e)
                 {
                     updateError("Error printing to Screen", e);
+                }
+            }
+        }
+
+        public void WriteToFile()
+        {
+            using (StreamWriter file = new StreamWriter("ErrorMsg" + ".txt", true))
+            {
+                lock (ErrorWriteLock)
+                {
+                    if (_ErrorWriter.Length != 0)
+                    {
+
+                        file.WriteLine(_ErrorWriter);
+                        _ErrorWriter.Clear();
+                    }
+                }
+            }
+            using (StreamWriter file = new StreamWriter("DebuggerLog" + ".txt", true))
+            {
+                lock (debuggerLock)
+                {
+                    if (_Debugger.Length != 0)
+                    {
+
+                        file.WriteLine(_Debugger);
+                        _Debugger.Clear();
+                    }
                 }
             }
         }
