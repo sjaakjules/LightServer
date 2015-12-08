@@ -97,6 +97,7 @@ namespace LightWeight_Server
         Pose _StartPose, _StartTipPose;
         Pose _EndEffectorPose;
         Vector3 _EndEffector;
+        Quaternion _TaskRotation = Quaternion.Identity;
 
         // Thread safe lists for updating and storing of robot information.
         // public ConcurrentStack<StateObject> DataHistory;
@@ -107,12 +108,12 @@ namespace LightWeight_Server
         public BasePosition _base = BasePosition.front;
 
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
-        public readonly double _MaxCartesianChange = 0.8;
-        public readonly double _MaxAngularChange = 0.08;
-        public readonly double _MaxAxisChange = 40e-5;
+        public readonly double _MaxCartesianChange = 0.5;
+        public readonly double _MaxAngularChange = 0.01;
+        public readonly double _MaxAxisChange = 10e-5;
 
-        double _maxLinearVelocity = .1; // in mm/ms
-        double _maxAngularVelocity = .012; // in deg/ms
+        double _maxLinearVelocity = .5; // in mm/ms
+        double _maxAngularVelocity = .01; // in deg/ms
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
         
@@ -133,6 +134,8 @@ namespace LightWeight_Server
        // StringBuilder DataWriter = new StringBuilder();
 
         #region Properties
+        public Quaternion TaskspaceRotation { get { return _TaskRotation; } }
+
         public double[] homePosition { get { return _homePosition; } private set { _homePosition = value; } }
 
         public double[] homeAngles { get { return _HomeAngles; } private set { _HomeAngles = value; } }
@@ -379,6 +382,9 @@ namespace LightWeight_Server
                 _StartTipPose = _Position.LastElement.Pose;
                 _EndEffectorPose = Pose.inverse(_StartPose) * _StartTipPose;
                 _EndEffector = _EndEffectorPose.Translation;
+               // _TaskRotation = Quaternion.Inverse(_StartTipPose.Orientation) * _StartPose.Orientation;
+                Vector3 zAxis = Vector3.Transform(Vector3.Backward, _TaskRotation);
+                Console.WriteLine("{0} : {1} : {2}", zAxis.X, zAxis.Y, zAxis.Z);
                 double[] inverseAngles = IKSolver(_StartTipPose, _EndEffector, _Angles.LastElement, ref _elbow, ref _base);
                 if (!SF.IsClose(homeAngles, inverseAngles))
                 {
@@ -946,7 +952,10 @@ namespace LightWeight_Server
                 }
                 else
                 {
-                    throw new InverseKinematicsException("Out of workspace, Axis 3 Error");
+
+                    theta2 = theta2d;
+                    theta3 = theta3d;
+                    //throw new InverseKinematicsException("Out of workspace, Axis 3 Error");
                 }
             }
             else
@@ -984,6 +993,8 @@ namespace LightWeight_Server
 
         public double[] IKSolver(Pose DesiredPose, Vector3 EE, double[] thetaLast, ref ElbowPosition elbow, ref BasePosition basePos)
         {
+            // Rotate the desired pose to alight tool tip with last link.
+           // DesiredPose.Orientation = DesiredPose.Orientation * TaskspaceRotation;
 
             double theta1, theta2, theta3, theta4, theta5, theta6;
             double[] angles1to3 = IK1to3(DesiredPose, EE, thetaLast, ref elbow, ref basePos);

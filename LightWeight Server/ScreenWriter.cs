@@ -50,6 +50,7 @@ namespace LightWeight_Server
         
         
         Stopwatch _ErrorTimer = new Stopwatch();
+        Stopwatch _FileWriter = new Stopwatch();
 
         long lastLog;
 
@@ -126,8 +127,15 @@ namespace LightWeight_Server
         // Dedicated loop thread
         public void UpdateScreen()
         {
+            _FileWriter.Start();
             while (true)
             {
+                if (_FileWriter.Elapsed.TotalSeconds > 1)
+                {
+                    _FileWriter.Restart();
+                    WriteToFile();
+                }
+
                 try
                 {
                     lock (ScreenLock)
@@ -166,6 +174,7 @@ namespace LightWeight_Server
                                         _DisplayMsg.AppendLine(string.Format("Connected Port: {0}\nConnected IP: {1}\n", robot.EndPoint.Port.ToString(), robot.EndPoint.Address.ToString()));
                                         updateTelemetryInfo(robot);
                                         updateMsg(robot);
+                                        DisplayError(robot);
                                     }
                                     catch (Exception e)
                                     {
@@ -192,6 +201,11 @@ namespace LightWeight_Server
             }
         }
 
+        public void DisplayError()
+        {
+
+        }
+
         public void WriteToFile()
         {
             using (StreamWriter file = new StreamWriter("ErrorMsg" + ".txt", true))
@@ -200,7 +214,6 @@ namespace LightWeight_Server
                 {
                     if (_ErrorWriter.Length != 0)
                     {
-
                         file.WriteLine(_ErrorWriter);
                         _ErrorWriter.Clear();
                     }

@@ -413,7 +413,7 @@ namespace LightWeight_Server
             }
             if (loaded)
             {
-                endPose = new Pose(PositionStrings, orientationStrings, lastPose);
+                endPose = new Pose(PositionStrings, orientationStrings, lastPose, _Robot[0].TaskspaceRotation);
                 return true;
             }
             endPose = lastPose;

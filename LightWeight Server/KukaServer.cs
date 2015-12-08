@@ -333,6 +333,11 @@ namespace LightWeight_Server
                 }
 
 
+                if (_Robot.Connect())
+                {
+                    constantSender.Start();
+                }
+
                 FreshPackets.Enqueue(State);
                 haveUpdatedPositions.Set();
 
@@ -386,10 +391,6 @@ namespace LightWeight_Server
                 }
 
 
-                if (_Robot.Connect())
-                {
-                    constantSender.Start();
-                }
 
                 
                 // As the robot positions have been updated, calculate change in position and update command dictionary
