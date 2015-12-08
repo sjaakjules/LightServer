@@ -342,7 +342,7 @@ namespace LightWeight_Server
             _isActive = false;
             _TrajectoryTime.Stop();
             // Async call to populate trajectories when robot is stationary
-            ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).updateStartPosition(StoppedPose, Pose.Zero);
+          //  ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).updateStartPosition(StoppedPose, Pose.Zero);
         }
 
         public void Stop(Pose StoppedPose)
