@@ -501,15 +501,15 @@ namespace LightWeight_Server
                 _TrajectoryTime.Start();
                 if (_ActiveTrajectories[_CurrentSegment].type != TrajectoryTypes.Joint)
                 {
-                        Pose ReferencePose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferencePosition(_TrajectoryTime.Elapsed.TotalMilliseconds+4);
+                        Pose ReferencePose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferencePosition(_TrajectoryTime.Elapsed.TotalMilliseconds);
                         Pose ReferenceVelocity = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferenceVelocity(_TrajectoryTime.Elapsed.TotalMilliseconds);
                         _ReferencePose.Enqueue(ReferencePose);
                         _ReferenceVelocity.Enqueue(ReferenceVelocity);
 
-                        double[,] InverseJacob = SF.GetInverseJacobian(currentAngle, _ThisRobot.EndEffector);
+                       // double[,] InverseJacob = SF.GetInverseJacobian(currentAngle, _ThisRobot.EndEffector);
 
                         // Jacobian method
-                        TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, InverseJacob, currentAngle, _ThisRobot, _timerHasElapsed, ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).averageVelocity);
+                        TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, currentAngle, _ThisRobot, _timerHasElapsed, ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).averageVelocity);
                         
                         if (_ActiveTrajectories[_CurrentSegment].trajectoryTime.TotalMilliseconds < _TrajectoryTime.Elapsed.TotalMilliseconds)
                         {

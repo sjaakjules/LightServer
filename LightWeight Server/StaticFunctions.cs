@@ -114,11 +114,13 @@ namespace LightWeight_Server
 
 
         /// <summary>
+        /// Constructor used for commands from an external server.
         /// Loads a new Pose using a string with the infomation of position, velocity and orientation. Can handle partial information.
         /// </summary>
         /// <param name="PositionInfo"></param>
         /// <param name="LastPose"></param>
-        public Pose(string[] PositionInfo, string[] OrientationInfo, Pose LastPose)
+        /// <param name="TaskspaceRotation"></param> this is the constant rotation of the tool tip
+        public Pose(string[] PositionInfo, string[] OrientationInfo, Pose LastPose, Quaternion TaskspaceRotation)
         {
             // The following If statements catch error while trying to load positions, use last position and keep loading.
             // TODO: Add signals and more complex error handeling to send back to external server. Perhaps the string which was received for error checking?
@@ -169,7 +171,7 @@ namespace LightWeight_Server
                     // only Z axis loaded
                     if (Axis.Length == 3)
                     {
-                        this._Orientation = SF.QfromZaxis(new Vector3((float)Axis[0], (float)Axis[1], (float)Axis[2]), LastPose.Orientation);
+                        this._Orientation = SF.QfromZaxis(new Vector3((float)Axis[0], (float)Axis[1], (float)Axis[2]), LastPose.Orientation) * TaskspaceRotation;
                         SF.getAxisAngle(_Orientation, out _axis, out _angle);
                         SF.getKukaAngles(_Orientation, out _kukaValues);
                         _kukaValues[0] = (float)_x;
@@ -179,7 +181,7 @@ namespace LightWeight_Server
                     // Z axis and X axis loaded
                     else if (Axis.Length == 6)
                     {
-                        this._Orientation = SF.QfromZX(new Vector3((float)Axis[0], (float)Axis[1], (float)Axis[2]), new Vector3((float)Axis[3], (float)Axis[4], (float)Axis[5]));
+                        this._Orientation = SF.QfromZX(new Vector3((float)Axis[0], (float)Axis[1], (float)Axis[2]), new Vector3((float)Axis[3], (float)Axis[4], (float)Axis[5])) * TaskspaceRotation;
                         SF.getAxisAngle(_Orientation, out _axis, out _angle);
                         SF.getKukaAngles(_Orientation, out _kukaValues);
                         _kukaValues[0] = (float)_x;

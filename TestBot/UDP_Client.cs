@@ -730,6 +730,10 @@ namespace TestBot
 
 
             Matrix M = new Matrix((float)m11, (float)m12, (float)m13, (float)m14, (float)m21, (float)m22, (float)m23, (float)m24, (float)m31, (float)m32, (float)m33, (float)m34, (float)m41, (float)m42, (float)m43, (float)m44);
+            //Matrix orientationShift = Matrix.CreateFromYawPitchRoll((float)Math.PI / 6, 0, 0);
+            //Vector3 zAxis = Vector3.Transform(Vector3.Backward, orientationShift);
+          //  Console.WriteLine("{0} : {1} : {2}", zAxis.X, zAxis.Y, zAxis.Z);
+          //  M = M * Matrix.Transpose(orientationShift);
             M = Matrix.Transpose(M);
             Vector3 pos = M.Translation;
 

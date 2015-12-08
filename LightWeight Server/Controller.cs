@@ -226,7 +226,7 @@ namespace LightWeight_Server
             }
         }
 
-        public void getControllerEffort(Pose referencePosition, Pose referenceVelocity, Pose measuredPosition, Pose measuredVelocity, double[,] inverseJoc, double[] measuredAngle, RobotInfo robot, bool hasElapsed, double averageSpeed)
+        public void getControllerEffort(Pose referencePosition, Pose referenceVelocity, Pose measuredPosition, Pose measuredVelocity, double[] measuredAngle, RobotInfo robot, bool hasElapsed, double averageSpeed)
         {
             double[] ReferenceAngle = robot.IKSolver(referencePosition,measuredAngle);
             double[] AngleError = SF.addDoubles(ReferenceAngle, SF.multiplyMatrix(measuredAngle, -1.0));
@@ -238,14 +238,14 @@ namespace LightWeight_Server
             
            // Pt = 0;
             Vector3 ControlTranslation = referenceVelocity.Translation + Vector3.Multiply(ErrorTranslation, (float)Px);
-            Vector3 ControlOrientation = Vector3.Multiply(referenceVelocity.axis, referenceVelocity.angle) + Vector3.Multiply(ErrorOrientation, (float)Pt);
+            Vector3 ControlOrientation = Vector3.Multiply(Vector3.Normalize(referenceVelocity.axis), referenceVelocity.angle) + Vector3.Multiply(ErrorOrientation, (float)Pt);
 
             double[] TipVeloicty = new double[] { ControlTranslation.X, ControlTranslation.Y, ControlTranslation.Z, ControlOrientation.X, ControlOrientation.Y, ControlOrientation.Z };
 
             // IK solver method
             float tipVelocityAngle = ControlOrientation.Length();
             Vector3 tipVelocityAxis = Vector3.Normalize(ControlOrientation);
-            Quaternion EstimatedOrientation =Quaternion.CreateFromAxisAngle(tipVelocityAxis, tipVelocityAngle) * measuredPosition.Orientation ;
+            Quaternion EstimatedOrientation = measuredPosition.Orientation * Quaternion.CreateFromAxisAngle(tipVelocityAxis, tipVelocityAngle);
             Vector3 EstimatedTranslation = measuredPosition.Translation + ControlTranslation;
             Pose EstimatedPose = new Pose(EstimatedOrientation, EstimatedTranslation);
 

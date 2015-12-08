@@ -17,8 +17,8 @@ namespace LightWeight_Server
 
         static int Main(string[] args)
         {
-            HandlerRoutine hr = new HandlerRoutine(InspectControlType);
-            SetConsoleCtrlHandler(hr, true);
+            //HandlerRoutine hr = new HandlerRoutine(InspectControlType);
+            //SetConsoleCtrlHandler(hr, true);
 
             RobotInfo[] ConnectedRobots = new RobotInfo[GUI._nConnectedRobots];
             KukaServer[] KukaServer = new KukaServer[GUI._nConnectedRobots];
@@ -94,7 +94,6 @@ namespace LightWeight_Server
 
         private static bool InspectControlType(ControlTypes ctrlType)
         {
-            GUI.WriteToFile();
             GUI.closing = true;
            // Console.ReadLine();
             return true;
