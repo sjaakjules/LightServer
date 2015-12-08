@@ -49,7 +49,7 @@ namespace LightWeight_Server
 
     }
 
-
+    
     class KukaServer
     {
 
@@ -71,6 +71,8 @@ namespace LightWeight_Server
         Stopwatch processDataTimer = new Stopwatch();
         Stopwatch serverTime = new Stopwatch();
         Stopwatch sendTimer = new Stopwatch();
+
+        FixedSizedQueue<double[]> sentAngles = new FixedSizedQueue<double[]>(10);
 
         RobotInfo _Robot;
 
@@ -496,6 +498,16 @@ namespace LightWeight_Server
                 }
                 if (counter > 0)
                 {
+                    sentAngles.Enqueue(newCommand);
+                    double[] average = SF.getAverage(sentAngles.ThreadSafeToArray);
+                    double gamma = 1.5;
+                    for (int i = 0; i < 6; i++)
+                    {
+                        if (Math.Sign(newCommand[i]) != Math.Sign(average[i]) && (Math.Abs(average[i] - newCommand[i]) > 20e-5))
+                        {
+                            newCommand[i] = 0;
+                        }
+                    }
                     UpdateXML(lastPacket, newCommand);
                     SendData(lastPacket);
                     if (lastlastpacket != null && lastPacket.IPOC < lastlastpacket.IPOC)

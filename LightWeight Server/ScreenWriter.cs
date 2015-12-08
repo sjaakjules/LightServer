@@ -9,6 +9,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using CustomExtensions;
 
 namespace LightWeight_Server
 {
@@ -130,7 +131,7 @@ namespace LightWeight_Server
             _FileWriter.Start();
             while (true)
             {
-                if (_FileWriter.Elapsed.TotalSeconds > 1)
+                if (_FileWriter.Elapsed.TotalSeconds > 10)
                 {
                     _FileWriter.Restart();
                     WriteToFile();
@@ -174,7 +175,6 @@ namespace LightWeight_Server
                                         _DisplayMsg.AppendLine(string.Format("Connected Port: {0}\nConnected IP: {1}\n", robot.EndPoint.Port.ToString(), robot.EndPoint.Address.ToString()));
                                         updateTelemetryInfo(robot);
                                         updateMsg(robot);
-                                        DisplayError(robot);
                                     }
                                     catch (Exception e)
                                     {
@@ -252,7 +252,7 @@ namespace LightWeight_Server
 
         void updateTelemetryInfo(RobotInfo robot)
         {
-            _angles[robot._RobotID.ToString()] = robot.currentAxisAngle;
+            _angles[robot._RobotID.ToString()] = robot.currentAxisAngle.getDegree();
             _Position[robot._RobotID.ToString()] = robot.currentPose;
             _Velocity[robot._RobotID.ToString()] = robot.currentVelocity;
             _Acceleration[robot._RobotID.ToString()] = robot.currentAcceleration;
@@ -278,6 +278,10 @@ namespace LightWeight_Server
             plotDoubles(_angles[robot._RobotID.ToString()], "Axis Angles", _DisplayMsg);
             plotVector(_Position[robot._RobotID.ToString()].zAxis, "Current Z-Axis", _DisplayMsg);
             plotVector(_DesiredPosition[robot._RobotID.ToString()].zAxis, "Desired Z-Axis", _DisplayMsg);
+            plotVector(_Position[robot._RobotID.ToString()].xAxis, "Current X-Axis", _DisplayMsg);
+            plotVector(_DesiredPosition[robot._RobotID.ToString()].xAxis, "Desired X-Axis", _DisplayMsg);
+            plotVector(_Position[robot._RobotID.ToString()].yAxis, "Current Y-Axis", _DisplayMsg);
+            plotVector(_DesiredPosition[robot._RobotID.ToString()].yAxis, "Desired Y-Axis", _DisplayMsg);
             plotDoubleQue(robot.JocTimer, "FK / IK Time", _DisplayMsg);
             plotDoubleQue(robot.MaxJocTimer, "Max FK / IK Time", _DisplayMsg);
             plotDoubleQue(robot._trajectoryLoaderTime, "Trajectory Load Time", _DisplayMsg);

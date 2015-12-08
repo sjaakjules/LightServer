@@ -108,12 +108,12 @@ namespace LightWeight_Server
         public BasePosition _base = BasePosition.front;
 
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
-        public readonly double _MaxCartesianChange = 0.5;
-        public readonly double _MaxAngularChange = 0.01;
-        public readonly double _MaxAxisChange = 10e-5;
+        public readonly double _MaxCartesianChange = 0.8;
+        public readonly double _MaxAngularChange = 0.1;
+        public readonly double _MaxAxisChange = 40e-5;
 
         double _maxLinearVelocity = .5; // in mm/ms
-        double _maxAngularVelocity = .01; // in deg/ms
+        double _maxAngularVelocity = .08; // in deg/ms
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
         
@@ -952,10 +952,7 @@ namespace LightWeight_Server
                 }
                 else
                 {
-
-                    theta2 = theta2d;
-                    theta3 = theta3d;
-                    //throw new InverseKinematicsException("Out of workspace, Axis 3 Error");
+                    throw new InverseKinematicsException("Out of workspace, Axis 3 Error");
                 }
             }
             else
@@ -983,7 +980,25 @@ namespace LightWeight_Server
 
         public double[] IKSolver(Pose DesiredPose, double[] thetaLast)
         {
-            return IKSolver(DesiredPose, EndEffector, thetaLast, ref _elbow, ref _base);
+            double[] angles = new double[6];
+            bool updated = false;
+            try
+            {
+                angles = IKSolver(DesiredPose, EndEffector, thetaLast, ref _elbow, ref _base);
+                updated = true;
+            }
+            catch (Exception e)
+            {
+                _GUI.Error(e, "IK solver fuckup");
+            }
+            if (updated)
+            {
+                return angles;
+            }
+            else
+            {
+                return thetaLast;
+            }
         }
 
         public double[] IKSolver(Pose DesiredPose)
@@ -1012,7 +1027,7 @@ namespace LightWeight_Server
             if (Math.Abs(T3t[1, 1]) < 1e-6 && Math.Abs(T3t[1, 0]) < 1e-6)
             {
                 // Singularity! set angles on last known theta4
-                theta4 = thetaLast[3];
+                theta4 = thetaLast[3] - Math.Sign(thetaLast[3]) * 10e-5;
                 theta5 = 0;
                 theta6 = Math.Atan2(-T3t[0, 1], T3t[2, 1]) - thetaLast[3];
             }
@@ -1030,12 +1045,11 @@ namespace LightWeight_Server
                 }
                 theta5 = (Math.Abs(Math.Cos(theta4)) > Math.Abs(Math.Sin(theta4))) ? Math.Atan2((-1.0 * T3t[0, 2] / (Math.Cos(theta4))), T3t[1, 2]) : Math.Atan2((-1.0 * T3t[2, 2] / (Math.Sin(theta4))), T3t[1, 2]);
             }
-            /*
             if (theta4 > (185.0 * Math.PI / 180) || theta4 < (-185.0 * Math.PI / 180))
             {
                 throw new InverseKinematicsException("Out of workspace");
             }
-            if (theta5 > (130.0 * Math.PI / 180) || theta5 < (-120.0 * Math.PI / 180))
+            if (theta5 > (129.0 * Math.PI / 180) || theta5 < (-119.0 * Math.PI / 180))
             {
                 throw new InverseKinematicsException("Out of workspace");
             }
@@ -1043,7 +1057,6 @@ namespace LightWeight_Server
             {
                 throw new InverseKinematicsException("Out of workspace");
             }
-             */
             return new double[] { theta1, theta2, theta3, theta4, theta5, theta6 };
         }
         #endregion

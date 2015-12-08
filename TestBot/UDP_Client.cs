@@ -75,7 +75,7 @@ namespace TestBot
         bool isConnected = false;
         int loopCount = 0;
 
-        Vector3 _EE = new Vector3(50.3f, -10, 102.6f);
+        Vector3 _EE = new Vector3(350.3f, -110, 2.6f);
 
 
         Random rnd = new Random();
@@ -93,7 +93,7 @@ namespace TestBot
             IPOCTimer.Start();
             // 540, 0, 915 is kuka end effector base hence 39.5 -18.1 81.7 is tip
             //_kukaPosition = new double[] { 500.5, -18.1, 833.3, -180, 0, -180 };
-            _kukaAngles = new double[] { 0, -90, 90, 0, 90, 0 };
+            _kukaAngles = new double[] { 0, -120, 120, 0, -90, 20 };
             _kukaPosition = forwardKinimatics(_kukaAngles, _EE);
             _AxisSpeed = new double[] { 0, 0, 0, 0, 0, 0 };
       //      _kukaPose = MakeMatrixFromKuka(_kukaPosition);

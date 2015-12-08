@@ -237,6 +237,8 @@ namespace LightWeight_Server
             setGain(ref ErrorTranslation, ref ErrorOrientation, ref Px, ref Pt, hasElapsed, averageSpeed);
             
            // Pt = 0;
+            Px =  0.2;
+            Pt = Px / 200;
             Vector3 ControlTranslation = referenceVelocity.Translation + Vector3.Multiply(ErrorTranslation, (float)Px);
             Vector3 ControlOrientation = Vector3.Multiply(Vector3.Normalize(referenceVelocity.axis), referenceVelocity.angle) + Vector3.Multiply(ErrorOrientation, (float)Pt);
 
@@ -245,7 +247,7 @@ namespace LightWeight_Server
             // IK solver method
             float tipVelocityAngle = ControlOrientation.Length();
             Vector3 tipVelocityAxis = Vector3.Normalize(ControlOrientation);
-            Quaternion EstimatedOrientation = measuredPosition.Orientation * Quaternion.CreateFromAxisAngle(tipVelocityAxis, tipVelocityAngle);
+            Quaternion EstimatedOrientation = Quaternion.CreateFromAxisAngle(tipVelocityAxis, tipVelocityAngle) * measuredPosition.Orientation;
             Vector3 EstimatedTranslation = measuredPosition.Translation + ControlTranslation;
             Pose EstimatedPose = new Pose(EstimatedOrientation, EstimatedTranslation);
 

@@ -523,6 +523,7 @@ namespace LightWeight_Server
                                         }
                                         if (PoseList.Count == N)
                                         {
+                                            XmlNode[] newXMLPose = new XmlNode[N];
                                             foreach (XmlNode newPose in PoseList)
                                             {
                                                 int nPose = -1;
@@ -530,6 +531,8 @@ namespace LightWeight_Server
                                                 {
                                                     if (nPose > 0 && nPose <= N)
                                                     {
+                                                        newXMLPose[nPose - 1] = newPose;
+                                                        /*
                                                         if (nPose == 1)
                                                         {
                                                             if (!getPoseInfo(newPose, lastPose, out FinalPoseList[nPose - 1], out EndVelocityList[nPose - 1], out AveVelocityList[nPose - 1], out Trajectorys[nPose - 1]))
@@ -542,7 +545,7 @@ namespace LightWeight_Server
                                                         {
                                                             ExternalError("Failed to update Pose {0}." + nPose.ToString());
                                                             failedUpdate = true;
-                                                        }
+                                                        }*/
                                                     }
                                                     else
                                                     {
@@ -553,6 +556,22 @@ namespace LightWeight_Server
                                                 else
                                                 {
                                                     ExternalError("Could not read N within Pose.\nValue should be an int and read \"" + newPose.Attributes["N"].Value + "\"");
+                                                    failedUpdate = true;
+                                                }
+                                            }
+                                            for (int i = 0; i < N; i++)
+                                            {
+                                                if (i == 0)
+                                                {
+                                                    if (!getPoseInfo(newXMLPose[i], lastPose, out FinalPoseList[i], out EndVelocityList[i], out AveVelocityList[i], out Trajectorys[i]))
+                                                    {
+                                                        ExternalError("Failed to update Pose {0}." + i.ToString());
+                                                        failedUpdate = true;
+                                                    }
+                                                }
+                                                else if (!getPoseInfo(newXMLPose[i], FinalPoseList[i - 1], out FinalPoseList[i], out EndVelocityList[i], out AveVelocityList[i], out Trajectorys[i]))
+                                                {
+                                                    ExternalError("Failed to update Pose {0}." + i.ToString());
                                                     failedUpdate = true;
                                                 }
                                             }
