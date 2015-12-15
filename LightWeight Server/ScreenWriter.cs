@@ -21,6 +21,9 @@ namespace LightWeight_Server
         object telemetryLock = new object();
         object ScreenLock = new object();
         object debuggerLock = new object();
+        object controlDAtaLock = new object();
+
+        readonly string DirectoryName = "DataInfo" + Guid.NewGuid().ToString("");
 
         bool _isConnected;
         public bool closing = false;
@@ -41,7 +44,7 @@ namespace LightWeight_Server
         ConcurrentDictionary<string, string> _RobotName = new ConcurrentDictionary<string, string>();
         RobotInfo[] _ConnectedRobots;
 
-        StringBuilder _ErrorWriter= new StringBuilder(), _Debugger= new StringBuilder(), _DisplayMsg= new StringBuilder();
+        StringBuilder _ErrorWriter= new StringBuilder(), _Debugger= new StringBuilder(), _DisplayMsg= new StringBuilder(), _ControlData = new StringBuilder();
 
         //ConcurrentDictionary<string, Stopwatch> _Timers = new ConcurrentDictionary<string,Stopwatch>();
 
@@ -131,7 +134,7 @@ namespace LightWeight_Server
             _FileWriter.Start();
             while (true)
             {
-                if (_FileWriter.Elapsed.TotalSeconds > 10)
+                if (_FileWriter.Elapsed.TotalSeconds > 2)
                 {
                     _FileWriter.Restart();
                     WriteToFile();
@@ -200,15 +203,14 @@ namespace LightWeight_Server
                 }
             }
         }
-
-        public void DisplayError()
-        {
-
-        }
-
+        
         public void WriteToFile()
         {
-            using (StreamWriter file = new StreamWriter("ErrorMsg" + ".txt", true))
+            if (!Directory.Exists(DirectoryName))
+            {
+                Directory.CreateDirectory(DirectoryName);
+            }
+            using (StreamWriter file = new StreamWriter(DirectoryName + "/ErrorMsg" + ".txt", true))
             {
                 lock (ErrorWriteLock)
                 {
@@ -219,7 +221,7 @@ namespace LightWeight_Server
                     }
                 }
             }
-            using (StreamWriter file = new StreamWriter("DebuggerLog" + ".txt", true))
+            using (StreamWriter file = new StreamWriter(DirectoryName + "/DebuggerLog" + ".txt", true))
             {
                 lock (debuggerLock)
                 {
@@ -228,6 +230,18 @@ namespace LightWeight_Server
 
                         file.WriteLine(_Debugger);
                         _Debugger.Clear();
+                    }
+                }
+            }
+            using (StreamWriter file = new StreamWriter(DirectoryName + "/Control" + ".csv", true))
+            {
+                lock (controlDAtaLock)
+                {
+                    if (_ControlData.Length != 0)
+                    {
+
+                        file.WriteLine(_ControlData);
+                        _ControlData.Clear();
                     }
                 }
             }
@@ -248,6 +262,14 @@ namespace LightWeight_Server
             _desiredZaxis.TryAdd(robot._RobotID.ToString(), robot.currentDesiredPositon.zAxis);
             _ControllerData.TryAdd(robot._RobotID.ToString(), new StringBuilder());
 
+        }
+
+        public void addControllerData(string msg)
+        {
+            lock (controlDAtaLock)
+            {
+                _ControlData.AppendLine(msg);
+            }
         }
 
         void updateTelemetryInfo(RobotInfo robot)

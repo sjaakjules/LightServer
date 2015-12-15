@@ -248,7 +248,7 @@ namespace LightWeight_Server
 
 
         // Constrctor
-        public TrajectoryHandler(RobotInfo robot)
+        public TrajectoryHandler(RobotInfo robot, ScreenWriter GUI)
         {
             _ThisRobot = robot;
             InitialiseDelegates();
@@ -257,7 +257,7 @@ namespace LightWeight_Server
             _ReferencePose.Enqueue(Pose.Zero);
             _ReferenceVelocity.Enqueue(Pose.Zero);
             _TrajectoryTime = new Stopwatch();
-            TrajectoryController = new Controller(_ThisRobot);
+            TrajectoryController = new Controller(_ThisRobot, GUI);
             _ActiveTrajectories = new Trajectory[] { new TrajectoryQuintic(Pose.Zero, Guid.NewGuid()) };
             _nSegments = 0;
             _CurrentSegment = 0;
@@ -516,10 +516,10 @@ namespace LightWeight_Server
                             _timerHasElapsed = true;
                             if (!currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 1))
                             {
-                                ReStart(currentPose, CurrentVelocity);
+                                ReStart(currentPose, Pose.Zero);
                             }
                         }
-                        if (_timerHasElapsed && currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 2))
+                        if (_timerHasElapsed && currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 5))
                         {
                             _CurrentSegment++;
                             _TrajectoryTime.Reset();

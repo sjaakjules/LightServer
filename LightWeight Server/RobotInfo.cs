@@ -298,7 +298,7 @@ namespace LightWeight_Server
             _ReferenceVelocity.Enqueue(_Position.LastElement.Pose);
             MaxJocTimer.Enqueue(0);
             MaxserverTimer.Enqueue(0);
-            _TrajectoryHandler = new TrajectoryHandler(this);
+            _TrajectoryHandler = new TrajectoryHandler(this, GUI);
             GUI.ConnectRobot(this, RobotNumber);
 
         }

@@ -13,7 +13,7 @@ namespace LightWeight_Server
     class Program
     {
 
-        static ScreenWriter GUI = new ScreenWriter();
+        public static ScreenWriter GUI = new ScreenWriter();
 
         static int Main(string[] args)
         {

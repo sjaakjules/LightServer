@@ -6,22 +6,25 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CustomExtensions;
 
 namespace LightWeight_Server
 {
     class Controller
     {
-    //    StringBuilder DataWriter = new StringBuilder();
-    //    string dataWriterFile = "ControllerData";
-    //    StreamWriter Datafile;
+   //     StringBuilder DataWriter = new StringBuilder();
+   //     string dataWriterFile = "ControllerData";
+      //  StreamWriter Datafile;
         //object movementLock = new object();
         Stopwatch _DataTime = new Stopwatch();
         double Pa = 0.0001, Px = 0.005, Pt = 0.0001;
+        ScreenWriter GUI;
 
 
-
-        public Controller(RobotInfo ThisRobot)
+        public Controller(RobotInfo ThisRobot, ScreenWriter Gui)
         {
+            this.GUI = Gui;
+            GUI.addControllerData("time,ref_rx,ref_ry,ref_rz,ref_ra,ref_rax,ref_ray,ref_raz,act_rx,act_ry,act_rz,act_ra,act_rax,act_ray,act_raz,ref_vx,ref_vy,ref_vz,ref_va,ref_vax,ref_vay,ref_vaz,act_vx,act_vy,act_vz,act_va,act_vax,act_vay,act_vaz,axis1,axis2,axis3,axis4,axis5,axis6,Saxis1,Saxis2,Saxis3,Saxis4,Saxis5,Saxis6,Eaxis1,Eaxis2,Eaxis3,Eaxis4,Eaxis5,Eaxis6,ErrorX,ErrorY,ErrorZ,ErrorA,ErrorB,ErrorC");
             //this._x, this._y, this._z, this.angle, this.axis.X, this.axis.Y, this.axis.Z
             /*
             DataWriter.AppendFormat("time,ref_rx,ref_ry,ref_rz,ref_ra,ref_rax,ref_ray,ref_raz,act_rx,act_ry,act_rz,act_ra,act_rax,act_ray,act_raz,ref_vx,ref_vy,ref_vz,ref_va,ref_vax,ref_vay,ref_vaz,act_vx,act_vy,act_vz,act_va,act_vax,act_vay,act_vaz,axis1,axis2,axis3,axis4,axis5,axis6,Saxis1,Saxis2,Saxis3,Saxis4,Saxis5,Saxis6,Eaxis1,Eaxis2,Eaxis3,Eaxis4,Eaxis5,Eaxis6");
@@ -47,6 +50,7 @@ namespace LightWeight_Server
                     Datafile.Close();
                 }
             }
+             
              */
             _DataTime.Start();
         }
@@ -267,6 +271,10 @@ namespace LightWeight_Server
             }
             robot._Commands.Enqueue(SatAxisSpeed);
 
+
+            updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, Com, ComSat, AngleError, ErrorTranslation, ErrorOrientation);
+
+            
             /*
             SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, Com, ComSat, AngleError, DataWriter);
             using (StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true))
@@ -278,6 +286,11 @@ namespace LightWeight_Server
              */
 
             //return AxisSpeed;
+        }
+
+        public void updateDataFile(Pose refPos, Pose refVel, Pose actPos, Pose actVel, double time, double[] controlAngles, double[] satControl, double[] IKmethod, Vector3 errorPos, Vector3 errorAng)
+        {
+            GUI.addControllerData(string.Format("{0:0.0},{1:data},{2:data},{3:data},{4:data},{5},{6},{7},{8},{9}", time, refPos, actPos, refVel, actVel, SF.printDouble(controlAngles), SF.printDouble(satControl), SF.printDouble(IKmethod), errorPos.ToDataString(), errorAng.ToDataString()));
         }
     }
 }
