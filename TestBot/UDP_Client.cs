@@ -75,7 +75,7 @@ namespace TestBot
         bool isConnected = false;
         int loopCount = 0;
 
-        Vector3 _EE = new Vector3(350.3f, -110, 2.6f);
+        Vector3 _EE = new Vector3(.0f, 0.2f, 240.4f);
 
 
         Random rnd = new Random();

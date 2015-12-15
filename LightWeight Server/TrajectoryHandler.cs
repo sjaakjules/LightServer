@@ -326,7 +326,7 @@ namespace LightWeight_Server
 
         public void ReStart(Pose CurrentPose, Pose CurrentVelocity)
         {
-            if (!(CurrentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).startPose, 1e-1)))
+            if (!(CurrentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).startPose, 5e-1)))
             {
                 ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).updateStartPosition(CurrentPose, CurrentVelocity);
             }
