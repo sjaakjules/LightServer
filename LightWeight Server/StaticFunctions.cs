@@ -1375,7 +1375,9 @@ namespace LightWeight_Server
 
     #endregion
 
-
+    /// <summary>
+    /// Filter with tests showing  samplerate 250, res sqrt2,freq 10
+    /// </summary>
     public class FilterButterworth
     {
         /// <summary>
