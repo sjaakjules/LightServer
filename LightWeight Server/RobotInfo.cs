@@ -69,6 +69,7 @@ namespace LightWeight_Server
 
         FixedSizedQueue<Pose> _lastPose = new FixedSizedQueue<Pose>(5);
         FixedSizedQueue<Pose> _lastVelocity = new FixedSizedQueue<Pose>(5);
+        FixedSizedQueue<Pose> _lastFiltVelocity = new FixedSizedQueue<Pose>(5);
         FixedSizedQueue<Pose> _lastAcceleration = new FixedSizedQueue<Pose>(5);
 
         FixedSizedQueue<TimeCoordinate> _Position = new FixedSizedQueue<TimeCoordinate>(5);
@@ -79,6 +80,8 @@ namespace LightWeight_Server
         FixedSizedQueue<double[]> _Angles = new FixedSizedQueue<double[]>(5);
         FixedSizedQueue<Pose> _ReferencePosition = new FixedSizedQueue<Pose>(5);
         FixedSizedQueue<Pose> _ReferenceVelocity = new FixedSizedQueue<Pose>(5);
+
+        FilterButterworth VelocityFilt = new FilterButterworth(10f, 250, FilterButterworth.PassType.Lowpass, (float)Math.Sqrt(2));
 
         public ConcurrentQueue<double[]> _Commands = new ConcurrentQueue<double[]>();
 
@@ -108,11 +111,11 @@ namespace LightWeight_Server
         public BasePosition _base = BasePosition.front;
 
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
-        public readonly double _MaxCartesianChange = 0.8;
+        public readonly double _MaxCartesianChange = 3;
         public readonly double _MaxAngularChange = 0.1;
-        public readonly double _MaxAxisChange = 40e-5;
+        public readonly double _MaxAxisChange = 100e-5;
 
-        double _maxLinearVelocity = .5; // in mm/ms
+        double _maxLinearVelocity = 3; // in mm/ms
         double _maxAngularVelocity = .08; // in deg/ms
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
@@ -453,7 +456,7 @@ namespace LightWeight_Server
         {
             if (_isConnected && _isCommanded)
             {
-                _TrajectoryHandler.GetCommandAxis(newPose, _lastVelocity.LastElement, newAngle);
+                _TrajectoryHandler.GetCommandAxis(newPose, _lastFiltVelocity.LastElement, newAngle);
             }
             else
             {

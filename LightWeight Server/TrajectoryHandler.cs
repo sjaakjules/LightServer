@@ -310,7 +310,7 @@ namespace LightWeight_Server
                 _CurrentSegment = 0;
                 if (!(startPose == ((TaskTrajectory)_ActiveTrajectories[0]).startPose))
                 {
-                    ((TaskTrajectory)_ActiveTrajectories[0]).updateStartPosition(startPose, startVelocity);
+                    ((TaskTrajectory)_ActiveTrajectories[0]).updateStartPosition(startPose, Pose.Zero); // Changed start velocity to be zero as velocity is noisy
                 }
                 _lastdesiredPose = _desiredPose;
                 _desiredPose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose;
@@ -328,7 +328,7 @@ namespace LightWeight_Server
         {
             if (!(CurrentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).startPose, 5e-1)))
             {
-                ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).updateStartPosition(CurrentPose, CurrentVelocity);
+                ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).updateStartPosition(CurrentPose, Pose.Zero); // Changed start velocity to be zero as velocity is noisy
             }
             _lastdesiredPose = _desiredPose;
             _desiredPose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose;
@@ -463,8 +463,8 @@ namespace LightWeight_Server
                     if (_ActiveTrajectories[_CurrentSegment].type == TrajectoryTypes.Quintic)
                     {
                         
-                        Pose ReferencePose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferencePosition(_TrajectoryTime.Elapsed.TotalMilliseconds+4);
-                        Pose ReferenceVelocity = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferenceVelocity(_TrajectoryTime.Elapsed.TotalMilliseconds+4);
+                        Pose ReferencePose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferencePosition(_TrajectoryTime.Elapsed.TotalMilliseconds);
+                        Pose ReferenceVelocity = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferenceVelocity(_TrajectoryTime.Elapsed.TotalMilliseconds);
                         _ReferencePose.Enqueue(ReferencePose);
                         _ReferenceVelocity.Enqueue(ReferenceVelocity);
 
