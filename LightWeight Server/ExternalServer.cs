@@ -532,20 +532,6 @@ namespace LightWeight_Server
                                                     if (nPose > 0 && nPose <= N)
                                                     {
                                                         newXMLPose[nPose - 1] = newPose;
-                                                        /*
-                                                        if (nPose == 1)
-                                                        {
-                                                            if (!getPoseInfo(newPose, lastPose, out FinalPoseList[nPose - 1], out EndVelocityList[nPose - 1], out AveVelocityList[nPose - 1], out Trajectorys[nPose - 1]))
-                                                            {
-                                                                ExternalError("Failed to update Pose {0}." + nPose.ToString());
-                                                                failedUpdate = true;
-                                                            }
-                                                        }
-                                                        else if (!getPoseInfo(newPose, FinalPoseList[nPose - 2], out FinalPoseList[nPose - 1], out EndVelocityList[nPose - 1], out AveVelocityList[nPose - 1], out Trajectorys[nPose - 1]))
-                                                        {
-                                                            ExternalError("Failed to update Pose {0}." + nPose.ToString());
-                                                            failedUpdate = true;
-                                                        }*/
                                                     }
                                                     else
                                                     {

@@ -68,6 +68,18 @@ namespace CustomExtensions
         }
 
 
+        static public double[] subtract(this double[] a1, double[] a2)
+        {
+            if (a1.Length != a2.Length)
+                throw new Exception("Double arrays are not same length");
+            double[] arrayout = new double[a2.Length];
+            for (int i = 0; i < a1.Length; i++)
+            {
+                arrayout[i] = a1[i] - a2[i];
+            }
+            return arrayout;
+        }
+
         public static double[] multiply(this double[] M, double value)
         {
             double[] Mout = new double[M.Length];
@@ -1401,6 +1413,13 @@ namespace LightWeight_Server
         /// </summary>
         private float[] outputHistory = new float[3];
 
+        /// <summary>
+        /// Creates a filter object which is used to add new values at the given sampleRate and frequency.
+        /// </summary>
+        /// <param name="frequency"></param> Frequency, for 4ms data 10 is good
+        /// <param name="sampleRate"></param> SampleRate, for 4ms data 250 is good
+        /// <param name="passType"></param> Pass type either low or high, to filter jitters use lowpass
+        /// <param name="resonance"></param> Resonance, from sqrt(2) to ~ 0.1, for 4ms data sqrt(2) was good
         public FilterButterworth(float frequency, int sampleRate, PassType passType, float resonance)
         {
             this.resonance = resonance;

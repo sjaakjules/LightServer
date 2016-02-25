@@ -9,6 +9,7 @@ using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel;
+using CustomExtensions;
 
 namespace LightWeight_Server
 {
@@ -73,15 +74,16 @@ namespace LightWeight_Server
         FixedSizedQueue<Pose> _lastAcceleration = new FixedSizedQueue<Pose>(5);
 
         FixedSizedQueue<TimeCoordinate> _Position = new FixedSizedQueue<TimeCoordinate>(5);
-        FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(5);
-        FixedSizedQueue<TimeCoordinate> _Avevelocity = new FixedSizedQueue<TimeCoordinate>(5);
+        // Removed velocity as filtered velocity and lastVelocity is being used. This may need to be used however...
+        //FixedSizedQueue<TimeCoordinate> _velocity = new FixedSizedQueue<TimeCoordinate>(5);
+       // FixedSizedQueue<TimeCoordinate> _Avevelocity = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<TimeCoordinate> _acceleration = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<TimeCoordinate> _Torque = new FixedSizedQueue<TimeCoordinate>(5);
         FixedSizedQueue<double[]> _Angles = new FixedSizedQueue<double[]>(5);
         FixedSizedQueue<Pose> _ReferencePosition = new FixedSizedQueue<Pose>(5);
         FixedSizedQueue<Pose> _ReferenceVelocity = new FixedSizedQueue<Pose>(5);
 
-        FilterButterworth VelocityFilt = new FilterButterworth(10f, 250, FilterButterworth.PassType.Lowpass, (float)Math.Sqrt(2));
+        FilterButterworth[] _VelocityFilt = new FilterButterworth[4];
 
         public ConcurrentQueue<double[]> _Commands = new ConcurrentQueue<double[]>();
 
@@ -111,11 +113,11 @@ namespace LightWeight_Server
         public BasePosition _base = BasePosition.front;
 
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
-        public readonly double _MaxCartesianChange = 3;
+        public readonly double _MaxCartesianChange = 0.3;
         public readonly double _MaxAngularChange = 0.1;
-        public readonly double _MaxAxisChange = 100e-5;
+        public readonly double _MaxAxisChange = 100e-5; //degrees per cycle
 
-        double _maxLinearVelocity = 3; // in mm/ms
+        double _maxLinearVelocity = 0.25; // in mm/ms
         double _maxAngularVelocity = .08; // in deg/ms
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
@@ -132,9 +134,6 @@ namespace LightWeight_Server
         double[] _homePosition = new double[6];
         double[] _HomeAngles = new double[6];
 
-       // StreamWriter Datafile;
-        //string dataWriterFile = "QuinticPeramerters";
-       // StringBuilder DataWriter = new StringBuilder();
 
         #region Properties
         public Quaternion TaskspaceRotation { get { return _TaskRotation; } }
@@ -147,7 +146,7 @@ namespace LightWeight_Server
 
         public Pose currentPose { get { return _Position.LastElement.Pose; } }
 
-        public Pose currentVelocity { get { return _velocity.LastElement.Pose; } }
+        public Pose currentVelocity { get { return _lastFiltVelocity.LastElement; } }
 
         public Pose currentAcceleration { get { return _acceleration.LastElement.Pose; } }
 
@@ -288,11 +287,19 @@ namespace LightWeight_Server
             this._GUI = GUI;
             _lastPose.Enqueue( new Pose(new double[] { 540.5, -18.1, 833.3, 180.0, 0.0, 180.0 }));
             _lastVelocity.Enqueue( new Pose(new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }));
-            _lastAcceleration.Enqueue( new Pose(new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }));
+            _lastAcceleration.Enqueue(new Pose(new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }));
+            _lastFiltVelocity.Enqueue(new Pose(new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }));
+
+            for (int i = 0; i < 4; i++)
+            {
+                _VelocityFilt[i] = new FilterButterworth(10f, 250, FilterButterworth.PassType.Lowpass, (float)Math.Sqrt(2));
+            }
 
             _Position.Enqueue(new TimeCoordinate(540.5, -18.1, 833.3, 180.0, 0.0, 180.0,0));
-            _velocity.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
-            _Avevelocity.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
+
+            // Removed velocity as filtered velocity and lastVelocity is being used. This may need to be used however...
+          //  _velocity.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
+          //  _Avevelocity.Enqueue(new TimeCoordinate(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
             _acceleration.Enqueue(new TimeCoordinate( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ,0));
             _Torque.Enqueue(new TimeCoordinate( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ,0));
             _Angles.Enqueue(new double[] { 0.0, -1.0 * Math.PI / 2, 1.0 * Math.PI / 2, 0.0, 1.0 * Math.PI / 2, 0.0 });
@@ -479,9 +486,32 @@ namespace LightWeight_Server
             {
                 _loopTime = 1.0 * (DateTime.Now.Ticks - lastPoseTimeStamp) / TimeSpan.TicksPerMillisecond;
                 _lastVelocity.Enqueue(new Pose(_lastPose.LastElement, newPose, _loopTime));
+                _lastFiltVelocity.Enqueue(filterVelocityPose(_VelocityFilt, _lastVelocity.LastElement));
                 _lastPose.Enqueue( newPose);
                 lastPoseTimeStamp = DateTime.Now.Ticks;
             }
+        }
+
+        /// <summary>
+        /// Using 4 low pass filters, which are global and passed into the function, creates a filtered pose.
+        /// </summary>
+        /// <param name="filters"></param> Global filters which are referenced each loop. Must have 4 in the array
+        /// <param name="newVelocity"></param> New Velocity pose which is added to the filter.
+        /// <returns></returns>
+        public Pose filterVelocityPose(FilterButterworth[] filters, Pose newVelocity)
+        {
+            if (filters.Length>3)
+            {
+                return newVelocity;
+            }
+            filters[0].Update(newVelocity.Translation.X);
+            filters[1].Update(newVelocity.Translation.Y);
+            filters[2].Update(newVelocity.Translation.Z);
+            filters[3].Update(newVelocity.angle);
+            Quaternion filteredOrientation = Quaternion.CreateFromAxisAngle(newVelocity.axis, filters[3].Value);
+            Vector3 filteredTranslation = new Vector3(filters[0].Value, filters[1].Value, filters[2].Value);
+            Pose filteredVelocity = new Pose(filteredOrientation, filteredTranslation);
+            return filteredVelocity;
         }
 
         public void checkCartVelocty(double[] cartVel)
@@ -509,7 +539,8 @@ namespace LightWeight_Server
             {
                 delT = _loopTime;
             }
-            _velocity.Enqueue(new TimeCoordinate(new Pose(_Position.LastElement.Pose, newPose, delT), ipoc));
+            // Removed velocity as filtered velocity and lastVelocity is being used. This may need to be used however...
+            //_velocity.Enqueue(new TimeCoordinate(new Pose(_Position.LastElement.Pose, newPose, delT), ipoc));
             TimeCoordinate newPosition = new TimeCoordinate(newPose, ipoc);
             _Position.Enqueue(newPosition);
         }
@@ -1092,6 +1123,16 @@ namespace LightWeight_Server
             }
         }
 
+
+        /// <summary>
+        /// This method gets the new trajectories given a list of poses and velocities.
+        /// </summary>
+        /// <param name="n"></param> Number of Poses
+        /// <param name="new_Poses"></param> List of new Poses
+        /// <param name="AverageVelocity"></param> List of average velocities for each segment (from one pose to next)
+        /// <param name="EndVelocity"></param>Specific end velocities at each pose
+        /// <param name="types"></param>
+        /// <returns></returns>
         public bool newPoses(int n, Pose[] new_Poses, double[] AverageVelocity, double[] EndVelocity, TrajectoryTypes[] types)
         {
             try
@@ -1107,6 +1148,8 @@ namespace LightWeight_Server
                 {
                     AverageVelocity[i] = (AverageVelocity[i] == -1) ? AverageVelocity[i - 1] : ((AverageVelocity[i] > 1) ? 1.0 * AverageVelocity[i] / 1000 : AverageVelocity[i]);
                 }
+
+                // Cap the average velocity!
                 for (int i = 0; i < AverageVelocity.Length; i++)
                 {
                     if (AverageVelocity[i] > 0.1)
@@ -1114,7 +1157,7 @@ namespace LightWeight_Server
                         AverageVelocity[i] = 0.1;
                     }
                 }
-                //_NewTrajectoryList = new TrajectoryOld[n];
+
                 Vector3[] PointVelocitys = new Vector3[n + 1];
                 PointVelocitys[0] = Vector3.Zero;
                 PointVelocitys[n] = Vector3.Zero;
@@ -1131,13 +1174,15 @@ namespace LightWeight_Server
                 {
                     PointVelocitys[i] = (float)((AverageVelocity[i - 1] + 0.2 * AverageVelocity[i]) / 1.2) * (Vector3.Normalize(Vector3.Normalize(new_Poses[i - 1].Translation - new_Poses[i - 2].Translation) + Vector3.Normalize(new_Poses[i].Translation - new_Poses[i - 1].Translation)));
                 }
-                //_NewTrajectoryList[0] = new TrajectoryOld(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1]);
+
+                // Make new trajectories
                 newTrajectories[0] = getTrajectory(new_Poses[0], AverageVelocity[0], currentPose, PointVelocitys[0], PointVelocitys[1], PoseList, types[0]);
                 for (int i = 1; i < n; i++)
                 {
-                    //_NewTrajectoryList[i] = new TrajectoryOld(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1]);
                     newTrajectories[i] = getTrajectory(new_Poses[i], AverageVelocity[i], new_Poses[i - 1], PointVelocitys[i], PointVelocitys[i + 1], PoseList, types[i]);
                 }
+
+                // Check if joint limits are met.
                 if (checkTrajectories(newTrajectories,currentAxisAngle))
                 {
                     _TrajectoryHandler.Load(newTrajectories);
@@ -1146,6 +1191,7 @@ namespace LightWeight_Server
                     _trajectoryLoaderTime.Enqueue(trajectoryLoader.Elapsed.TotalMilliseconds);
                     return true;
                 }
+
             }
             catch (Exception e)
             {
@@ -1156,25 +1202,83 @@ namespace LightWeight_Server
 
         bool checkTrajectories(Trajectory[] newTrajectories, double[] startAngle)
         {
+            double lambda = 1.5;
             if (newTrajectories!= null && newTrajectories.Length > 0)
             {
-                double[] simangles = new double[6];
-                startAngle.CopyTo(simangles,0);
+                double[] SimAngles = new double[6];
+                double[] LastSimAngles = new double[6];
+                double[] AngleSpeed = new double[6];
+                startAngle.CopyTo(SimAngles, 0);
+                startAngle.CopyTo(LastSimAngles, 0);
+                int timeSpeeding = 0;
                 for (int i = 0; i < newTrajectories.Length; i++)
                 {
-                    for (double t = 0; t <= newTrajectories[i].trajectoryTime.TotalMilliseconds; t++)
+                    bool Speeding = true;
+                    while (Speeding)
                     {
-                        try
+                        Speeding = false;
+                        double[] totalArea = new double[] { 0, 0, 0, 0, 0, 0 };
+                        double[] areaOverSpeed = new double[] { 0, 0, 0, 0, 0, 0 };
+                        for (double t = 0; t <= newTrajectories[i].trajectoryTime.TotalMilliseconds; t++)
                         {
-                            simangles = IKSolver(((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t),simangles);
-                            t += 12;
+                            try
+                            {
+                                SimAngles = IKSolver(((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t), SimAngles);
+                                t += 4;
+                                AngleSpeed = SimAngles.subtract(LastSimAngles);
+                                totalArea = totalArea.add(AngleSpeed.multiply(4.0));
+                                for (int j = 0; j < AngleSpeed.Length; j++)
+                                {
+                                    bool tooFast = false;
+                                    if (Math.Abs(AngleSpeed[j]) > _MaxAxisChange)
+                                    {
+                                        areaOverSpeed[j] += (Math.Abs(AngleSpeed[j]) - _MaxAxisChange) * 4.0;
+                                        tooFast = true;
+                                        Speeding = true;
+                                    }
+                                    if (tooFast)
+                                    {
+                                        timeSpeeding += 4;
+                                    }
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                updateError(string.Format("Trajectory exits worskspace at {0}ms at {1}", t, ((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t)), e);
+                                return false;
+                            }
                         }
-                        catch (Exception e)
+                        // Slow down the trajectory and re-run simulation.
+                        if (Speeding)
                         {
-                            updateError(string.Format("Trajectory exits worskspace at {0}ms at {1}", t, ((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t)), e);
-                            return false;
+                            int maxIndice = 0;
+                            double maxSpeed = 0;
+                            for (int k = 0; k < areaOverSpeed.Length; k++)
+                            {
+                                if (maxSpeed < areaOverSpeed[k])
+                                {
+                                    maxSpeed = areaOverSpeed[k];
+                                    maxIndice = k;
+                                }
+                            }
+                            double ratio = 1.0 * areaOverSpeed[maxIndice] / totalArea[maxIndice];
+                            TimeSpan newtime = new TimeSpan(0, 0, 0, 0, (int)(lambda*newTrajectories[i].trajectoryTime.TotalMilliseconds / ratio));
                         }
                     }
+
+                    // ISSUES: 
+                    /*
+                     * The amount to slow down (ie add to trajectory time) is unknown.
+                     * Calculating the integral of each angle difference (ie what will be sent to kuka and represents degrees/cycle or speed)
+                     * The integral would be the same in the simulation which goes too fast and the potential one which just goes fast enough
+                     * The equation for this is a non-linear manifistation of inverse kinimatics so can not be known.
+                     * Approximations could be used... but maybe there is a simple relationship which will calculate enough time to always slow it down.
+                     * knowning the area above the speed, how long we were speeding and max speed we might be able to aprox it??
+                     * 
+                     * 
+                     * What i am testing is finding the ratio of area over speed with total area, multiplying some scaling lambda with total time...
+                     */
+
                 }
                 return true;
             }

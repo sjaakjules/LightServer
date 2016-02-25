@@ -392,15 +392,13 @@ namespace LightWeight_Server
                     _Robot.updateRobotPose(newPose);
                 }
 
-
-
-                
                 // As the robot positions have been updated, calculate change in position and update command dictionary
-
                 _Robot.updateComandPosition(newPose, newAngles);
-                //_Robot.UpdateAngles(newAngles);
+
+                // Update the robot position for less important functions on slower threads
                 _Robot.updateRobotPosition(newPose, _IPOC);
 
+                // Signal everything is updated and commands calculated for other threads
                 haveReceived.Set();
                 processDataTimer.Stop();
                 _Robot._processDataTimer.Enqueue(processDataTimer.Elapsed.TotalMilliseconds);
