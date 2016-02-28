@@ -81,7 +81,12 @@ namespace LightWeight_Server
         FixedSizedQueue<Pose> _ReferencePosition = new FixedSizedQueue<Pose>(5);
         FixedSizedQueue<Pose> _ReferenceVelocity = new FixedSizedQueue<Pose>(5);
 
-        FilterButterworth VelocityFilt = new FilterButterworth(10f, 250, FilterButterworth.PassType.Lowpass, (float)Math.Sqrt(2));
+        FilterButterworth[] VelocityFilt = new FilterButterworth[] { new FilterButterworth(10f, 250, FilterButterworth.PassType.Lowpass, (float)Math.Sqrt(2)), 
+                                                                    new FilterButterworth(10f, 250, FilterButterworth.PassType.Lowpass, (float)Math.Sqrt(2)), 
+                                                                    new FilterButterworth(10f, 250, FilterButterworth.PassType.Lowpass, (float)Math.Sqrt(2)),
+                                                                    new FilterButterworth(10f, 250, FilterButterworth.PassType.Lowpass, (float)Math.Sqrt(2)), 
+                                                                    new FilterButterworth(10f, 250, FilterButterworth.PassType.Lowpass, (float)Math.Sqrt(2)), 
+                                                                    new FilterButterworth(10f, 250, FilterButterworth.PassType.Lowpass, (float)Math.Sqrt(2)) };
 
         public ConcurrentQueue<double[]> _Commands = new ConcurrentQueue<double[]>();
 
@@ -456,7 +461,7 @@ namespace LightWeight_Server
         {
             if (_isConnected && _isCommanded)
             {
-                _TrajectoryHandler.GetCommandAxis(newPose, _lastFiltVelocity.LastElement, newAngle);
+                _TrajectoryHandler.GetCommandAxis(newPose, _lastVelocity.LastElement, newAngle);
             }
             else
             {
@@ -510,6 +515,7 @@ namespace LightWeight_Server
                 delT = _loopTime;
             }
             _velocity.Enqueue(new TimeCoordinate(new Pose(_Position.LastElement.Pose, newPose, delT), ipoc));
+            
             TimeCoordinate newPosition = new TimeCoordinate(newPose, ipoc);
             _Position.Enqueue(newPosition);
         }

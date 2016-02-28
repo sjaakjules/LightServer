@@ -492,7 +492,7 @@ namespace LightWeight_Server
         public void GetCommandAxis(Pose currentPose, Pose CurrentVelocity, double[] currentAngle)
         {
             // Check and load from buffer
-            LodeBuffer(currentPose, CurrentVelocity);
+            LodeBuffer(currentPose, Pose.Zero);
 
             // Check if its active
             if ( _isActive)
@@ -514,12 +514,12 @@ namespace LightWeight_Server
                         if (_ActiveTrajectories[_CurrentSegment].trajectoryTime.TotalMilliseconds < _TrajectoryTime.Elapsed.TotalMilliseconds)
                         {
                             _timerHasElapsed = true;
-                            if (!currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 1))
+                            if (!currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 5))
                             {
                                 ReStart(currentPose, Pose.Zero);
                             }
                         }
-                        if (_timerHasElapsed && currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 5))
+                        if (_timerHasElapsed && currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 10))
                         {
                             _CurrentSegment++;
                             _TrajectoryTime.Reset();
