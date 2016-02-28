@@ -270,22 +270,11 @@ namespace LightWeight_Server
                 ComSat[i] = SatAxisSpeed[i];
             }
             robot._Commands.Enqueue(SatAxisSpeed);
+            
 
-
-            //updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, Com, ComSat, AngleError, ErrorTranslation, ErrorOrientation);
+           // updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, Com, ComSat, AngleError, ErrorTranslation, ErrorOrientation);
 
             
-            /*
-            SF.updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, Com, ComSat, AngleError, DataWriter);
-            using (StreamWriter Datafile = new StreamWriter(dataWriterFile + ".csv", true))
-            {
-                Datafile.WriteLine(DataWriter);
-                DataWriter.Clear();
-            }
-            
-             */
-
-            //return AxisSpeed;
         }
 
         public void updateDataFile(Pose refPos, Pose refVel, Pose actPos, Pose actVel, double time, double[] controlAngles, double[] satControl, double[] IKmethod, Vector3 errorPos, Vector3 errorAng)

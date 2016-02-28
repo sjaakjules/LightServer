@@ -261,6 +261,9 @@ namespace LightWeight_Server
      //   public double[][] nAnglePositions;
      //   public Pose[] nPose;
 
+        Vector3 x0, xf, xm, x0d, xfd, xmd;
+        bool isStationary = false;
+
         public ElbowPosition elb;
         public BasePosition bas;
 
@@ -272,7 +275,7 @@ namespace LightWeight_Server
         public TrajectoryQuintic(Pose EndPose, double AverageVelocty, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID, double[] startAngles, RobotInfo robot)
             : base(TrajectoryTypes.Quintic)
         {
-            bool isStationary = false;
+            isStationary = false;
             _robot = robot;
             _QuinticPerameters = new double[4][];
             elb = robot._elbow;
@@ -282,12 +285,12 @@ namespace LightWeight_Server
             finalPose = EndPose;
             startVelocity = new Pose(Quaternion.Identity, StartVelocity);
             finalVelocity = new Pose(Quaternion.Identity, FinalVelocity);
-            Vector3 x0 = StartPose.Translation;
-            Vector3 xf = EndPose.Translation;
-            Vector3 xm = Vector3.Zero;
-            Vector3 x0d = Vector3.Zero;
-            Vector3 xfd = Vector3.Zero;
-            Vector3 xmd = Vector3.Zero;
+            x0 = StartPose.Translation;
+            xf = EndPose.Translation;
+            xm = Vector3.Zero;
+            x0d = Vector3.Zero;
+            xfd = Vector3.Zero;
+            xmd = Vector3.Zero;
             averageVelocity = (AverageVelocty == 0) ? 1.0 * robot._MaxCartesianChange / 4 : AverageVelocty;
             if (Vector3.Distance(xf, x0) > 1e-3)
             {
@@ -340,17 +343,17 @@ namespace LightWeight_Server
 
         public override void updateStartPosition(Pose StartPose, Pose StartVelocity)
         {
-            bool isStationary = false;
+            isStationary = false;
             startVelocity = StartVelocity;
             startPose = StartPose;
-            Vector3 x0 = StartPose.Translation;
-            Vector3 xf = finalPose.Translation;
+            x0 = StartPose.Translation;
+            xf = finalPose.Translation;
 
-            Vector3 xm = Vector3.Zero;
-            Vector3 x0d = Vector3.Zero;
-            Vector3 xfd = Vector3.Zero;
-            Vector3 xmd = Vector3.Zero;
-            if (Vector3.Distance(xf, x0) > 1e-3)
+            xm = Vector3.Zero;
+            x0d = Vector3.Zero;
+            xfd = Vector3.Zero;
+            xmd = Vector3.Zero;
+            if (Vector3.Distance(xf, x0) > 1e-1)
             {
                 xm = ((xf - x0) / 2) + x0;
                 x0d = StartVelocity.Translation;
@@ -365,6 +368,15 @@ namespace LightWeight_Server
             TimeSpan LineartrajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)averageVelocity);
             TimeSpan AngularTrajectoryTime = TimeSpan.FromMilliseconds(720.0 * _finalAngle /( (_robot==null)? (Math.PI * 0.08) : (Math.PI * _robot._MaxAngularChange)));
             trajectoryTime = (LineartrajectoryTime.TotalMilliseconds > AngularTrajectoryTime.TotalMilliseconds) ? LineartrajectoryTime : AngularTrajectoryTime;
+            _QuinticPerameters[0] = (isStationary) ? new double[] { x0.X, 0, 0, 0, 0, 0 } : Quintic(x0.X, xf.X, xm.X, x0d.X, xfd.X, xmd.X, trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[1] = (isStationary) ? new double[] { x0.Y, 0, 0, 0, 0, 0 } : Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[2] = (isStationary) ? new double[] { x0.Z, 0, 0, 0, 0, 0 } : Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, xfd.Z, xmd.Z, trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[3] = Quintic(0, finalAngle, finalAngle / 2, 0, 0, trajectoryTime.TotalMilliseconds);
+        }
+
+        public void updateTrajectoryTime(TimeSpan newTrajectoryTime)
+        {
+            trajectoryTime = newTrajectoryTime;
             _QuinticPerameters[0] = (isStationary) ? new double[] { x0.X, 0, 0, 0, 0, 0 } : Quintic(x0.X, xf.X, xm.X, x0d.X, xfd.X, xmd.X, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[1] = (isStationary) ? new double[] { x0.Y, 0, 0, 0, 0, 0 } : Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[2] = (isStationary) ? new double[] { x0.Z, 0, 0, 0, 0, 0 } : Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, xfd.Z, xmd.Z, trajectoryTime.TotalMilliseconds);

@@ -310,7 +310,7 @@ namespace LightWeight_Server
                 _CurrentSegment = 0;
                 if (!(startPose == ((TaskTrajectory)_ActiveTrajectories[0]).startPose))
                 {
-                    ((TaskTrajectory)_ActiveTrajectories[0]).updateStartPosition(startPose, Pose.Zero); // Changed start velocity to be zero as velocity is noisy
+                    ((TaskTrajectory)_ActiveTrajectories[0]).updateStartPosition(startPose, startVelocity); // can changed start velocity to be zero if velocity is noisy
                 }
                 _lastdesiredPose = _desiredPose;
                 _desiredPose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose;
@@ -328,7 +328,7 @@ namespace LightWeight_Server
         {
             if (!(CurrentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).startPose, 5e-1)))
             {
-                ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).updateStartPosition(CurrentPose, Pose.Zero); // Changed start velocity to be zero as velocity is noisy
+                ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).updateStartPosition(CurrentPose, CurrentVelocity); // can changed start velocity to be zero if velocity is noisy
             }
             _lastdesiredPose = _desiredPose;
             _desiredPose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose;
@@ -381,7 +381,7 @@ namespace LightWeight_Server
                     {
                         _nSegments = _bufferTrajectories.Length;
                         _CurrentSegment = 0;
-                        if (!(currentPose.Equals(((TaskTrajectory)_bufferTrajectories[0]).startPose,1e-1)))
+                        if (!(currentPose.Equals(((TaskTrajectory)_bufferTrajectories[0]).startPose,5e-1)))
                         {
                             ((TaskTrajectory)_bufferTrajectories[0]).updateStartPosition(currentPose, CurrentVelocity);
                         }
@@ -516,7 +516,7 @@ namespace LightWeight_Server
                             _timerHasElapsed = true;
                             if (!currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 1))
                             {
-                                ReStart(currentPose, Pose.Zero);
+                                ReStart(currentPose, _ThisRobot.currentVelocity);
                             }
                         }
                         if (_timerHasElapsed && currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 5))

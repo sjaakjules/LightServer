@@ -113,7 +113,7 @@ namespace LightWeight_Server
         public BasePosition _base = BasePosition.front;
 
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
-        public readonly double _MaxCartesianChange = 0.3;
+        public readonly double _MaxCartesianChange = 0.25;
         public readonly double _MaxAngularChange = 0.1;
         public readonly double _MaxAxisChange = 100e-5; //degrees per cycle
 
@@ -446,6 +446,7 @@ namespace LightWeight_Server
 
         public double[] checkLimits(double[] axisComand)
         {
+            bool wasSaturated = false;
             double[] isSaturated = new double[axisComand.Length];
             for (int i = 0; i < axisComand.Length; i++)
             {
@@ -453,7 +454,12 @@ namespace LightWeight_Server
                 if (Math.Abs(axisComand[i]) > _MaxAxisChange)
                 {
                     isSaturated[i] = Math.Sign(axisComand[i]) * _MaxAxisChange;
+                    wasSaturated = true;
                 }
+            }
+            if (wasSaturated)
+            {
+                updateLog("Saturation was found");
             }
             return isSaturated;
         }
@@ -602,7 +608,7 @@ namespace LightWeight_Server
                 // Robot Drives are on
                 if (!_DrivesOn)
                 {
-                    _TrajectoryHandler.ReStart(_lastPose.LastElement, _lastVelocity.LastElement);
+                    _TrajectoryHandler.ReStart(_lastPose.LastElement, Pose.Zero);
                     _DrivesOn = true;
                 }
             }
@@ -1219,12 +1225,14 @@ namespace LightWeight_Server
                         Speeding = false;
                         double[] totalArea = new double[] { 0, 0, 0, 0, 0, 0 };
                         double[] areaOverSpeed = new double[] { 0, 0, 0, 0, 0, 0 };
-                        for (double t = 0; t <= newTrajectories[i].trajectoryTime.TotalMilliseconds; t++)
+                        Stopwatch simTime = new Stopwatch();
+                        simTime.Start();
+                        // Run simulation
+                        for (double t = 0; t <= newTrajectories[i].trajectoryTime.TotalMilliseconds; t+=4)
                         {
                             try
                             {
                                 SimAngles = IKSolver(((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t), SimAngles);
-                                t += 4;
                                 AngleSpeed = SimAngles.subtract(LastSimAngles);
                                 totalArea = totalArea.add(AngleSpeed.multiply(4.0));
                                 for (int j = 0; j < AngleSpeed.Length; j++)
@@ -1241,12 +1249,14 @@ namespace LightWeight_Server
                                         timeSpeeding += 4;
                                     }
                                 }
+                                updateCSVLog(string.Format("{3},{0},{1},{2};", SF.printDouble(totalArea), SF.printDouble(totalArea), SF.printDouble(totalArea),t));
                             }
                             catch (Exception e)
                             {
                                 updateError(string.Format("Trajectory exits worskspace at {0}ms at {1}", t, ((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t)), e);
                                 return false;
                             }
+
                         }
                         // Slow down the trajectory and re-run simulation.
                         if (Speeding)
@@ -1263,7 +1273,10 @@ namespace LightWeight_Server
                             }
                             double ratio = 1.0 * areaOverSpeed[maxIndice] / totalArea[maxIndice];
                             TimeSpan newtime = new TimeSpan(0, 0, 0, 0, (int)(lambda*newTrajectories[i].trajectoryTime.TotalMilliseconds / ratio));
+                            ((TrajectoryQuintic)newTrajectories[i]).updateTrajectoryTime(newtime);
                         }
+                        updateLog(string.Format("Sim duration: {2}\nIs Trajectory speeding: {0}/nArea over speed: [{1}]", Speeding.ToString(), SF.printDouble(areaOverSpeed), simTime.Elapsed.TotalMilliseconds));
+                        simTime.Restart();
                     }
 
                     // ISSUES: 
@@ -1302,6 +1315,10 @@ namespace LightWeight_Server
         public void updateLog(string Logmsg)
         {
             _GUI.updateLog(Logmsg);
+        }
+        public void updateCSVLog(string Logmsg)
+        {
+            _GUI.updateCSVLog(Logmsg);
         }
         #endregion
 

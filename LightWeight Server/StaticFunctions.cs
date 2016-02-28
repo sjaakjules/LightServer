@@ -1475,6 +1475,13 @@ namespace LightWeight_Server
     public static class SF
     {
         #region Printing Functions
+        /// <summary>
+        /// Returns a string in CSV format. Will break if a null array is passed.
+        /// Format returned looks like: [#,#,#] where # represent double values with 
+        /// 7 trailing decimals and there is no splitter before or after the first and last number respectively
+        /// </summary>
+        /// <param name="array"></param> Array of >1 size to return as strings in CSV format.
+        /// <returns></returns>
         public static string printDouble(double[] array)
         {
             StringBuilder printingstring = new StringBuilder();
