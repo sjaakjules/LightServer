@@ -115,7 +115,7 @@ namespace LightWeight_Server
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
         public readonly double _MaxCartesianChange = 0.25;
         public readonly double _MaxAngularChange = 0.1;
-        public readonly double _MaxAxisChange = 100e-5; //degrees per cycle
+        public readonly double _MaxAxisChange = 5e-3; //degrees per cycle
 
         double _maxLinearVelocity = 0.25; // in mm/ms
         double _maxAngularVelocity = .08; // in deg/ms
@@ -1234,9 +1234,9 @@ namespace LightWeight_Server
                             {
                                 SimAngles = IKSolver(((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t), SimAngles);
                                 AngleSpeed = SimAngles.subtract(LastSimAngles);
-                                totalArea = totalArea.add(AngleSpeed.multiply(4.0));
                                 for (int j = 0; j < AngleSpeed.Length; j++)
                                 {
+                                    totalArea[j] += Math.Abs(AngleSpeed[j]) * 4.0;
                                     bool tooFast = false;
                                     if (Math.Abs(AngleSpeed[j]) > _MaxAxisChange)
                                     {
@@ -1249,7 +1249,7 @@ namespace LightWeight_Server
                                         timeSpeeding += 4;
                                     }
                                 }
-                                updateCSVLog(string.Format("{3},{0},{1},{2};", SF.printDouble(totalArea), SF.printDouble(totalArea), SF.printDouble(totalArea),t));
+                                updateCSVLog(string.Format("{3},{0},{1},{2};", SF.printDouble(totalArea), SF.printDouble(areaOverSpeed), SF.printDouble(AngleSpeed),t));
                             }
                             catch (Exception e)
                             {
@@ -1273,9 +1273,11 @@ namespace LightWeight_Server
                             }
                             double ratio = 1.0 * areaOverSpeed[maxIndice] / totalArea[maxIndice];
                             TimeSpan newtime = new TimeSpan(0, 0, 0, 0, (int)(lambda*newTrajectories[i].trajectoryTime.TotalMilliseconds / ratio));
+
+                            updateLog(string.Format("OldTime: {0}/nNewTime: {1}/nratio: {2}", newTrajectories[i].trajectoryTime.TotalMilliseconds, newtime.TotalMilliseconds, ratio));
                             ((TrajectoryQuintic)newTrajectories[i]).updateTrajectoryTime(newtime);
                         }
-                        updateLog(string.Format("Sim duration: {2}\nIs Trajectory speeding: {0}/nArea over speed: [{1}]", Speeding.ToString(), SF.printDouble(areaOverSpeed), simTime.Elapsed.TotalMilliseconds));
+                        updateLog(string.Format("Sim duration: {2}/nIs Trajectory speeding: {0}/nArea over speed: [{1}]/nTotal Area: {3}", Speeding.ToString(), SF.printDouble(areaOverSpeed), simTime.Elapsed.TotalMilliseconds, SF.printDouble(totalArea)));
                         simTime.Restart();
                     }
 
