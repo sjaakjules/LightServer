@@ -367,6 +367,7 @@ namespace LightWeight_Server
             _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
             TimeSpan LineartrajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)averageVelocity);
             TimeSpan AngularTrajectoryTime = TimeSpan.FromMilliseconds(720.0 * _finalAngle /( (_robot==null)? (Math.PI * 0.08) : (Math.PI * _robot._MaxAngularChange)));
+            _robot.updateLog(string.Format("Linear Time: {0}\nAngular Time: {1}", LineartrajectoryTime, AngularTrajectoryTime));
             trajectoryTime = (LineartrajectoryTime.TotalMilliseconds > AngularTrajectoryTime.TotalMilliseconds) ? LineartrajectoryTime : AngularTrajectoryTime;
             _QuinticPerameters[0] = (isStationary) ? new double[] { x0.X, 0, 0, 0, 0, 0 } : Quintic(x0.X, xf.X, xm.X, x0d.X, xfd.X, xmd.X, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[1] = (isStationary) ? new double[] { x0.Y, 0, 0, 0, 0, 0 } : Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, trajectoryTime.TotalMilliseconds);
