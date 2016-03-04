@@ -115,13 +115,14 @@ namespace LightWeight_Server
             string catchStatement = " while trying to bind local EP:";
             try
             {
-                _UdpSocket.Bind((EndPoint)_localEP);
+                _UdpSocket.Bind(_localEP);
                 _GUI.updateError("External Server IP bound: " + _UdpSocket.LocalEndPoint.ToString(), new Exception("External Server: "));
                 Console.WriteLine("External Server IP bound: " + _UdpSocket.LocalEndPoint.ToString());
             }
             catch (SocketException se)
             {
                 _GUI.updateError("SocketException " + catchStatement, se);
+                _GUI.updateError(string.Format("local IP: {0} | {1}", _localEP.Address.ToString(), _localEP.Port), new Exception("Shit gone wrong"));
             }
             catch (ObjectDisposedException ob)
             {

@@ -113,12 +113,12 @@ namespace LightWeight_Server
         public BasePosition _base = BasePosition.front;
 
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
-        public readonly double _MaxCartesianChange = 0.25;
-        public readonly double _MaxAngularChange = 0.1;
-        public readonly double _MaxAxisChange = 5e-3; //degrees per cycle
+        public readonly double _MaxCartesianChange = 0.8;
+        public readonly double _MaxAngularChange = 4e-3; // in radians around 0.004 = 57deg/s
+        public readonly double _MaxAxisChange = 4e-3; //radians per cycle where 0.004 = 57deg/s
 
-        double _maxLinearVelocity = 0.25; // in mm/ms
-        double _maxAngularVelocity = .08; // in deg/ms
+        double _maxLinearVelocity = 0.8 / 4; // in mm/ms
+        double _maxAngularVelocity = 0.05; // in deg/ms
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
         
@@ -886,6 +886,18 @@ namespace LightWeight_Server
             return new Pose(M);
         }
 
+        /// <summary>
+        /// The uses geometry to calculate the potential solutions to the first three joints. 
+        /// The output are the closest values to the last motor angles.
+        /// Exceptions are thrown when the outcome is out of the workspace.
+        /// all angles are in radians
+        /// </summary>
+        /// <param name="des"></param>
+        /// <param name="EE"></param>
+        /// <param name="lastVal"></param>
+        /// <param name="elbow"></param>
+        /// <param name="basePos"></param>
+        /// <returns></returns>
         double[] IK1to3(Pose des, Vector3 EE, double[] lastVal, ref ElbowPosition elbow, ref BasePosition basePos)
         {
             double Zmin = -50;
@@ -1046,6 +1058,17 @@ namespace LightWeight_Server
             return IKSolver(DesiredPose,EndEffector,currentAxisAngle,ref _elbow, ref _base);
         }
 
+
+        /// <summary>
+        /// IK given Pose, end effector size, last motor angles and reference elbow or base direction.
+        /// The angles are in radians
+        /// </summary>
+        /// <param name="DesiredPose"></param>
+        /// <param name="EE"></param>
+        /// <param name="thetaLast"></param>
+        /// <param name="elbow"></param>
+        /// <param name="basePos"></param>
+        /// <returns></returns>
         public double[] IKSolver(Pose DesiredPose, Vector3 EE, double[] thetaLast, ref ElbowPosition elbow, ref BasePosition basePos)
         {
             // Rotate the desired pose to alight tool tip with last link.
@@ -1158,9 +1181,9 @@ namespace LightWeight_Server
                 // Cap the average velocity!
                 for (int i = 0; i < AverageVelocity.Length; i++)
                 {
-                    if (AverageVelocity[i] > 0.1)
+                    if (AverageVelocity[i] > _maxLinearVelocity)
                     {
-                        AverageVelocity[i] = 0.1;
+                        AverageVelocity[i] = _maxLinearVelocity;
                     }
                 }
 
@@ -1206,6 +1229,15 @@ namespace LightWeight_Server
             return false;
         }
 
+
+        /// <summary>
+        /// This runs a simulation of the trajectory and will check if there is collisions or out of bound movements during hte trajectory.
+        /// It also checks the speed of the motors and will slow down the trajectory if motors move too quickly which creates instability in the controller.
+        /// all angles should be in radians
+        /// </summary>
+        /// <param name="newTrajectories"></param>
+        /// <param name="startAngle"></param>
+        /// <returns></returns>
         bool checkTrajectories(Trajectory[] newTrajectories, double[] startAngle)
         {
             double lambda = 1.5;
@@ -1213,43 +1245,45 @@ namespace LightWeight_Server
             {
                 double[] SimAngles = new double[6];
                 double[] LastSimAngles = new double[6];
-                double[] AngleSpeed = new double[6];
+                double[] AngleChange = new double[6];
                 startAngle.CopyTo(SimAngles, 0);
                 startAngle.CopyTo(LastSimAngles, 0);
-                int timeSpeeding = 0;
+                
                 for (int i = 0; i < newTrajectories.Length; i++)
                 {
                     bool Speeding = true;
                     while (Speeding)
                     {
+                        int timeSpeeding = 0;
                         Speeding = false;
                         double[] totalArea = new double[] { 0, 0, 0, 0, 0, 0 };
                         double[] areaOverSpeed = new double[] { 0, 0, 0, 0, 0, 0 };
                         Stopwatch simTime = new Stopwatch();
                         simTime.Start();
                         // Run simulation
-                        for (double t = 0; t <= newTrajectories[i].trajectoryTime.TotalMilliseconds; t+=4)
+                        for (double t = 0; t <= newTrajectories[i].trajectoryTime.TotalMilliseconds; t+=40)
                         {
                             try
                             {
                                 SimAngles = IKSolver(((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t), SimAngles);
-                                AngleSpeed = SimAngles.subtract(LastSimAngles);
-                                for (int j = 0; j < AngleSpeed.Length; j++)
+                                AngleChange = (SimAngles.subtract(LastSimAngles));
+                                for (int j = 0; j < AngleChange.Length; j++)
                                 {
-                                    totalArea[j] += Math.Abs(AngleSpeed[j]) * 4.0;
+                                    totalArea[j] += Math.Abs(AngleChange[j]) * 40;
                                     bool tooFast = false;
-                                    if (Math.Abs(AngleSpeed[j]) > _MaxAxisChange)
+                                    if ((1.0 * Math.Abs(AngleChange[j]) / 10) > _MaxAxisChange)
                                     {
-                                        areaOverSpeed[j] += (Math.Abs(AngleSpeed[j]) - _MaxAxisChange) * 4.0;
+                                        areaOverSpeed[j] += (1.0 * (Math.Abs(AngleChange[j]) / 10) - _MaxAxisChange) * 40;
                                         tooFast = true;
                                         Speeding = true;
                                     }
                                     if (tooFast)
                                     {
-                                        timeSpeeding += 4;
+                                        timeSpeeding += 40;
                                     }
                                 }
-                                updateCSVLog(string.Format("{3},{0},{1},{2};", SF.printDouble(totalArea), SF.printDouble(areaOverSpeed), SF.printDouble(AngleSpeed),t));
+                               // updateCSVLog(string.Format("{3},{0},{1},{2};", SF.printDouble(totalArea), SF.printDouble(areaOverSpeed), SF.printDouble(AngleChange), t));
+                                updateCSVLog(string.Format("{0},{1};", t, ((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t).ToString("PosZ")));
                             }
                             catch (Exception e)
                             {
@@ -1271,13 +1305,13 @@ namespace LightWeight_Server
                                     maxIndice = k;
                                 }
                             }
-                            double ratio = 1.0 * areaOverSpeed[maxIndice] / totalArea[maxIndice];
+                            double ratio = 1.0 * (totalArea[maxIndice] - areaOverSpeed[maxIndice]) / totalArea[maxIndice];
                             TimeSpan newtime = new TimeSpan(0, 0, 0, 0, (int)(lambda*newTrajectories[i].trajectoryTime.TotalMilliseconds / ratio));
 
-                            updateLog(string.Format("OldTime: {0}/nNewTime: {1}/nratio: {2}", newTrajectories[i].trajectoryTime.TotalMilliseconds, newtime.TotalMilliseconds, ratio));
+                            updateLog(string.Format("OldTime: {0}\nNewTime: {1}\nratio: {2}", newTrajectories[i].trajectoryTime.TotalMilliseconds, newtime.TotalMilliseconds, ratio));
                             ((TrajectoryQuintic)newTrajectories[i]).updateTrajectoryTime(newtime);
                         }
-                        updateLog(string.Format("Sim duration: {2}/nIs Trajectory speeding: {0}/nArea over speed: [{1}]/nTotal Area: {3}", Speeding.ToString(), SF.printDouble(areaOverSpeed), simTime.Elapsed.TotalMilliseconds, SF.printDouble(totalArea)));
+                        updateLog(string.Format("Sim duration: {2}\nIs Trajectory speeding: {0}\nArea over speed: [{1}]\nTotal Area: {3}\nTimeSpeeding: {4}", Speeding.ToString(), SF.printDouble(areaOverSpeed), simTime.Elapsed.TotalMilliseconds, SF.printDouble(totalArea), timeSpeeding));
                         simTime.Restart();
                     }
 
@@ -1321,6 +1355,10 @@ namespace LightWeight_Server
         public void updateCSVLog(string Logmsg)
         {
             _GUI.updateCSVLog(Logmsg);
+        }
+        public void updateCSVLog2(string Logmsg)
+        {
+            _GUI.updateCSVLog2(Logmsg);
         }
         #endregion
 

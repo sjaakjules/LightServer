@@ -30,7 +30,7 @@ namespace LightWeight_Server
                 KukaServerThread[i] = new Thread(KukaServer[i].ConstantReceive);
             }
 
-            ExternalServer externalServer = new ExternalServer(5000, ConnectedRobots, GUI);
+            ExternalServer externalServer = new ExternalServer(5005, ConnectedRobots, GUI);
             Thread externalReceiveThread = new Thread(externalServer.ConstantReceive);
             Thread externalSendThread = new Thread(externalServer.ConstantSendData);
 

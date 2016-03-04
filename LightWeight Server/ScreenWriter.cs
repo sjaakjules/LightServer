@@ -23,6 +23,7 @@ namespace LightWeight_Server
         object debuggerLock = new object();
         object CSVdebuggerLock = new object();
         object controlDAtaLock = new object();
+        object CSVLogLock = new object();
 
         readonly string DirectoryName = "DataInfo" + Guid.NewGuid().ToString("");
 
@@ -46,7 +47,7 @@ namespace LightWeight_Server
         RobotInfo[] _ConnectedRobots;
 
         StringBuilder _ErrorWriter = new StringBuilder(), _Debugger = new StringBuilder(), _DisplayMsg = new StringBuilder(), _ControlData = new StringBuilder(), _CSVdebugData = new StringBuilder();
-
+        StringBuilder _CSVLog = new StringBuilder();
         //ConcurrentDictionary<string, Stopwatch> _Timers = new ConcurrentDictionary<string,Stopwatch>();
 
         TimeSpan A3 = TimeSpan.Zero, A4 = TimeSpan.Zero, A5 = TimeSpan.Zero, A6 = TimeSpan.Zero;
@@ -101,6 +102,7 @@ namespace LightWeight_Server
             _ConnectedRobots = new RobotInfo[_nConnectedRobots];
             // Initialises the screen variables.
             lastLog = DateTime.Now.Ticks;
+            _CSVLog.Append("t,x0,x1,x2,x3,x4,x5,y0,y1,y2,y3,y4,y5,z0,z1,z2,z3,z4,z5,a0,a1,a2,a3,a4,a5;");
         }
 
         public void ConnectRobot(RobotInfo newRobot, int number)
@@ -254,6 +256,17 @@ namespace LightWeight_Server
                     {
                         file.WriteLine(_CSVdebugData);
                         _CSVdebugData.Clear();
+                    }
+                }
+            }
+            using (StreamWriter file = new StreamWriter(DirectoryName + "/CSVDebug2" + ".csv", true))
+            {
+                lock (CSVLogLock)
+                {
+                    if (_CSVLog.Length != 0)
+                    {
+                        file.WriteLine(_CSVLog);
+                        _CSVLog.Clear();
                     }
                 }
             }
@@ -549,6 +562,16 @@ namespace LightWeight_Server
                 //long timestamp = DateTime.Now.Ticks;
                 //_Debugger.AppendLine(string.Format("{0:hh:mm:ss:fff} | {1:0.0}ms ago.", timestamp, 1.0 * (lastLog - timestamp) / TimeSpan.TicksPerMillisecond));
                 _CSVdebugData.AppendLine(Logmsg);
+                //lastLog = timestamp;
+            }
+        }
+        internal void updateCSVLog2(string Logmsg)
+        {
+            lock (CSVLogLock)
+            {
+                //long timestamp = DateTime.Now.Ticks;
+                //_Debugger.AppendLine(string.Format("{0:hh:mm:ss:fff} | {1:0.0}ms ago.", timestamp, 1.0 * (lastLog - timestamp) / TimeSpan.TicksPerMillisecond));
+                _CSVLog.AppendLine(Logmsg);
                 //lastLog = timestamp;
             }
         }

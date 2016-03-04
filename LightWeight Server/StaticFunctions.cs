@@ -970,6 +970,8 @@ namespace LightWeight_Server
             switch (format)
             {
 
+                case "PosZ": return string.Format("{0},{1},{2},{3},{4},{5}", this._x, this._y, this._z, this.zAxis.X, this.zAxis.Y, this.zAxis.Z);
+
                 case "data": return string.Format("{0},{1},{2},{3},{4},{5},{6}", this._x, this._y, this._z, this.angle, this.axis.X, this.axis.Y, this.axis.Z);
 
                 case "Display": return string.Format("({0:0.000},{1:0.000},{2:0.000},{3:0.000},{4:0.000},{5:0.000})", this._x, this._y, this._z, this._kukaValues[3], this._kukaValues[4], this._kukaValues[5]);
