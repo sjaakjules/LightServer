@@ -78,7 +78,6 @@ namespace LightWeight_Server
 
         Thread constantSender;
 
-        string[] _digIOkay = new string[] { "o1", "o2", "o3", "o4", "o5", "o6", "o7", "o8" };
 
         #region Constructor:
         /// <summary>
@@ -379,6 +378,19 @@ namespace LightWeight_Server
                         case "Robot":
                             _Robot.updateSignal(double.Parse(Node.Attributes["Active1"].Value), double.Parse(Node.Attributes["Active2"].Value));
                             break;
+                        case "Digio":
+                            lock (_Robot.DigioInLock)
+                            {
+                                _Robot.DigIOin[0] = int.Parse(Node.Attributes["o1"].Value);
+                                _Robot.DigIOin[1] = int.Parse(Node.Attributes["o2"].Value);
+                                _Robot.DigIOin[2] = int.Parse(Node.Attributes["o3"].Value);
+                                _Robot.DigIOin[3] = int.Parse(Node.Attributes["o4"].Value);
+                                _Robot.DigIOin[4] = int.Parse(Node.Attributes["o5"].Value);
+                                _Robot.DigIOin[5] = int.Parse(Node.Attributes["o6"].Value);
+                                _Robot.DigIOin[6] = int.Parse(Node.Attributes["o7"].Value);
+                                _Robot.DigIOin[7] = int.Parse(Node.Attributes["o8"].Value);
+                            }
+                            break;
                         default:
                             break;
                     }
@@ -670,7 +682,7 @@ namespace LightWeight_Server
             {
                 for (int i = 0; i < _Robot.DigIO.Length; i++)
                 {
-                    DigIOnode.Attributes[_digIOkay[i]].Value = _Robot.DigIO[i].ToString();
+                    DigIOnode.Attributes[_Robot._digIOkay[i]].Value = _Robot.DigIO[i].ToString();
                 }
             }
 

@@ -52,6 +52,7 @@ namespace LightWeight_Server
         object incrimentLock = new object();
         object connectionLock = new object();
         public object DigioLock = new object();
+        public object DigioInLock = new object();
 
         Stopwatch _KukaCycleTime = new Stopwatch();
        // public Stopwatch IPOC = new Stopwatch();
@@ -136,7 +137,8 @@ namespace LightWeight_Server
         double[] _HomeAngles = new double[6];
 
         public int[] DigIO = new int[] { 0, 0, 0, 0, 0, 0, 0, 0 };
-
+        public int[] DigIOin = new int[] { 0, 0, 0, 0, 0, 0, 0, 0 };
+        public string[] _digIOkay = new string[] { "o1", "o2", "o3", "o4", "o5", "o6", "o7", "o8" };
 
         #region Properties
         public Quaternion TaskspaceRotation { get { return _TaskRotation; } }
@@ -1263,30 +1265,37 @@ namespace LightWeight_Server
                         double[] areaOverSpeed = new double[] { 0, 0, 0, 0, 0, 0 };
                         Stopwatch simTime = new Stopwatch();
                         simTime.Start();
+
                         // Run simulation
-                        for (double t = 0; t <= newTrajectories[i].trajectoryTime.TotalMilliseconds; t+=40)
+                        for (double t = 0; t <= ((TrajectoryQuintic)newTrajectories[i]).trajectoryTime.TotalMilliseconds; t += 40)
                         {
                             try
                             {
                                 SimAngles = IKSolver(((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t), SimAngles);
+
+                                // Remove check for saturation as i cant slow down a trajectory time.
+                                /*
                                 AngleChange = (SimAngles.subtract(LastSimAngles));
+                                bool tooFast = false;
                                 for (int j = 0; j < AngleChange.Length; j++)
                                 {
                                     totalArea[j] += Math.Abs(AngleChange[j]) * 40;
-                                    bool tooFast = false;
-                                    if ((1.0 * Math.Abs(AngleChange[j]) / 10) > _MaxAxisChange)
+                                    
+                                    if ((1.0 * Math.Abs(AngleChange[j]) / 10.0) > _MaxAxisChange)
                                     {
-                                        areaOverSpeed[j] += (1.0 * (Math.Abs(AngleChange[j]) / 10) - _MaxAxisChange) * 40;
+                                        areaOverSpeed[j] += ((1.0 * Math.Abs(AngleChange[j]) / 10.0) - _MaxAxisChange) * 40;
                                         tooFast = true;
                                         Speeding = true;
                                     }
-                                    if (tooFast)
-                                    {
-                                        timeSpeeding += 40;
-                                    }
+                                }
+                                if (tooFast)
+                                {
+                                    timeSpeeding += 40;
                                 }
                                // updateCSVLog(string.Format("{3},{0},{1},{2};", SF.printDouble(totalArea), SF.printDouble(areaOverSpeed), SF.printDouble(AngleChange), t));
-                                updateCSVLog(string.Format("{0},{1};", t, ((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t).ToString("PosZ")));
+                                //updateCSVLog(string.Format("{0},{1};", t, ((TrajectoryQuintic)newTrajectories[i]).getReferencePosition(t).ToString("PosZ")));
+                                //updateCSVLog(string.Format("{0},{1};",t,SF.printDouble(AngleChange)));
+                                 */
                             }
                             catch (Exception e)
                             {
@@ -1295,7 +1304,9 @@ namespace LightWeight_Server
                             }
 
                         }
+
                         // Slow down the trajectory and re-run simulation.
+                        /*
                         if (Speeding)
                         {
                             int maxIndice = 0;
@@ -1316,6 +1327,9 @@ namespace LightWeight_Server
                         }
                         updateLog(string.Format("Sim duration: {2}\nIs Trajectory speeding: {0}\nArea over speed: [{1}]\nTotal Area: {3}\nTimeSpeeding: {4}", Speeding.ToString(), SF.printDouble(areaOverSpeed), simTime.Elapsed.TotalMilliseconds, SF.printDouble(totalArea), timeSpeeding));
                         simTime.Restart();
+                         */
+
+                        Speeding = false;
                     }
 
                     // ISSUES: 
@@ -1329,6 +1343,12 @@ namespace LightWeight_Server
                      * 
                      * 
                      * What i am testing is finding the ratio of area over speed with total area, multiplying some scaling lambda with total time...
+                     * 
+                     * This is not working, the results are unusual and as i increase the trajectory time the speed doesnt change. 
+                     * i get stuck in an infinate loop where if its speeding time is increased and remains speeding... Dont understand why increasing the 
+                     * Trajectory time doesnt slow it down, ploting out quinting cooefficients and angles give weird results but ploting out the pose it appears
+                     * to follow the right path, and slower... so i think its working apart from the sim and any time i get at the numbers it is not working... 
+                     * 3 days of testing, plotting and changing and can not work out what the root of the issue is so removing this check.
                      */
 
                 }

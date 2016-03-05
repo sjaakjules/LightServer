@@ -194,7 +194,7 @@ namespace LightWeight_Server
                 string catchStatement = "while trying to begin receiving data:";
                 try
                 {
-                    newState.clientEP = (EndPoint)new IPEndPoint(IPAddress.Any, _Port); ;
+                    newState.clientEP = (EndPoint)new IPEndPoint(IPAddress.Any, _Port); 
                     _UdpSocket.BeginReceiveFrom(_buffer, 0, _BufferSize, SocketFlags.None, ref newState.clientEP, new AsyncCallback(FinishReceiveFrom), newState);
                 }
                 catch (SocketException se)
@@ -587,7 +587,7 @@ namespace LightWeight_Server
                                     _GUI.updateError(string.Format("Loaded pose of type: {0}", Trajectorys[0].ToString()), new Exception("external server:"));
                                     _loadedPoses = _Robot[nRobot].newPoses(N, FinalPoseList, AveVelocityList, EndVelocityList, Trajectorys);
 
-                                    
+
                                     // Loaded all poses and velocities associated with the trajectory of each new pose.
                                     // If errors are encounted during the load it uses last pose as default values
                                     // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
@@ -598,7 +598,7 @@ namespace LightWeight_Server
                                     _GUI.updateError("Failed to update pose", new Exception("external server:"));
                                 }
 
-                            
+
                                 break;
                             case "Pose":
                                 bool UpdatedPose = false;
@@ -614,8 +614,8 @@ namespace LightWeight_Server
                                     // If errors are encounted during the load it uses last pose as default values
                                     // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
 
-                                    _GUI.updateError(string.Format("Loaded pose of type: {0}",trajType.ToString()), new Exception("external server:"));
-                                    _loadedPoses = _Robot[nRobot].newPoses(1, new Pose[] { newFinalPoseList }, new double[] { newEndVelocityList }, new double[] { newAveVelocityList }, new TrajectoryTypes[] {trajType});
+                                    _GUI.updateError(string.Format("Loaded pose of type: {0}", trajType.ToString()), new Exception("external server:"));
+                                    _loadedPoses = _Robot[nRobot].newPoses(1, new Pose[] { newFinalPoseList }, new double[] { newEndVelocityList }, new double[] { newAveVelocityList }, new TrajectoryTypes[] { trajType });
                                 }
                                 else
                                 {
@@ -641,6 +641,116 @@ namespace LightWeight_Server
                                 else
                                 {
                                     _Robot[nRobot].gripperIsOpen = true;
+                                }
+                                break;
+                            case "DigitalIO":
+                                if (Node.Attributes != null)
+                                {
+                                    foreach (XmlAttribute attribute in Node.Attributes)
+                                    {
+                                        int newIO = -1;
+                                        switch (attribute.Name)
+                                        {
+                                            case "o1":
+                                                if (int.TryParse(attribute.Value, out newIO))
+                                                {
+                                                    if (newIO == 0 || newIO == 1)
+                                                    {
+                                                        lock (_Robot[nRobot].DigioLock)
+                                                        {
+                                                            _Robot[nRobot].DigIO[0] = newIO;
+                                                        }
+                                                    }
+                                                }
+                                                break;
+                                            case "o2":
+                                                if (int.TryParse(attribute.Value, out newIO))
+                                                {
+                                                    if (newIO == 0 || newIO == 1)
+                                                    {
+                                                        lock (_Robot[nRobot].DigioLock)
+                                                        {
+                                                            _Robot[nRobot].DigIO[1] = newIO;
+                                                        }
+                                                    }
+                                                }
+                                                break;
+                                            case "o3":
+                                                if (int.TryParse(attribute.Value, out newIO))
+                                                {
+                                                    if (newIO == 0 || newIO == 1)
+                                                    {
+                                                        lock (_Robot[nRobot].DigioLock)
+                                                        {
+                                                            _Robot[nRobot].DigIO[2] = newIO;
+                                                        }
+                                                    }
+                                                }
+                                                break;
+                                            case "o4":
+                                                if (int.TryParse(attribute.Value, out newIO))
+                                                {
+                                                    if (newIO == 0 || newIO == 1)
+                                                    {
+                                                        lock (_Robot[nRobot].DigioLock)
+                                                        {
+                                                            _Robot[nRobot].DigIO[3] = newIO;
+                                                        }
+                                                    }
+                                                }
+                                                break;
+                                            case "o5":
+                                                if (int.TryParse(attribute.Value, out newIO))
+                                                {
+                                                    if (newIO == 0 || newIO == 1)
+                                                    {
+                                                        lock (_Robot[nRobot].DigioLock)
+                                                        {
+                                                            _Robot[nRobot].DigIO[4] = newIO;
+                                                        }
+                                                    }
+                                                }
+                                                break;
+                                            case "o6":
+                                                if (int.TryParse(attribute.Value, out newIO))
+                                                {
+                                                    if (newIO == 0 || newIO == 1)
+                                                    {
+                                                        lock (_Robot[nRobot].DigioLock)
+                                                        {
+                                                            _Robot[nRobot].DigIO[5] = newIO;
+                                                        }
+                                                    }
+                                                }
+                                                break;
+                                            case "o7":
+                                                if (int.TryParse(attribute.Value, out newIO))
+                                                {
+                                                    if (newIO == 0 || newIO == 1)
+                                                    {
+                                                        lock (_Robot[nRobot].DigioLock)
+                                                        {
+                                                            _Robot[nRobot].DigIO[6] = newIO;
+                                                        }
+                                                    }
+                                                }
+                                                break;
+                                            case "o8":
+                                                if (int.TryParse(attribute.Value, out newIO))
+                                                {
+                                                    if (newIO == 0 || newIO == 1)
+                                                    {
+                                                        lock (_Robot[nRobot].DigioLock)
+                                                        {
+                                                            _Robot[nRobot].DigIO[7] = newIO;
+                                                        }
+                                                    }
+                                                }
+                                                break;
+                                            default:
+                                                break;
+                                        }
+                                    }
                                 }
                                 break;
                             default:
@@ -710,6 +820,32 @@ namespace LightWeight_Server
             currentPosition.Attributes.Append(attribute);
             rootNode.AppendChild(currentPosition);
 
+            XmlNode DigIO = _SendXML.CreateElement("DigitalIO");
+            attribute = _SendXML.CreateAttribute("o1");
+            attribute.Value = "0";
+            DigIO.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o2");
+            attribute.Value = "0";
+            DigIO.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o3");
+            attribute.Value = "0";
+            DigIO.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o4");
+            attribute.Value = "0";
+            DigIO.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o5");
+            attribute.Value = "0";
+            DigIO.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o6");
+            attribute.Value = "0";
+            DigIO.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o7");
+            attribute.Value = "0";
+            DigIO.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o8");
+            attribute.Value = "0";
+            DigIO.Attributes.Append(attribute);
+            rootNode.AppendChild(DigIO);
 
             XmlNode errorNode = _SendXML.CreateElement("EMessage");
             rootNode.AppendChild(errorNode);
@@ -755,6 +891,18 @@ namespace LightWeight_Server
                     axisInfo.Append( String.Format(",{0:0.0000}", _Robot[0].currentAxisAngle[i]));
                 }
                 currentPosition.Attributes["Axis"].Value = axisInfo.ToString();
+            }
+
+            XmlNode DigIO = _SendXML.SelectSingleNode("//Robot/DigitalIO");
+            if (DigIO != null)
+            {
+                lock (_Robot[0].DigioInLock)
+                {
+                    for (int i = 0; i < 8; i++)
+                    {
+                        DigIO.Attributes[_Robot[0]._digIOkay[i]].Value = _Robot[0].DigIOin[i].ToString();
+                    }
+                }
             }
 
             XmlNode ErrorMsg = _SendXML.SelectSingleNode("//Robot/EMessage");
