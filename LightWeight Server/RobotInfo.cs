@@ -51,6 +51,7 @@ namespace LightWeight_Server
         object telemetryLock = new object();
         object incrimentLock = new object();
         object connectionLock = new object();
+        public object DigioLock = new object();
 
         Stopwatch _KukaCycleTime = new Stopwatch();
        // public Stopwatch IPOC = new Stopwatch();
@@ -114,7 +115,7 @@ namespace LightWeight_Server
 
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
         public readonly double _MaxCartesianChange = 0.8;
-        public readonly double _MaxAngularChange = 4e-3; // in radians around 0.004 = 57deg/s
+        public readonly double _MaxAngularChange = 2e-3; // in radians around 0.002 = 28deg/s
         public readonly double _MaxAxisChange = 4e-3; //radians per cycle where 0.004 = 57deg/s
 
         double _maxLinearVelocity = 0.8 / 4; // in mm/ms
@@ -133,6 +134,8 @@ namespace LightWeight_Server
 
         double[] _homePosition = new double[6];
         double[] _HomeAngles = new double[6];
+
+        public int[] DigIO = new int[] { 0, 0, 0, 0, 0, 0, 0, 0 };
 
 
         #region Properties

@@ -78,6 +78,8 @@ namespace LightWeight_Server
 
         Thread constantSender;
 
+        string[] _digIOkay = new string[] { "o1", "o2", "o3", "o4", "o5", "o6", "o7", "o8" };
+
         #region Constructor:
         /// <summary>
         /// Creates a UDP server with XML read and write via a port with threadSafe shared robot information
@@ -618,16 +620,34 @@ namespace LightWeight_Server
             attribute.Value = "0.0000";
             comPosNode.Attributes.Append(attribute);
             rootNode.AppendChild(comPosNode);
-             
 
-            XmlNode gripper = _SendXML.CreateElement("GRIPPER");
-            attribute = _SendXML.CreateAttribute("A");
+
+            XmlNode Digout = _SendXML.CreateElement("Digout");
+            attribute = _SendXML.CreateAttribute("o1");
             attribute.Value = "0";
-            gripper.Attributes.Append(attribute);
-            attribute = _SendXML.CreateAttribute("B");
+            Digout.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o2");
             attribute.Value = "0";
-            gripper.Attributes.Append(attribute);
-            rootNode.AppendChild(gripper);
+            Digout.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o3");
+            attribute.Value = "0";
+            Digout.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o4");
+            attribute.Value = "0";
+            Digout.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o5");
+            attribute.Value = "0";
+            Digout.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o6");
+            attribute.Value = "0";
+            Digout.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o7");
+            attribute.Value = "0";
+            Digout.Attributes.Append(attribute);
+            attribute = _SendXML.CreateAttribute("o8");
+            attribute.Value = "0";
+            Digout.Attributes.Append(attribute);
+            rootNode.AppendChild(Digout);
 
             XmlNode IpocNode = _SendXML.CreateElement("IPOC");
             IpocNode.InnerText = "0";
@@ -645,16 +665,13 @@ namespace LightWeight_Server
             {
                 comAxisNode.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.0000000}", newCommand[i] * 4.0 * 180.0 / Math.PI); //* 180.0 / Math.PI
             }
-            XmlNode gripperNode = _SendXML.SelectSingleNode("//Sen/GRIPPER");
-            if (false)
+            XmlNode DigIOnode = _SendXML.SelectSingleNode("//Sen/Digout");
+            lock (_Robot.DigioLock)
             {
-                gripperNode.Attributes["A"].Value = "1";
-                gripperNode.Attributes["B"].Value = "0";
-            }
-            else
-            {
-                gripperNode.Attributes["A"].Value = "0";
-                gripperNode.Attributes["B"].Value = "1";
+                for (int i = 0; i < _Robot.DigIO.Length; i++)
+                {
+                    DigIOnode.Attributes[_digIOkay[i]].Value = _Robot.DigIO[i].ToString();
+                }
             }
 
             state.XMLout = (XmlDocument)_SendXML.Clone();
