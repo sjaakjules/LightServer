@@ -10,6 +10,17 @@ namespace CustomExtensions
 {
     public static class doubleArrayExtensions
     {
+
+        public static double[] truncate(this double[] array, int decimals)
+        {
+            double[] newArray = new double[array.Length];
+            for (int i = 0; i < array.Length; i++)
+            {
+                newArray[i] = Math.Round(array[i], decimals);
+            }
+            return newArray;
+        }
+
         public static double[] getRadian(this double[] array)
         {
             double[] newArray = new double[array.Length];
@@ -2091,19 +2102,26 @@ namespace LightWeight_Server
         public static double[] getAverage(double[][] arraylist)
         {
             int n = arraylist.Length;
-            double[] average = new double[6];
-            for (int i = 0; i < n; i++)
+            if (n < 1)
             {
-                for (int j = 0; j < 6; j++)
+                return  new double[] { 0, 0, 0, 0, 0, 0 };
+            }
+            else
+            {
+                double[] average = new double[] { 0, 0, 0, 0, 0, 0 };
+                for (int i = 0; i < n; i++)
                 {
-                    average[j] += arraylist[i][j];
+                    for (int j = 0; j < 6; j++)
+                    {
+                        average[j] += arraylist[i][j];
+                    }
                 }
+                for (int i = 0; i < 6; i++)
+                {
+                    average[i] = 1.0 * average[i] / n;
+                }
+                return average;
             }
-            for (int i = 0; i < 6; i++)
-            {
-                average[i] = 1.0 * average[i] / n;
-            }
-            return average;
         }
 
         #region Kinamatic equations, FK/IK and transformation matricies

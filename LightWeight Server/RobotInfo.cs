@@ -118,8 +118,9 @@ namespace LightWeight_Server
         public readonly double _MaxCartesianChange = 0.8;
         public readonly double _MaxAngularChange = 2e-3; // in radians around 0.002 = 28deg/s
         public readonly double _MaxAxisChange = 4e-3; //radians per cycle where 0.004 = 57deg/s
+        public readonly double _MaxAxisAccelChange = 2e-4;
 
-        double _maxLinearVelocity = 0.8 / 4; // in mm/ms
+        double _maxLinearVelocity = 0.8 / 2; // in mm/ms
         double _maxAngularVelocity = 0.05; // in deg/ms
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2

@@ -326,7 +326,7 @@ namespace LightWeight_Server
 
         public void ReStart(Pose CurrentPose, Pose CurrentVelocity)
         {
-            if (!(CurrentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).startPose, 5e-1)))
+            if (!(CurrentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).startPose, .5)))
             {
                 ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).updateStartPosition(CurrentPose, CurrentVelocity); // can changed start velocity to be zero if velocity is noisy
             }
@@ -372,6 +372,7 @@ namespace LightWeight_Server
 
         public void LodeBuffer(Pose currentPose, Pose CurrentVelocity)
         {
+         //   CurrentVelocity.Translation = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).normalisedTrajectory * (float)(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).averageVelocity / 4.0);
             // Check and load from buffer
             lock (BufferLock)
             {
@@ -381,7 +382,7 @@ namespace LightWeight_Server
                     {
                         _nSegments = _bufferTrajectories.Length;
                         _CurrentSegment = 0;
-                        if (!(currentPose.Equals(((TaskTrajectory)_bufferTrajectories[0]).startPose,5e-1)))
+                        if (!(currentPose.Equals(((TaskTrajectory)_bufferTrajectories[0]).startPose,0.5)))
                         {
                             ((TaskTrajectory)_bufferTrajectories[0]).updateStartPosition(currentPose, CurrentVelocity);
                         }

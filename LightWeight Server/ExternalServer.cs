@@ -265,14 +265,17 @@ namespace LightWeight_Server
             catch (SocketException se)
             {
                 _GUI.updateError("SocketException " + catchStatement, se);
+                haveReceived.Set();
             }
             catch (ObjectDisposedException ob)
             {
                 _GUI.updateError("ObjectDisposedException " + catchStatement, ob);
+                haveReceived.Set();
             }
             catch (Exception e)
             {
                 _GUI.updateError("Generic error " + catchStatement, e);
+                haveReceived.Set();
             }
         }
 

@@ -10,6 +10,7 @@ using System.Threading;
 using System.Xml;
 using System.IO;
 using System.Diagnostics;
+using CustomExtensions;
 
 namespace LightWeight_Server
 {
@@ -66,7 +67,7 @@ namespace LightWeight_Server
         IPEndPoint _localEP;
         int _Port = 6008;
         XmlDocument _SendXML;
-        long _IPOC, _LIPOC;
+        long _IPOC, _LIPOC, _sentLIPOC;
 
         Stopwatch processDataTimer = new Stopwatch();
         Stopwatch serverTime = new Stopwatch();
@@ -500,6 +501,7 @@ namespace LightWeight_Server
                 {
                     newCommand = new double[] { 0, 0, 0, 0, 0, 0 };
                 }
+                newCommand = newCommand.truncate(5);
                 StateObject newState;
                 StateObject lastlastpacket = lastPacket;
                 int counter = 0;
@@ -510,26 +512,38 @@ namespace LightWeight_Server
                 }
                 if (counter > 0)
                 {
-                    sentAngles.Enqueue(newCommand);
                     double[] average = SF.getAverage(sentAngles.ThreadSafeToArray);
-                    double gamma = 1.5;
                     for (int i = 0; i < 6; i++)
                     {
-                        if (Math.Sign(newCommand[i]) != Math.Sign(average[i]) && (Math.Abs(average[i] - newCommand[i]) > 20e-5))
+                        if (average[i] != 0 && Math.Sign(newCommand[i]) != Math.Sign(average[i]))
                         {
                             newCommand[i] = 0;
                         }
+                        else if ( (Math.Abs(average[i] - newCommand[i]) > _Robot._MaxAxisAccelChange))
+                        {
+                            newCommand[i] = Math.Sign(newCommand[i]) * _Robot._MaxAxisAccelChange;
+                        }
                     }
+                    _Robot.updateCSVLog(SF.printDouble(newCommand));
+                    sentAngles.Enqueue(newCommand);
                     UpdateXML(lastPacket, newCommand);
+
                     SendData(lastPacket);
-                    if (lastlastpacket != null && lastPacket.IPOC < lastlastpacket.IPOC)
+                    if (lastlastpacket != null)
                     {
-                        _Robot.updateError(string.Format("send Ipoc was out of order with Ipoc{0} sent and {1} sent last time", lastPacket.IPOC, lastlastpacket.IPOC), new KukaException("Constrant sender error"));
+                        if (lastPacket.IPOC < lastlastpacket.IPOC)
+                        {
+                            _Robot.updateError(string.Format("send Ipoc was out of order with Ipoc{0} sent and {1} sent last time", lastPacket.IPOC, lastlastpacket.IPOC), new KukaException("Constrant sender error"));
+                        }
+                        if (Math.Abs(lastPacket.IPOC - lastlastpacket.IPOC) > 4)
+                        {
+                            _Robot.updateError(string.Format("The ipoc difference was larger than 4, so must have dropped command\n {0} Ipoc sent \n {1} sent last time\n", lastPacket.IPOC, lastlastpacket.IPOC), new KukaException("Constrant sender error"));
+                        }
                     }
                 }
-                if (sendTimer.Elapsed.TotalMilliseconds > 4)
+                if (sendTimer.Elapsed.TotalMilliseconds > 8)
                 {
-                    _Robot.updateError(string.Format("Send took more than 4ms!!!, was {0}ms",sendTimer.Elapsed.TotalMilliseconds), new KukaException("Constrant sender error"));
+                    _Robot.updateError(string.Format("Send took more than 8ms!!!, was {0}ms",sendTimer.Elapsed.TotalMilliseconds), new KukaException("Constrant sender error"));
                 }
                 /*
                 using (StreamWriter Datafile = new StreamWriter("SendInfo" + ".txt", true))
