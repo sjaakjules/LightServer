@@ -246,6 +246,21 @@ namespace LightWeight_Server
 
         RobotInfo _ThisRobot;
 
+        public Trajectory currentTrajectory
+        {
+            get
+            {
+                if (IsActive)
+                {
+                    return _ActiveTrajectories[_CurrentSegment];
+                }
+                else
+                {
+                    return null;
+                }
+            }
+        }
+
 
         // Constrctor
         public TrajectoryHandler(RobotInfo robot, ScreenWriter GUI)
@@ -308,7 +323,7 @@ namespace LightWeight_Server
             try
             {
                 _CurrentSegment = 0;
-                if (!(startPose == ((TaskTrajectory)_ActiveTrajectories[0]).startPose))
+                if (!(startPose.Equals(((TaskTrajectory)_ActiveTrajectories[0]).startPose,.5)))
                 {
                     ((TaskTrajectory)_ActiveTrajectories[0]).updateStartPosition(startPose, startVelocity); // can changed start velocity to be zero if velocity is noisy
                 }
@@ -382,7 +397,7 @@ namespace LightWeight_Server
                     {
                         _nSegments = _bufferTrajectories.Length;
                         _CurrentSegment = 0;
-                        if (!(currentPose.Equals(((TaskTrajectory)_bufferTrajectories[0]).startPose,0.5)))
+                        if (!(currentPose.Equals(((TaskTrajectory)_bufferTrajectories[0]).startPose,.5)))
                         {
                             ((TaskTrajectory)_bufferTrajectories[0]).updateStartPosition(currentPose, CurrentVelocity);
                         }
@@ -496,48 +511,56 @@ namespace LightWeight_Server
             LodeBuffer(currentPose, CurrentVelocity);
 
             // Check if its active
-            if ( _isActive)
+            if (_isActive)
             {
 
                 _TrajectoryTime.Start();
                 if (_ActiveTrajectories[_CurrentSegment].type != TrajectoryTypes.Joint)
                 {
-                        Pose ReferencePose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferencePosition(_TrajectoryTime.Elapsed.TotalMilliseconds);
-                        Pose ReferenceVelocity = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferenceVelocity(_TrajectoryTime.Elapsed.TotalMilliseconds);
-                        _ReferencePose.Enqueue(ReferencePose);
-                        _ReferenceVelocity.Enqueue(ReferenceVelocity);
+                    double TrajectoryTime = _TrajectoryTime.Elapsed.TotalMilliseconds;
+                    Pose ReferencePose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferencePosition(TrajectoryTime);
+                    Pose ReferenceVelocity = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferenceVelocity(TrajectoryTime);
+                    _ReferencePose.Enqueue(ReferencePose);
+                    _ReferenceVelocity.Enqueue(ReferenceVelocity);
 
-                       // double[,] InverseJacob = SF.GetInverseJacobian(currentAngle, _ThisRobot.EndEffector);
+                    Pose[] BufferVelocity = new Pose[_ThisRobot._bufferLength];
 
-                        // Jacobian method
-                        TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, currentAngle, _ThisRobot, _timerHasElapsed, ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).averageVelocity);
-                        
-                        if (_ActiveTrajectories[_CurrentSegment].trajectoryTime.TotalMilliseconds < _TrajectoryTime.Elapsed.TotalMilliseconds)
+                    for (int i = 0; i < _ThisRobot._bufferLength; i++)
+                    {
+                        BufferVelocity[i] = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferenceVelocity(TrajectoryTime + 4*(i+1));
+                    }
+
+                    // double[,] InverseJacob = SF.GetInverseJacobian(currentAngle, _ThisRobot.EndEffector);
+
+                    // Jacobian method
+                    TrajectoryController.getControllerEffort(ReferencePose, ReferenceVelocity, currentPose, CurrentVelocity, currentAngle, _ThisRobot, _timerHasElapsed, ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).averageVelocity,BufferVelocity);
+
+                    if (_ActiveTrajectories[_CurrentSegment].trajectoryTime.TotalMilliseconds < TrajectoryTime)
+                    {
+                        _timerHasElapsed = true;
+                        if (!currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 10))
                         {
-                            _timerHasElapsed = true;
-                            if (!currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 1))
-                            {
-                                ReStart(currentPose, _ThisRobot.currentVelocity);
-                            }
+                            ReStart(currentPose, Pose.Zero); // _ThisRobot.currentVelocity);
                         }
-                        if (_timerHasElapsed && currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 5))
+                    }
+                    if (_timerHasElapsed && currentPose.Equals(((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose, 10))
+                    {
+                        _CurrentSegment++;
+                        _TrajectoryTime.Reset();
+                        _timerHasElapsed = false;
+                        _lastdesiredPose = _desiredPose;
+                        if (_CurrentSegment >= _nSegments)
                         {
-                            _CurrentSegment++;
-                            _TrajectoryTime.Reset();
-                            _timerHasElapsed = false;
-                            _lastdesiredPose = _desiredPose;
-                            if (_CurrentSegment >= _nSegments)
-                            {
-                                Stop(currentPose);
-                                Reset();
-                            }
-                            else
-                            {
-                                _desiredPose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose;
-                            }
+                            Stop(currentPose);
+                            Reset();
                         }
+                        else
+                        {
+                            _desiredPose = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).finalPose;
+                        }
+                    }
 
-                    
+
                 }
                 else
                 {
@@ -555,9 +578,9 @@ namespace LightWeight_Server
                         {
                             controlAngles[i] = Math.Sign(changeAngle) * _ThisRobot._MaxAxisChange;
                         }
-                        
+
                     }
-                    if (controlAngles.Max() < 1e-2 && controlAngles.Min() > -1e-2 )
+                    if (controlAngles.Max() < 1e-2 && controlAngles.Min() > -1e-2)
                     {
                         Stop();
                     }
@@ -565,7 +588,7 @@ namespace LightWeight_Server
                     //return controlAngles;
                 }
             }
-           // return new double[] { 0, 0, 0, 0, 0, 0 };
+            // return new double[] { 0, 0, 0, 0, 0, 0 };
 
 
         }

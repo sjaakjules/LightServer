@@ -230,7 +230,19 @@ namespace LightWeight_Server
             }
         }
 
-        public void getControllerEffort(Pose referencePosition, Pose referenceVelocity, Pose measuredPosition, Pose measuredVelocity, double[] measuredAngle, RobotInfo robot, bool hasElapsed, double averageSpeed)
+
+        /// <summary>
+        /// Gets the control effort by updating a thread safe list which is sent automatically
+        /// </summary>
+        /// <param name="referencePosition"></param>
+        /// <param name="referenceVelocity"></param>
+        /// <param name="measuredPosition"></param>
+        /// <param name="measuredVelocity"></param>
+        /// <param name="measuredAngle"></param>
+        /// <param name="robot"></param>
+        /// <param name="hasElapsed"></param>
+        /// <param name="averageSpeed"></param>
+        public void getControllerEffort(Pose referencePosition, Pose referenceVelocity, Pose measuredPosition, Pose measuredVelocity, double[] measuredAngle, RobotInfo robot, bool hasElapsed, double averageSpeed, Pose[] BufferVelocity)
         {
             double[] ReferenceAngle = robot.IKSolver(referencePosition,measuredAngle);
             double[] AngleError = SF.addDoubles(ReferenceAngle, SF.multiplyMatrix(measuredAngle, -1.0));
@@ -241,7 +253,7 @@ namespace LightWeight_Server
             setGain(ref ErrorTranslation, ref ErrorOrientation, ref Px, ref Pt, hasElapsed, averageSpeed);
             
            // Pt = 0;
-            Px =  0.4;
+            Px =  0.05;
             Pt = Px / 200;
             Vector3 ControlTranslation = referenceVelocity.Translation + Vector3.Multiply(ErrorTranslation, (float)Px);
             Vector3 ControlOrientation = Vector3.Multiply(Vector3.Normalize(referenceVelocity.axis), referenceVelocity.angle) + Vector3.Multiply(ErrorOrientation, (float)Pt);
@@ -270,11 +282,31 @@ namespace LightWeight_Server
                 ComSat[i] = SatAxisSpeed[i];
             }
             robot._Commands.Enqueue(SatAxisSpeed);
+
+
+
+            double[][] bufferAngles = new double[BufferVelocity.Length][];
+            double[] BufferSimAngles = SatAxisSpeed.Copy();
+            for (int i = 0; i < BufferVelocity.Length; i++)
+            {
+                bufferAngles[i] = getBufferValue((i == 0 ? BufferSimAngles : bufferAngles[i - 1]), BufferVelocity[i], robot);
+                robot._BufferCommands.Enqueue(bufferAngles[i].Copy());
+            }
             
 
             updateDataFile(referencePosition, referenceVelocity, measuredPosition, measuredVelocity, _DataTime.Elapsed.TotalMilliseconds, Com, ComSat, AngleError, ErrorTranslation, ErrorOrientation);
 
             
+        }
+
+        double[] getBufferValue(double[] lastAxis, Pose Velocity, RobotInfo robot)
+        {
+            Pose CurrentPos = robot.forwardKinimatics(lastAxis, robot.EndEffector);
+            Pose NewPose = CurrentPos * Velocity;
+            double[] Axis = robot.IKSolver(NewPose, lastAxis);
+            double[] AxisChange = Axis.subtract(lastAxis);
+            double[] satAxis = robot.checkLimits(AxisChange);
+            return satAxis;
         }
 
         public void updateDataFile(Pose refPos, Pose refVel, Pose actPos, Pose actVel, double time, double[] controlAngles, double[] satControl, double[] IKmethod, Vector3 errorPos, Vector3 errorAng)

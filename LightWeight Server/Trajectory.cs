@@ -57,6 +57,7 @@ namespace LightWeight_Server
         public Pose changePose { get; protected set; }
         public double averageVelocity { get; protected set; }
         public Vector3 normalisedTrajectory { get; protected set; }
+        public double LastCheckedTime { get; protected set; }
 
         public TaskTrajectory(TrajectoryTypes types) : base(types) { }
 
@@ -270,6 +271,7 @@ namespace LightWeight_Server
     {
         public double[][] _QuinticPerameters;
         RobotInfo _robot;
+        Trajectory lastTrajectory;
       //  public int nSteps;
      //   public double[][] nAnglePositions;
      //   public Pose[] nPose;
@@ -285,7 +287,8 @@ namespace LightWeight_Server
 
 
 
-        public TrajectoryQuintic(Pose EndPose, double AverageVelocty, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID, double[] startAngles, RobotInfo robot)
+
+        public TrajectoryQuintic(Pose EndPose, double AverageVelocty, Pose StartPose, Vector3 StartVelocity, Vector3 FinalVelocity, Guid SegmentID, double[] startAngles, RobotInfo robot, Trajectory currentTrajectory)
             : base(TrajectoryTypes.Quintic)
         {
             TimeSpan LineartrajectoryTime = TimeSpan.Zero;
@@ -298,6 +301,7 @@ namespace LightWeight_Server
             segmentID = SegmentID;
             startPose = StartPose;
             finalPose = EndPose;
+            lastTrajectory = currentTrajectory;
 
             startVelocity = new Pose(Quaternion.Identity, StartVelocity);
             finalVelocity = new Pose(Quaternion.Identity, FinalVelocity);
@@ -323,7 +327,7 @@ namespace LightWeight_Server
             averageVelocity = (AverageVelocty == 0) ? 1.0 * robot._MaxCartesianChange / (2.0 * 4.0) : AverageVelocty;
 
             // Check if it is linearly moving, ie 0.5mm distance
-            if (Vector3.Distance(xf, x0) > 5e-1)
+            if (Vector3.Distance(xf, x0) > 2)
             {
                 xm = ((xf - x0) / 2) + x0; // Mid point
                 x0d = StartVelocity;
@@ -342,10 +346,25 @@ namespace LightWeight_Server
             _robot.updateLog(string.Format("Linear Time: {0}\nAngular Time: {1}", LineartrajectoryTime.TotalMilliseconds, AngularTrajectoryTime.TotalMilliseconds));
             trajectoryTime = (LineartrajectoryTime.TotalMilliseconds > AngularTrajectoryTime.TotalMilliseconds) ? LineartrajectoryTime : AngularTrajectoryTime;
 
-
+            // Uses the average velocity to create quintic.
+            // When multi points are loaded will interperlate between them.
+            //x0d = Vector3.Zero;
             _QuinticPerameters[0] = (isStationary) ? new double[] {x0.X, 0, 0, 0, 0, 0} : Quintic(x0.X, xf.X, xm.X, x0d.X, xfd.X, xmd.X, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[1] = (isStationary) ? new double[] { x0.Y, 0, 0, 0, 0, 0 } : Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[2] = (isStationary) ? new double[] { x0.Z, 0, 0, 0, 0, 0 } : Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, xfd.Z, xmd.Z, trajectoryTime.TotalMilliseconds);
+             
+            /*
+            x0d = Vector3.Zero;
+            if (lastTrajectory != null)
+            {
+                x0d = ((TaskTrajectory)lastTrajectory).getReferenceVelocity(((TaskTrajectory)lastTrajectory).LastCheckedTime).Translation;
+            }
+
+            // Assumes zero start and final velocities.
+            _QuinticPerameters[0] = (isStationary) ? new double[] { x0.X, 0, 0, 0, 0, 0 } : Quintic(x0.X, xf.X, xm.X, x0d.X, 0, trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[1] = (isStationary) ? new double[] { x0.Y, 0, 0, 0, 0, 0 } : Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, 0, trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[2] = (isStationary) ? new double[] { x0.Z, 0, 0, 0, 0, 0 } : Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, 0, trajectoryTime.TotalMilliseconds);
+             */
             _QuinticPerameters[3] = Quintic(0, finalAngle, finalAngle / 2, 0, 0, trajectoryTime.TotalMilliseconds);
 
             _robot.updateCSVLog2(string.Format("{4},{0},{1},{2},{3};", SF.printDouble(_QuinticPerameters[0]), SF.printDouble(_QuinticPerameters[1]), SF.printDouble(_QuinticPerameters[2]), SF.printDouble(_QuinticPerameters[3]), trajectoryTime.TotalMilliseconds));
@@ -409,9 +428,27 @@ namespace LightWeight_Server
 
             this.trajectoryTime = (LineartrajectoryTime.TotalMilliseconds > AngularTrajectoryTime.TotalMilliseconds) ? LineartrajectoryTime : AngularTrajectoryTime;
 
+            
+            // Uses the average velocity to create quintic.
+            // When multi points are loaded will interperlate between them.
+           // x0d = Vector3.Zero;
             this._QuinticPerameters[0] = (isStationary) ? new double[] { x0.X, 0, 0, 0, 0, 0 } : Quintic(x0.X, xf.X, xm.X, x0d.X, xfd.X, xmd.X, trajectoryTime.TotalMilliseconds);
             this._QuinticPerameters[1] = (isStationary) ? new double[] { x0.Y, 0, 0, 0, 0, 0 } : Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, trajectoryTime.TotalMilliseconds);
             this._QuinticPerameters[2] = (isStationary) ? new double[] { x0.Z, 0, 0, 0, 0, 0 } : Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, xfd.Z, xmd.Z, trajectoryTime.TotalMilliseconds);
+             
+
+            // Assumes zero start and final velocities.
+            /*
+            x0d = Vector3.Zero;
+            if (lastTrajectory != null)
+            {
+                x0d = ((TaskTrajectory)lastTrajectory).getReferenceVelocity(((TaskTrajectory)lastTrajectory).trajectoryTime.TotalMilliseconds).Translation;
+            }
+
+            _QuinticPerameters[0] = (isStationary) ? new double[] { x0.X, 0, 0, 0, 0, 0 } : Quintic(x0.X, xf.X, xm.X, x0d.X, 0, trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[1] = (isStationary) ? new double[] { x0.Y, 0, 0, 0, 0, 0 } : Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, 0, trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[2] = (isStationary) ? new double[] { x0.Z, 0, 0, 0, 0, 0 } : Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, 0, trajectoryTime.TotalMilliseconds);
+             */
             this._QuinticPerameters[3] = Quintic(0, finalAngle, finalAngle / 2, 0, 0, trajectoryTime.TotalMilliseconds);
 
            // _robot.updateCSVLog2(string.Format("{4},{0},{1},{2},{3};", SF.printDouble(_QuinticPerameters[0]), SF.printDouble(_QuinticPerameters[1]), SF.printDouble(_QuinticPerameters[2]), SF.printDouble(_QuinticPerameters[3]), trajectoryTime.TotalMilliseconds));
@@ -424,9 +461,19 @@ namespace LightWeight_Server
             this.averageVelocity = (float)(1.2f * (xf - x0).Length() / newTrajectoryTime.TotalMilliseconds);
             this.xmd = (float)averageVelocity * Vector3.Normalize(xf - x0);
 
+            
+            // Uses the average velocity to create quintic.
+            // When multi points are loaded will interperlate between them.
+            /*
             this._QuinticPerameters[0] = (isStationary) ? new double[] { x0.X, 0, 0, 0, 0, 0 } : Quintic(x0.X, xf.X, xm.X, x0d.X, xfd.X, xmd.X, trajectoryTime.TotalMilliseconds);
             this._QuinticPerameters[1] = (isStationary) ? new double[] { x0.Y, 0, 0, 0, 0, 0 } : Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, xfd.Y, xmd.Y, trajectoryTime.TotalMilliseconds);
             this._QuinticPerameters[2] = (isStationary) ? new double[] { x0.Z, 0, 0, 0, 0, 0 } : Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, xfd.Z, xmd.Z, trajectoryTime.TotalMilliseconds);
+             */
+
+            // Assumes zero start and final velocities.
+            _QuinticPerameters[0] = (isStationary) ? new double[] { x0.X, 0, 0, 0, 0, 0 } : Quintic(x0.X, xf.X, xm.X, 0, 0, trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[1] = (isStationary) ? new double[] { x0.Y, 0, 0, 0, 0, 0 } : Quintic(x0.Y, xf.Y, xm.Y, 0, 0, trajectoryTime.TotalMilliseconds);
+            _QuinticPerameters[2] = (isStationary) ? new double[] { x0.Z, 0, 0, 0, 0, 0 } : Quintic(x0.Z, xf.Z, xm.Z, 0, 0, trajectoryTime.TotalMilliseconds);
             this._QuinticPerameters[3] = Quintic(0, finalAngle, finalAngle / 2, 0, 0, trajectoryTime.TotalMilliseconds);
 
             _robot.updateLog(string.Format("is stationary?: {0}\nFinalAngle: {1}", isStationary,180.0*finalAngle/Math.PI));
@@ -443,7 +490,12 @@ namespace LightWeight_Server
         {
             if (t > trajectoryTime.TotalMilliseconds)
             {
+                LastCheckedTime = trajectoryTime.TotalMilliseconds;
                 return finalPose;
+            }
+            else
+            {
+                LastCheckedTime = t;
             }
             Vector3 translation = new Vector3(getPosition(t, _QuinticPerameters[0]), getPosition(t, _QuinticPerameters[1]), getPosition(t, _QuinticPerameters[2]));
             Pose ReferencePose = new Pose(startPose.Orientation*Quaternion.CreateFromAxisAngle(changePose.axis, getPosition(t, _QuinticPerameters[3])), translation);

@@ -88,6 +88,7 @@ namespace LightWeight_Server
         FilterButterworth[] _VelocityFilt = new FilterButterworth[4];
 
         public ConcurrentQueue<double[]> _Commands = new ConcurrentQueue<double[]>();
+        public ConcurrentQueue<double[]> _BufferCommands = new ConcurrentQueue<double[]>();
 
         public readonly Guid _RobotID;
         ScreenWriter _GUI;
@@ -115,15 +116,17 @@ namespace LightWeight_Server
         public BasePosition _base = BasePosition.front;
 
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
-        public readonly double _MaxCartesianChange = 0.8;
+        public readonly double _MaxCartesianChange = 0.6;
         public readonly double _MaxAngularChange = 2e-3; // in radians around 0.002 = 28deg/s
         public readonly double _MaxAxisChange = 4e-3; //radians per cycle where 0.004 = 57deg/s
         public readonly double _MaxAxisAccelChange = 2e-4;
 
-        double _maxLinearVelocity = 0.8 / 2; // in mm/ms
+        double _maxLinearVelocity = 0.6 / 4; // in mm/ms
         double _maxAngularVelocity = 0.05; // in deg/ms
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
+
+        public readonly int _bufferLength = 5;
         
         bool _isConnected = false;
         bool _isConnecting = false;
@@ -407,7 +410,7 @@ namespace LightWeight_Server
                     updateError(string.Format("Inverse Home not equal\nMeasured: {0}\nInverse: {1}", SF.DoublesToString(homeAngles), SF.DoublesToString(inverseAngles)), new KukaException("IK solver error"));
                 }
                 _TrajectoryHandler.startDesired(_StartTipPose);
-                TrajectoryQuintic startTraj = new TrajectoryQuintic(_StartTipPose, 0.01, _StartTipPose, Vector3.Zero, Vector3.Zero, Guid.NewGuid(), homeAngles, this);
+                TrajectoryQuintic startTraj = new TrajectoryQuintic(_StartTipPose, 0.01, _StartTipPose, Vector3.Zero, Vector3.Zero, Guid.NewGuid(), homeAngles, this, _TrajectoryHandler.currentTrajectory);
                 _TrajectoryHandler.Load(new Trajectory[] {startTraj});
            //     _TrajectoryHandler.LodeBuffer(_StartTipPose, Pose.Zero);
                 lock (connectionLock)
@@ -910,7 +913,10 @@ namespace LightWeight_Server
             double wristOffset = Math.Atan2(35, 515);
             double theta1a, theta1b, theta1, theta2u, theta2d, theta2, theta3u, theta3d, theta3;
             Vector3 Wrist = des * (-EE - new Vector3(0, 0, 80));
-            if (Wrist.Z < Zmin) throw new InverseKinematicsException("Out of workspace, under minZ");
+            if (Wrist.Z < Zmin)    
+            {
+                throw new InverseKinematicsException("Out of workspace, under minZ");
+            }
             theta1a = -Math.Atan2(Wrist.Y, Wrist.X);
             theta1b = (theta1a > 0) ? theta1a - Math.PI : theta1a + Math.PI;
             if (Math.Abs(lastVal[0] - theta1a) < Math.Abs(lastVal[0] - theta1b))
@@ -1079,7 +1085,14 @@ namespace LightWeight_Server
         {
             // Rotate the desired pose to alight tool tip with last link.
            // DesiredPose.Orientation = DesiredPose.Orientation * TaskspaceRotation;
-
+            if (float.IsNaN( DesiredPose.Translation.X ) || float.IsNaN( DesiredPose.Translation.Y ) ||float.IsNaN( DesiredPose.Translation.Z ))
+            {
+                DesiredPose = forwardKinimatics(thetaLast, EE);
+            }
+            if (DesiredPose.Translation.Z < 0)
+            {
+                throw new Exception("Below table!");
+            }
             double theta1, theta2, theta3, theta4, theta5, theta6;
             double[] angles1to3 = IK1to3(DesiredPose, EE, thetaLast, ref elbow, ref basePos);
             theta1 = angles1to3[0];
@@ -1149,12 +1162,12 @@ namespace LightWeight_Server
             switch (type)
             {
                 case TrajectoryTypes.Quintic:
-                    return new TrajectoryQuintic(EndPose, AverageVelocity, StartPose, StartVelocity, FinalVelocity, SegmentID, currentAxisAngle, this);
+                    return new TrajectoryQuintic(EndPose, AverageVelocity, StartPose, StartVelocity, FinalVelocity, SegmentID, currentAxisAngle, this, _TrajectoryHandler.currentTrajectory);
                 case TrajectoryTypes.Linear:
                     return new TrajectoryLinear(EndPose, AverageVelocity, StartPose, StartVelocity, FinalVelocity, SegmentID, currentAxisAngle, this);
                 case TrajectoryTypes.Spline:
                 default:
-                    return new TrajectoryQuintic(EndPose, AverageVelocity, StartPose, StartVelocity, FinalVelocity, SegmentID, currentAxisAngle, this);
+                    return new TrajectoryQuintic(EndPose, AverageVelocity, StartPose, StartVelocity, FinalVelocity, SegmentID, currentAxisAngle, this, _TrajectoryHandler.currentTrajectory);
             }
         }
 

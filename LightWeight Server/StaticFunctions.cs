@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using LightWeight_Server;
+using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -17,6 +18,16 @@ namespace CustomExtensions
             for (int i = 0; i < array.Length; i++)
             {
                 newArray[i] = Math.Round(array[i], decimals);
+            }
+            return newArray;
+        }
+
+        public static double[] Copy(this double[] array)
+        {
+            double[] newArray = new double[array.Length];
+            for (int i = 0; i < array.Length; i++)
+            {
+                newArray[i] = array[i];
             }
             return newArray;
         }
@@ -573,6 +584,34 @@ namespace CustomExtensions
 
 
     }
+
+    public static class MiskExtensions
+    {
+        public static double[] getLatest(this FilterButterworth[] filterValues)
+        {
+            double[] filtValues = new double[filterValues.Length];
+            for (int i = 0; i < filterValues.Length; i++)
+            {
+                filtValues[i] = filterValues[i].Value;
+            }
+            return filtValues;
+        }
+
+        public static void updateValues(this FilterButterworth[] doubleFilter, double[] newValues)
+        {
+            if (newValues.Length == doubleFilter.Length)
+            {
+                for (int i = 0; i < doubleFilter.Length; i++)
+                {
+                    doubleFilter[i].Update((float)newValues[i]);
+                }
+            }
+            else
+            {
+                throw new Exception("Filter length not equal to value array.");
+            }
+        }
+    }
 }
 
 namespace LightWeight_Server
@@ -862,7 +901,7 @@ namespace LightWeight_Server
 
         public bool Equals(Pose pose2, double error)
         {
-            if (Vector3.Distance(this.Translation, pose2.Translation) <= error && SF.isOrientationAligned(this.Orientation, pose2.Orientation, error))
+            if (Vector3.Distance(this.Translation, pose2.Translation) <= (error * 4) && SF.isOrientationAligned(this.Orientation, pose2.Orientation, error))
             {
                 return true;
             }
@@ -1400,6 +1439,8 @@ namespace LightWeight_Server
 
     #endregion
 
+
+
     /// <summary>
     /// Filter with tests showing  samplerate 250, res sqrt2,freq 10
     /// </summary>
@@ -1460,6 +1501,8 @@ namespace LightWeight_Server
                     break;
             }
         }
+
+
 
         public enum PassType
         {

@@ -61,6 +61,8 @@ namespace LightWeight_Server
         StateObject lastPacket = null;
         ConcurrentQueue<StateObject> FreshPackets = new ConcurrentQueue<StateObject>();
 
+        object bufferLock = new object();
+
         int _BufferSize = 1024;
         byte[] _buffer;
         Socket _UdpSocket;
@@ -74,6 +76,7 @@ namespace LightWeight_Server
         Stopwatch sendTimer = new Stopwatch();
 
         FixedSizedQueue<double[]> sentAngles = new FixedSizedQueue<double[]>(10);
+        FilterButterworth[] _sentAnglesFilt = new FilterButterworth[6];
 
         RobotInfo _Robot;
 
@@ -95,6 +98,12 @@ namespace LightWeight_Server
             _LIPOC = 0;
 
             SetupXML();
+
+
+            for (int i = 0; i < 6; i++)
+            {
+                _sentAnglesFilt[i] = new FilterButterworth(10f, 250, FilterButterworth.PassType.Lowpass, (float)Math.Sqrt(2));
+            }
 
 
             // Create Socket
@@ -497,10 +506,29 @@ namespace LightWeight_Server
             {
                 haveUpdatedPositions.Reset();
                 double[] newCommand;
+                double[] newBuffer;
+                double[][] BufferArray = new double[1][];
                 if (!_Robot._Commands.TryDequeue(out newCommand))
                 {
-                    newCommand = new double[] { 0, 0, 0, 0, 0, 0 };
+                    lock (bufferLock)
+                    {
+                        newCommand = (BufferArray[0] != null && BufferArray.Length > 0) ? BufferArray[0] : new double[] { 0, 0, 0, 0, 0, 0 };
+                    }
                 }
+                else
+                {
+                    lock (bufferLock)
+                    {
+                        List<double[]> BufferList = new List<double[]>();
+                        while (_Robot._BufferCommands.TryDequeue(out newBuffer))
+                        {
+                            BufferList.Add(newBuffer.Copy());
+                        }
+                        BufferArray = BufferList.ToArray();
+                    }
+                }
+                
+
                 newCommand = newCommand.truncate(5);
                 StateObject newState;
                 StateObject lastlastpacket = lastPacket;
@@ -512,7 +540,8 @@ namespace LightWeight_Server
                 }
                 if (counter > 0)
                 {
-                    double[] average = SF.getAverage(sentAngles.ThreadSafeToArray);
+                    /*
+                    double[] average = _sentAnglesFilt.getLatest();//  SF.getAverage(sentAngles.ThreadSafeToArray);
                     for (int i = 0; i < 6; i++)
                     {
                         if (average[i] != 0 && Math.Sign(newCommand[i]) != Math.Sign(average[i]))
@@ -524,8 +553,11 @@ namespace LightWeight_Server
                             newCommand[i] = Math.Sign(newCommand[i]) * _Robot._MaxAxisAccelChange;
                         }
                     }
-                    _Robot.updateCSVLog(SF.printDouble(newCommand));
+                     */
+
+                    _Robot.updateCSVLog(string.Format("{0},{1}",lastPacket.IPOC,SF.printDouble(newCommand)));
                     sentAngles.Enqueue(newCommand);
+                    _sentAnglesFilt.updateValues(newCommand);
                     UpdateXML(lastPacket, newCommand);
 
                     SendData(lastPacket);
