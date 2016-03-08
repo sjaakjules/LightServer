@@ -1181,7 +1181,7 @@ namespace LightWeight_Server
         /// <param name="EndVelocity"></param>Specific end velocities at each pose
         /// <param name="types"></param>
         /// <returns></returns>
-        public bool newPoses(int n, Pose[] new_Poses, double[] AverageVelocity, double[] EndVelocity, TrajectoryTypes[] types)
+        public bool newPoses(int n, Pose[] new_Poses, double[] AverageVelocity, double[] EndVelocity, Vector3[] StartLinearVelocity, TrajectoryTypes[] types)
         {
             try
             {

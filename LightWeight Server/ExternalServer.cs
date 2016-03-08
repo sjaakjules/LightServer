@@ -363,10 +363,11 @@ namespace LightWeight_Server
             _GUI.updateError(msg,new KukaException("Oh no, What the fuck happened?\n"));
         }
 
-        bool getPoseInfo(XmlNode pose,Pose lastPose, out Pose endPose, out double EndVelocity, out double AveVelocity, out TrajectoryTypes type)
+        bool getPoseInfo(XmlNode pose,Pose lastPose, out Pose endPose, out Vector3 StartVelocity, out double EndVelocity, out double AveVelocity, out TrajectoryTypes type)
         {
             type = TrajectoryTypes.Quintic;
             EndVelocity = -1;
+            StartVelocity = Vector3.Zero;
             AveVelocity = -1;
             string[] PositionStrings = null;
             string[] orientationStrings = null;
@@ -409,6 +410,31 @@ namespace LightWeight_Server
                         if (!double.TryParse(atribute.Value, out EndVelocity))
                         {
                             EndVelocity = -1;
+                        }
+                        break;
+                    case "StartVelocity":
+                        string[] doubleStartVelocitySttrings = null;
+                        string startVelocities = atribute.Value;
+                        doubleStartVelocitySttrings = startVelocities.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+                        if (doubleStartVelocitySttrings.Length == 3)
+                        {
+                            double[] StartVelocityArray = new double[3];
+                            bool readFailed = false;
+                            for (int i = 0; i < 3; i++)
+                            {
+                                if (!double.TryParse(atribute.Value, out StartVelocityArray[i]))
+                                {
+                                    readFailed = true;
+                                }
+                            }
+                            if (readFailed)
+                            {
+                                StartVelocity = Vector3.Zero;
+                            }
+                            else
+                            {
+                                StartVelocity = new Vector3((float)StartVelocityArray[0], (float)StartVelocityArray[1], (float)StartVelocityArray[2]);
+                            }
                         }
                         break;
                     default:
@@ -476,6 +502,7 @@ namespace LightWeight_Server
                                 int N = -1;
                                 double defaultVelocity = -1;
                                 Pose[] FinalPoseList = null;
+                                Vector3[] StartVelocityList = null;
                                 double[] EndVelocityList = null;
                                 double[] AveVelocityList = null;
                                 TrajectoryTypes[] Trajectorys = null;
@@ -491,6 +518,7 @@ namespace LightWeight_Server
                                                     FinalPoseList = new Pose[N];
                                                     EndVelocityList = new double[N];
                                                     AveVelocityList = new double[N];
+                                                    StartVelocityList = new Vector3[N];
                                                     Trajectorys = new TrajectoryTypes[N];
                                                 }
                                                 else
@@ -553,13 +581,13 @@ namespace LightWeight_Server
                                             {
                                                 if (i == 0)
                                                 {
-                                                    if (!getPoseInfo(newXMLPose[i], lastPose, out FinalPoseList[i], out EndVelocityList[i], out AveVelocityList[i], out Trajectorys[i]))
+                                                    if (!getPoseInfo(newXMLPose[i], lastPose, out FinalPoseList[i],out StartVelocityList[i], out EndVelocityList[i], out AveVelocityList[i], out Trajectorys[i]))
                                                     {
                                                         ExternalError("Failed to update Pose {0}." + i.ToString());
                                                         failedUpdate = true;
                                                     }
                                                 }
-                                                else if (!getPoseInfo(newXMLPose[i], FinalPoseList[i - 1], out FinalPoseList[i], out EndVelocityList[i], out AveVelocityList[i], out Trajectorys[i]))
+                                                else if (!getPoseInfo(newXMLPose[i], FinalPoseList[i - 1], out FinalPoseList[i], out StartVelocityList[i], out EndVelocityList[i], out AveVelocityList[i], out Trajectorys[i]))
                                                 {
                                                     ExternalError("Failed to update Pose {0}." + i.ToString());
                                                     failedUpdate = true;
@@ -588,7 +616,7 @@ namespace LightWeight_Server
                                 {
 
                                     _GUI.updateError(string.Format("Loaded pose of type: {0}", Trajectorys[0].ToString()), new Exception("external server:"));
-                                    _loadedPoses = _Robot[nRobot].newPoses(N, FinalPoseList, AveVelocityList, EndVelocityList, Trajectorys);
+                                    _loadedPoses = _Robot[nRobot].newPoses(N, FinalPoseList, AveVelocityList, EndVelocityList, StartVelocityList,Trajectorys);
 
 
                                     // Loaded all poses and velocities associated with the trajectory of each new pose.
@@ -608,8 +636,9 @@ namespace LightWeight_Server
                                 Pose newFinalPoseList = Pose.Zero;
                                 double newEndVelocityList = -1;
                                 double newAveVelocityList = -1;
+                                Vector3 newStartVelocity = Vector3.Zero;
                                 TrajectoryTypes trajType = TrajectoryTypes.Quintic;
-                                UpdatedPose = getPoseInfo(Node, lastPose, out newFinalPoseList, out newEndVelocityList, out newAveVelocityList, out trajType);
+                                UpdatedPose = getPoseInfo(Node, lastPose, out newFinalPoseList, out newStartVelocity, out newEndVelocityList, out newAveVelocityList, out trajType);
 
                                 if (UpdatedPose)
                                 {
@@ -618,7 +647,7 @@ namespace LightWeight_Server
                                     // TODO: if poses are the same they MUST BE REMOVED! this can be handled when creating trajectories.
 
                                     _GUI.updateError(string.Format("Loaded pose of type: {0}", trajType.ToString()), new Exception("external server:"));
-                                    _loadedPoses = _Robot[nRobot].newPoses(1, new Pose[] { newFinalPoseList }, new double[] { newEndVelocityList }, new double[] { newAveVelocityList }, new TrajectoryTypes[] { trajType });
+                                    _loadedPoses = _Robot[nRobot].newPoses(1, new Pose[] { newFinalPoseList }, new double[] { newEndVelocityList }, new double[] { newAveVelocityList },new Vector3[] {newStartVelocity} , new TrajectoryTypes[] { trajType });
                                 }
                                 else
                                 {
