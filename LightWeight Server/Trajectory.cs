@@ -308,8 +308,7 @@ namespace LightWeight_Server
             x0 = StartPose.Translation;
             xf = EndPose.Translation;
             xm = Vector3.Zero;
-            x0d = (StartPose.Translation - ((TaskTrajectory)currentTrajectory).startPose.Translation).Length() > 0.5 ? (StartPose.Translation - ((TaskTrajectory)currentTrajectory).startPose.Translation) :(EndPose.Translation - StartPose.Translation);
-            x0d = Vector3.Multiply(Vector3.Normalize(x0d), (float)(1.0 * robot._MaxCartesianChange / (2.0 * 4.0)));
+            x0d = Vector3.Zero;
             xfd = Vector3.Zero;
             xmd = Vector3.Zero;
 
@@ -331,7 +330,8 @@ namespace LightWeight_Server
             if (Vector3.Distance(xf, x0) > 2)
             {
                 xm = ((xf - x0) / 2) + x0; // Mid point
-                x0d = StartVelocity;
+              //  x0d = StartVelocity;
+                x0d = Vector3.Multiply(Vector3.Normalize(xf - x0), (float)(1.0 * _robot._MaxCartesianChange / (4.0)));
                 xfd = FinalVelocity;
 
                 LineartrajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)averageVelocity);
@@ -410,10 +410,11 @@ namespace LightWeight_Server
             AngularTrajectoryTime = TimeSpan.FromMilliseconds(4.0 * _finalAngle / ((_robot == null) ? (0.002) : (_robot._MaxAngularChange)));
 
             // Check if its moving linearly and set midpoint and velocities
-            if (Vector3.Distance(xf, x0) > 5e-1)
+            if (Vector3.Distance(xf, x0) > 2)
             {
                 xm = ((xf - x0) / 2) + x0;
-                x0d = StartVelocity.Translation;
+                //x0d = StartVelocity.Translation;
+                x0d = Vector3.Multiply(Vector3.Normalize(xf - x0), (float)(1.0 * _robot._MaxCartesianChange / (4.0)));
                 xfd = finalVelocity.Translation;
                 averageVelocity = (averageVelocity == 0) ? 1.0 * Vector3.Distance(xf, x0) / 0.1 : averageVelocity;
 
