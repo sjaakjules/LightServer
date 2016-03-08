@@ -557,7 +557,6 @@ namespace LightWeight_Server
                     }
                      */
 
-                    _Robot.updateCSVLog(string.Format("{0},{1}",lastPacket.IPOC,SF.printDouble(newCommand)));
                     sentAngles.Enqueue(newCommand);
                     _sentAnglesFilt.updateValues(newCommand);
                     UpdateXML(lastPacket, newCommand);
@@ -571,13 +570,9 @@ namespace LightWeight_Server
                         }
                         if (Math.Abs(lastPacket.IPOC - lastlastpacket.IPOC) > 4)
                         {
-                            _Robot.updateError(string.Format("The ipoc difference was larger than 4, so must have dropped command\n {0} Ipoc sent \n {1} sent last time\n", lastPacket.IPOC, lastlastpacket.IPOC), new KukaException("Constrant sender error"));
+                            _Robot.updateError(string.Format("The ipoc difference of {2} so dropped {3} frames \n {0} Ipoc sent \n {1} sent last time\n", lastPacket.IPOC, lastlastpacket.IPOC, lastPacket.IPOC- lastlastpacket.IPOC, (lastPacket.IPOC- lastlastpacket.IPOC)/4), new KukaException("Connection dropped to kuka"));
                         }
                     }
-                }
-                if (sendTimer.Elapsed.TotalMilliseconds > 8)
-                {
-                    _Robot.updateError(string.Format("Send took more than 8ms!!!, was {0}ms",sendTimer.Elapsed.TotalMilliseconds), new KukaException("Constrant sender error"));
                 }
                 /*
                 using (StreamWriter Datafile = new StreamWriter("SendInfo" + ".txt", true))
@@ -731,7 +726,6 @@ namespace LightWeight_Server
                 for (int i = 0; i < _Robot.DigIO.Length; i++)
                 {
                     DigIOnode.Attributes[_Robot._digIOkay[i]].Value = _Robot.DigIO[i].ToString();
-                    _Robot.updateLog(string.Format("Digital IO {0} set to {1}", _Robot._digIOkay[i], _Robot.DigIO[i]));
                 }
             }
 

@@ -321,7 +321,8 @@ namespace LightWeight_Server
             _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
 
             // calculate the time to rotate to final orientation assuming max angular rotation Note in radians
-            AngularTrajectoryTime = TimeSpan.FromMilliseconds(4.0 * _finalAngle / ((_robot == null) ? (0.002) : (_robot._MaxAngularChange)));
+            double angularVelocity = ((_robot == null) ? (0.002) : (_robot._MaxAngularChange)) / 4.0;
+            AngularTrajectoryTime = TimeSpan.FromMilliseconds(1.15 * _finalAngle * angularVelocity);
 
             // Check if its moving linearly and set midpoint and velocities
             averageVelocity = (AverageVelocty == 0) ? 1.0 * robot._MaxCartesianChange / (2.0 * 4.0) : AverageVelocty;
@@ -334,17 +335,16 @@ namespace LightWeight_Server
                 x0d = Vector3.Multiply(Vector3.Normalize(xf - x0), (float)(averageVelocity));//1.0 * _robot._MaxCartesianChange / (4 * 4.0)));
                 xfd = FinalVelocity;
 
-                LineartrajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)averageVelocity);
+                LineartrajectoryTime = TimeSpan.FromMilliseconds(1.15f * (xf - x0).Length() / (float)averageVelocity);
 
                 if (AngularTrajectoryTime.TotalMilliseconds > LineartrajectoryTime.TotalMilliseconds)
                 {
-                    averageVelocity = (float)(1.2f * (xf - x0).Length() / AngularTrajectoryTime.TotalMilliseconds);
+                    averageVelocity = (float)(1.15f * (xf - x0).Length() / AngularTrajectoryTime.TotalMilliseconds);
                 }
                 xmd = (float)averageVelocity * Vector3.Normalize(xf - x0);
             }
             else isStationary = true;
 
-            _robot.updateLog(string.Format("Linear Time: {0}\nAngular Time: {1}", LineartrajectoryTime.TotalMilliseconds, AngularTrajectoryTime.TotalMilliseconds));
             trajectoryTime = (LineartrajectoryTime.TotalMilliseconds > AngularTrajectoryTime.TotalMilliseconds) ? LineartrajectoryTime : AngularTrajectoryTime;
 
             // Uses the average velocity to create quintic.
@@ -366,9 +366,10 @@ namespace LightWeight_Server
             _QuinticPerameters[1] = (isStationary) ? new double[] { x0.Y, 0, 0, 0, 0, 0 } : Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, 0, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[2] = (isStationary) ? new double[] { x0.Z, 0, 0, 0, 0, 0 } : Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, 0, trajectoryTime.TotalMilliseconds);
              */
-            _QuinticPerameters[3] = Quintic(0, finalAngle, finalAngle / 2, 0, 0, trajectoryTime.TotalMilliseconds);
+            _robot.updateLog("trajectory: " + angularVelocity.ToString());
+            _QuinticPerameters[3] = Quintic(0, finalAngle, finalAngle / 2, angularVelocity / 2, 0,trajectoryTime.TotalMilliseconds);
 
-            _robot.updateCSVLog2(string.Format("{4},{0},{1},{2},{3};", SF.printDouble(_QuinticPerameters[0]), SF.printDouble(_QuinticPerameters[1]), SF.printDouble(_QuinticPerameters[2]), SF.printDouble(_QuinticPerameters[3]), trajectoryTime.TotalMilliseconds));
+            //_robot.updateCSVLog2(string.Format("{4},{0},{1},{2},{3};", SF.printDouble(_QuinticPerameters[0]), SF.printDouble(_QuinticPerameters[1]), SF.printDouble(_QuinticPerameters[2]), SF.printDouble(_QuinticPerameters[3]), trajectoryTime.TotalMilliseconds));
         }
 
         public TrajectoryQuintic(Pose EndPose, Guid SegmentID)
@@ -408,7 +409,8 @@ namespace LightWeight_Server
             _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
 
             // calculate the time to rotate to final orientation assuming max angular rotation
-            AngularTrajectoryTime = TimeSpan.FromMilliseconds(4.0 * _finalAngle / ((_robot == null) ? (0.002) : (_robot._MaxAngularChange)));
+            double angularVelocity = ((_robot == null) ? (0.002) : (_robot._MaxAngularChange)) / 4.0;
+            AngularTrajectoryTime = TimeSpan.FromMilliseconds(1.15 * _finalAngle * angularVelocity);
 
             // Check if its moving linearly and set midpoint and velocities
             if (Vector3.Distance(xf, x0) > 2)
@@ -419,7 +421,7 @@ namespace LightWeight_Server
                 xfd = finalVelocity.Translation;
                 averageVelocity = (averageVelocity == 0) ? 1.0 * Vector3.Distance(xf, x0) / 0.1 : averageVelocity;
 
-                LineartrajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)averageVelocity);
+                LineartrajectoryTime = TimeSpan.FromMilliseconds(1.15f * (xf - x0).Length() / (float)averageVelocity);
 
                 if (AngularTrajectoryTime.TotalMilliseconds > LineartrajectoryTime.TotalMilliseconds)
                 {
@@ -452,7 +454,11 @@ namespace LightWeight_Server
             _QuinticPerameters[1] = (isStationary) ? new double[] { x0.Y, 0, 0, 0, 0, 0 } : Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, 0, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[2] = (isStationary) ? new double[] { x0.Z, 0, 0, 0, 0, 0 } : Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, 0, trajectoryTime.TotalMilliseconds);
              */
-            this._QuinticPerameters[3] = Quintic(0, finalAngle, finalAngle / 2, 0, 0, trajectoryTime.TotalMilliseconds);
+            if (_robot != null)
+            {
+            _robot.updateLog("Update:     " + angularVelocity.ToString());
+            }
+            this._QuinticPerameters[3] = Quintic(0, finalAngle, finalAngle / 2, angularVelocity/2, 0, trajectoryTime.TotalMilliseconds);
 
            // _robot.updateCSVLog2(string.Format("{4},{0},{1},{2},{3};", SF.printDouble(_QuinticPerameters[0]), SF.printDouble(_QuinticPerameters[1]), SF.printDouble(_QuinticPerameters[2]), SF.printDouble(_QuinticPerameters[3]), trajectoryTime.TotalMilliseconds));
         }
@@ -479,9 +485,9 @@ namespace LightWeight_Server
             _QuinticPerameters[2] = (isStationary) ? new double[] { x0.Z, 0, 0, 0, 0, 0 } : Quintic(x0.Z, xf.Z, xm.Z, 0, 0, trajectoryTime.TotalMilliseconds);
             this._QuinticPerameters[3] = Quintic(0, finalAngle, finalAngle / 2, 0, 0, trajectoryTime.TotalMilliseconds);
 
-            _robot.updateLog(string.Format("is stationary?: {0}\nFinalAngle: {1}", isStationary,180.0*finalAngle/Math.PI));
-            _robot.updateLog(string.Format(" x0= {0} \n xf= {1} \n xd0= {2} \n xdf= {3} \n xm= {4} \n xmd= {5}", x0, xf, x0d, xfd, xm, xmd));
-            _robot.updateCSVLog2(string.Format("{4},{0},{1},{2},{3};", SF.printDouble(_QuinticPerameters[0]), SF.printDouble(_QuinticPerameters[1]), SF.printDouble(_QuinticPerameters[2]), SF.printDouble(_QuinticPerameters[3]), trajectoryTime.TotalMilliseconds));
+           // _robot.updateLog(string.Format("is stationary?: {0}\nFinalAngle: {1}", isStationary,180.0*finalAngle/Math.PI));
+           // _robot.updateLog(string.Format(" x0= {0} \n xf= {1} \n xd0= {2} \n xdf= {3} \n xm= {4} \n xmd= {5}", x0, xf, x0d, xfd, xm, xmd));
+          //  _robot.updateCSVLog2(string.Format("{4},{0},{1},{2},{3};", SF.printDouble(_QuinticPerameters[0]), SF.printDouble(_QuinticPerameters[1]), SF.printDouble(_QuinticPerameters[2]), SF.printDouble(_QuinticPerameters[3]), trajectoryTime.TotalMilliseconds));
         }
 
         /// <summary>

@@ -615,7 +615,6 @@ namespace LightWeight_Server
                                 if (!failedUpdate)
                                 {
 
-                                    _GUI.updateError(string.Format("Loaded pose of type: {0}", Trajectorys[0].ToString()), new Exception("external server:"));
                                     _loadedPoses = _Robot[nRobot].newPoses(N, FinalPoseList, AveVelocityList, EndVelocityList, StartVelocityList,Trajectorys);
 
 

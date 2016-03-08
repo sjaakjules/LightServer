@@ -322,7 +322,7 @@ namespace LightWeight_Server
             MaxserverTimer.Enqueue(0);
             _TrajectoryHandler = new TrajectoryHandler(this, GUI);
             GUI.ConnectRobot(this, RobotNumber);
-
+            
         }
 
         #region 4ms Kuka server Methods
@@ -468,10 +468,6 @@ namespace LightWeight_Server
                     isSaturated[i] = Math.Sign(axisComand[i]) * _MaxAxisChange;
                     wasSaturated = true;
                 }
-            }
-            if (wasSaturated)
-            {
-                updateLog("Saturation was found");
             }
             return isSaturated;
         }
