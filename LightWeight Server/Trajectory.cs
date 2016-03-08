@@ -412,7 +412,7 @@ namespace LightWeight_Server
             if (Vector3.Distance(xf, x0) > 5e-1)
             {
                 xm = ((xf - x0) / 2) + x0;
-                x0d = startVelocity.Translation;
+                x0d = StartVelocity.Translation;
                 xfd = finalVelocity.Translation;
                 averageVelocity = (averageVelocity == 0) ? 1.0 * Vector3.Distance(xf, x0) / 0.1 : averageVelocity;
 

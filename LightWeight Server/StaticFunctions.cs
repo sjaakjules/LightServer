@@ -12,6 +12,8 @@ namespace CustomExtensions
     public static class doubleArrayExtensions
     {
 
+
+
         public static double[] truncate(this double[] array, int decimals)
         {
             double[] newArray = new double[array.Length];
@@ -587,6 +589,11 @@ namespace CustomExtensions
 
     public static class MiskExtensions
     {
+        public static Vector3[] TranslationData(this Pose[] PoseArray)
+        {
+            return PoseArray.Select(p => p.Translation).ToArray();
+        }
+
         public static double[] getLatest(this FilterButterworth[] filterValues)
         {
             double[] filtValues = new double[filterValues.Length];
