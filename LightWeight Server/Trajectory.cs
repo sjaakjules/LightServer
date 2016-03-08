@@ -308,7 +308,8 @@ namespace LightWeight_Server
             x0 = StartPose.Translation;
             xf = EndPose.Translation;
             xm = Vector3.Zero;
-            x0d = Vector3.Zero;
+            x0d = (StartPose.Translation - ((TaskTrajectory)currentTrajectory).startPose.Translation).Length() > 0.5 ? (StartPose.Translation - ((TaskTrajectory)currentTrajectory).startPose.Translation) :(EndPose.Translation - StartPose.Translation);
+            x0d = Vector3.Multiply(Vector3.Normalize(x0d), (float)(1.0 * robot._MaxCartesianChange / (2.0 * 4.0)));
             xfd = Vector3.Zero;
             xmd = Vector3.Zero;
 
