@@ -116,17 +116,17 @@ namespace LightWeight_Server
         public BasePosition _base = BasePosition.front;
 
         // T1 < 250mm/s   T1 > 250mm/s   = .25mm/ms  = 1mm/cycle
-        public readonly double _MaxCartesianChange = 0.6;
+        public readonly double _MaxCartesianChange = 0.8;
         public readonly double _MaxAngularChange = 2e-3; // in radians around 0.002 = 28deg/s
         public readonly double _MaxAxisChange = 4e-3; //radians per cycle where 0.004 = 57deg/s
         public readonly double _MaxAxisAccelChange = 2e-4;
 
-        double _maxLinearVelocity = 0.6 / 4; // in mm/ms
+        double _maxLinearVelocity = 0.8 / 4; // in mm/ms
         double _maxAngularVelocity = 0.05; // in deg/ms
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
 
-        float VelocitySlowingPerameter = 3; // This is used to scale the start velocity of trajectories
+        float VelocitySlowingPerameter = 2; // This is used to scale the start velocity of trajectories
 
 
         public readonly int _bufferLength = 5;

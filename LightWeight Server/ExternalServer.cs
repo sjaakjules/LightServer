@@ -33,7 +33,7 @@ namespace LightWeight_Server
         bool _loadedPoses = false;
         string[] splitter = new string[] { "," };
         FixedSizedQueue<IPAddress> ClientIEP;
-        int _SendRefreshRate = 20; // Refresh rate of send data, Hz
+        int _SendRefreshRate = 50; // Refresh rate of send data, Hz
 
         StringBuilder _errorMessage = new StringBuilder();
         StringBuilder _ExternalErrorMsg = new StringBuilder();

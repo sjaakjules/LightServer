@@ -541,16 +541,18 @@ namespace LightWeight_Server
                 if (counter > 0)
                 {
                     /*
-                    double[] average = _sentAnglesFilt.getLatest();//  SF.getAverage(sentAngles.ThreadSafeToArray);
+                    double[] average =  SF.getAverage(sentAngles.ThreadSafeToArray);
                     for (int i = 0; i < 6; i++)
                     {
+                        
                         if (average[i] != 0 && Math.Sign(newCommand[i]) != Math.Sign(average[i]))
                         {
                             newCommand[i] = 0;
                         }
-                        else if ( (Math.Abs(average[i] - newCommand[i]) > _Robot._MaxAxisAccelChange))
+                         
+                        if ((Math.Abs(average[i] - newCommand[i]) > (_Robot._MaxAxisAccelChange * (i < 3 ? 0.5 : 1))))
                         {
-                            newCommand[i] = Math.Sign(newCommand[i]) * _Robot._MaxAxisAccelChange;
+                            newCommand[i] = Math.Sign(newCommand[i]) * _Robot._MaxAxisAccelChange * (i < 3 ? 0.5 : 1);
                         }
                     }
                      */

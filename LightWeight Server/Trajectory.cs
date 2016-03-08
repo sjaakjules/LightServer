@@ -331,7 +331,7 @@ namespace LightWeight_Server
             {
                 xm = ((xf - x0) / 2) + x0; // Mid point
               //  x0d = StartVelocity;
-                x0d = Vector3.Multiply(Vector3.Normalize(xf - x0), (float)(1.0 * _robot._MaxCartesianChange / (4.0)));
+                x0d = Vector3.Multiply(Vector3.Normalize(xf - x0), (float)(averageVelocity));//1.0 * _robot._MaxCartesianChange / (4 * 4.0)));
                 xfd = FinalVelocity;
 
                 LineartrajectoryTime = TimeSpan.FromMilliseconds(1.2f * (xf - x0).Length() / (float)averageVelocity);
@@ -384,6 +384,7 @@ namespace LightWeight_Server
             _TrajectoryAxis = Vector3.Up;
             _finalAngle = 0;
             trajectoryTime = TimeSpan.Zero;
+            averageVelocity = 0;
         }
 
         public override void updateStartPosition(Pose StartPose, Pose StartVelocity)
@@ -414,7 +415,7 @@ namespace LightWeight_Server
             {
                 xm = ((xf - x0) / 2) + x0;
                 //x0d = StartVelocity.Translation;
-                x0d = Vector3.Multiply(Vector3.Normalize(xf - x0), (float)(1.0 * _robot._MaxCartesianChange / (4.0)));
+                x0d = Vector3.Multiply(Vector3.Normalize(xf - x0), (float)(averageVelocity));//((_robot == null) ? (0.1) : 1.0 * _robot._MaxCartesianChange / (4 *4.0)));
                 xfd = finalVelocity.Translation;
                 averageVelocity = (averageVelocity == 0) ? 1.0 * Vector3.Distance(xf, x0) / 0.1 : averageVelocity;
 
