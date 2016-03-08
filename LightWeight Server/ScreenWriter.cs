@@ -231,7 +231,7 @@ namespace LightWeight_Server
                     if (_Debugger.Length != 0)
                     {
 
-                        file.WriteLine(_Debugger);
+                     //   file.WriteLine(_Debugger);
                         _Debugger.Clear();
                     }
                 }
@@ -243,7 +243,7 @@ namespace LightWeight_Server
                     if (_ControlData.Length != 0)
                     {
 
-                        file.WriteLine(_ControlData);
+                     //   file.WriteLine(_ControlData);
                         _ControlData.Clear();
                     }
                 }
@@ -254,7 +254,7 @@ namespace LightWeight_Server
                 {
                     if (_CSVdebugData.Length != 0)
                     {
-                        file.WriteLine(_CSVdebugData);
+                     //   file.WriteLine(_CSVdebugData);
                         _CSVdebugData.Clear();
                     }
                 }
@@ -265,7 +265,7 @@ namespace LightWeight_Server
                 {
                     if (_CSVLog.Length != 0)
                     {
-                        file.WriteLine(_CSVLog);
+                     //   file.WriteLine(_CSVLog);
                         _CSVLog.Clear();
                     }
                 }

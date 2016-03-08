@@ -791,7 +791,6 @@ namespace LightWeight_Server
                     if (_loadedPoses)
                     {
                         _loadedPoses = false;
-                        _GUI.updateError("Loaded both rotation and position", new Exception("external server:"));
                     }
                 }
             }

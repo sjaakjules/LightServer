@@ -366,7 +366,6 @@ namespace LightWeight_Server
             _QuinticPerameters[1] = (isStationary) ? new double[] { x0.Y, 0, 0, 0, 0, 0 } : Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, 0, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[2] = (isStationary) ? new double[] { x0.Z, 0, 0, 0, 0, 0 } : Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, 0, trajectoryTime.TotalMilliseconds);
              */
-            _robot.updateLog("trajectory: " + angularVelocity.ToString());
             _QuinticPerameters[3] = Quintic(0, finalAngle, finalAngle / 2, angularVelocity / 2, 0,trajectoryTime.TotalMilliseconds);
 
             //_robot.updateCSVLog2(string.Format("{4},{0},{1},{2},{3};", SF.printDouble(_QuinticPerameters[0]), SF.printDouble(_QuinticPerameters[1]), SF.printDouble(_QuinticPerameters[2]), SF.printDouble(_QuinticPerameters[3]), trajectoryTime.TotalMilliseconds));
@@ -454,10 +453,6 @@ namespace LightWeight_Server
             _QuinticPerameters[1] = (isStationary) ? new double[] { x0.Y, 0, 0, 0, 0, 0 } : Quintic(x0.Y, xf.Y, xm.Y, x0d.Y, 0, trajectoryTime.TotalMilliseconds);
             _QuinticPerameters[2] = (isStationary) ? new double[] { x0.Z, 0, 0, 0, 0, 0 } : Quintic(x0.Z, xf.Z, xm.Z, x0d.Z, 0, trajectoryTime.TotalMilliseconds);
              */
-            if (_robot != null)
-            {
-            _robot.updateLog("Update:     " + angularVelocity.ToString());
-            }
             this._QuinticPerameters[3] = Quintic(0, finalAngle, finalAngle / 2, angularVelocity/2, 0, trajectoryTime.TotalMilliseconds);
 
            // _robot.updateCSVLog2(string.Format("{4},{0},{1},{2},{3};", SF.printDouble(_QuinticPerameters[0]), SF.printDouble(_QuinticPerameters[1]), SF.printDouble(_QuinticPerameters[2]), SF.printDouble(_QuinticPerameters[3]), trajectoryTime.TotalMilliseconds));
