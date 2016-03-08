@@ -390,7 +390,7 @@ namespace LightWeight_Server
             TimeSpan LineartrajectoryTime = TimeSpan.Zero;
             TimeSpan AngularTrajectoryTime = TimeSpan.Zero;
             isStationary = false;
-            startVelocity = StartVelocity;
+            //startVelocity = StartVelocity;
             startPose = StartPose;
             x0 = StartPose.Translation;
             xf = finalPose.Translation;
@@ -412,7 +412,7 @@ namespace LightWeight_Server
             if (Vector3.Distance(xf, x0) > 5e-1)
             {
                 xm = ((xf - x0) / 2) + x0;
-                x0d = StartVelocity.Translation;
+                x0d = startVelocity.Translation;
                 xfd = finalVelocity.Translation;
                 averageVelocity = (averageVelocity == 0) ? 1.0 * Vector3.Distance(xf, x0) / 0.1 : averageVelocity;
 

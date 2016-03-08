@@ -729,6 +729,7 @@ namespace LightWeight_Server
                 for (int i = 0; i < _Robot.DigIO.Length; i++)
                 {
                     DigIOnode.Attributes[_Robot._digIOkay[i]].Value = _Robot.DigIO[i].ToString();
+                    _Robot.updateLog(string.Format("Digital IO {0} set to {1}", _Robot._digIOkay[i], _Robot.DigIO[i]));
                 }
             }
 

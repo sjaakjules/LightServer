@@ -126,6 +126,9 @@ namespace LightWeight_Server
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
 
+        float VelocitySlowingPerameter = 3; // This is used to scale the start velocity of trajectories
+
+
         public readonly int _bufferLength = 5;
         
         bool _isConnected = false;
@@ -1206,8 +1209,17 @@ namespace LightWeight_Server
                     }
                 }
 
+                for (int i = 0; i < StartLinearVelocity.Length; i++)
+                {
+                    if (StartLinearVelocity[i] != Vector3.Zero)
+                    {
+                        StartLinearVelocity[i].Normalize();
+                        StartLinearVelocity[i] = Vector3.Multiply(StartLinearVelocity[i], (AverageVelocity[i] <= 0 || AverageVelocity[i] >= _maxLinearVelocity) ? (float)(_maxLinearVelocity / VelocitySlowingPerameter) : (float)AverageVelocity[i]/VelocitySlowingPerameter);
+                    }
+                }
+
                 Vector3[] PointVelocitys = new Vector3[n + 1];
-                PointVelocitys[0] = Vector3.Zero;
+                PointVelocitys[0] = StartLinearVelocity[0];
                 PointVelocitys[n] = Vector3.Zero;
                 if (n > 1)
                 {
