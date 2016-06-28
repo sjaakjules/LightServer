@@ -426,7 +426,7 @@ namespace LightWeight_Server
                 haveReceived.Set();
                 processDataTimer.Stop();
                 _Robot._processDataTimer.Enqueue(processDataTimer.Elapsed.TotalMilliseconds);
-                if (processDataTimer.Elapsed.TotalMilliseconds > 4)
+                if (processDataTimer.Elapsed.TotalMilliseconds > 12)
                 {
                     _Robot._maxProcessDataTimer.Enqueue(processDataTimer.Elapsed.TotalMilliseconds);
                 }
@@ -568,9 +568,9 @@ namespace LightWeight_Server
                         {
                             _Robot.updateError(string.Format("send Ipoc was out of order with Ipoc{0} sent and {1} sent last time", lastPacket.IPOC, lastlastpacket.IPOC), new KukaException("Constrant sender error"));
                         }
-                        if (Math.Abs(lastPacket.IPOC - lastlastpacket.IPOC) > 4)
+                        if (Math.Abs(lastPacket.IPOC - lastlastpacket.IPOC) > 12)
                         {
-                            _Robot.updateError(string.Format("The ipoc difference of {2} so dropped {3} frames \n {0} Ipoc sent \n {1} sent last time\n", lastPacket.IPOC, lastlastpacket.IPOC, lastPacket.IPOC- lastlastpacket.IPOC, (lastPacket.IPOC- lastlastpacket.IPOC)/4), new KukaException("Connection dropped to kuka"));
+                            _Robot.updateError(string.Format("The ipoc difference of {2} so dropped {3} frames \n {0} Ipoc sent \n {1} sent last time\n", lastPacket.IPOC, lastlastpacket.IPOC, lastPacket.IPOC- lastlastpacket.IPOC, (lastPacket.IPOC- lastlastpacket.IPOC)/12), new KukaException("Connection dropped to kuka"));
                         }
                     }
                 }
@@ -718,7 +718,7 @@ namespace LightWeight_Server
             XmlNode comAxisNode = _SendXML.SelectSingleNode("//Sen/AKorr");
             for (int i = 0; i < 6; i++)
             {
-                comAxisNode.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.0000000}", newCommand[i] * 4.0 * 180.0 / Math.PI); //* 180.0 / Math.PI
+                comAxisNode.Attributes[SF.axisKeys[i]].Value = String.Format("{0:0.0000000}", newCommand[i] * RobotInfo.serverSpeed); //* 4.0 * 180.0 / Math.PI); //* 180.0 / Math.PI
             }
             XmlNode DigIOnode = _SendXML.SelectSingleNode("//Sen/Digout");
             lock (_Robot.DigioLock)

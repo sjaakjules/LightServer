@@ -487,12 +487,14 @@ namespace LightWeight_Server
                         Vector3 ErrorTranslation = ReferencePose.Translation - currentPose.Translation;
                         Vector3 ErrorOrientation = SF.getOrientationError(ReferencePose.Orientation, currentPose.Orientation);
 
-                        if (ErrorTranslation.Length() > 1)
+                        /*
+                        if (ErrorTranslation.Length() > 10)
                         {
                             ErrorTranslation.Normalize();
                         }
+                        */
 
-                        Vector3 ControlTranslation = ReferenceVelocity.Translation + Vector3.Multiply(ErrorTranslation, 0.01f);
+                        Vector3 ControlTranslation = ReferenceVelocity.Translation + Vector3.Multiply(ErrorTranslation, 0.1f);
                         Vector3 ControlOrientation = Vector3.Multiply(ReferenceVelocity.axis, ReferenceVelocity.angle) + Vector3.Multiply(ErrorOrientation, 0.005f);
 
                         double[] TipVeloicty = new double[] { ControlTranslation.X, ControlTranslation.Y, ControlTranslation.Z, ControlOrientation.X, ControlOrientation.Y, ControlOrientation.Z };
@@ -527,7 +529,7 @@ namespace LightWeight_Server
 
                     for (int i = 0; i < _ThisRobot._bufferLength; i++)
                     {
-                        BufferVelocity[i] = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferenceVelocity(TrajectoryTime + 4*(i+1));
+                        BufferVelocity[i] = ((TaskTrajectory)_ActiveTrajectories[_CurrentSegment]).getReferenceVelocity(TrajectoryTime + RobotInfo.serverSpeed * (i + 1));
                     }
 
                     // double[,] InverseJacob = SF.GetInverseJacobian(currentAngle, _ThisRobot.EndEffector);

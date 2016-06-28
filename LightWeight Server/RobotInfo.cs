@@ -107,6 +107,8 @@ namespace LightWeight_Server
         Vector3 _EndEffector;
         Quaternion _TaskRotation = Quaternion.Identity;
 
+        public static readonly int serverSpeed = 12;
+
         // Thread safe lists for updating and storing of robot information.
         // public ConcurrentStack<StateObject> DataHistory;
 
@@ -121,7 +123,7 @@ namespace LightWeight_Server
         public readonly double _MaxAxisChange = 4e-3; //radians per cycle where 0.004 = 57deg/s
         public readonly double _MaxAxisAccelChange = 2e-4;
 
-        double _maxLinearVelocity = 0.8 / 4; // in mm/ms
+        double _maxLinearVelocity = 0.8 / 12; // in mm/ms
         double _maxAngularVelocity = 0.05; // in deg/ms
         float _maxLinearAcceleration = 0.005f;// in mm/ms2
         float _maxAngularAcceleration = 0.00005f; // in deg/ms2
@@ -477,7 +479,8 @@ namespace LightWeight_Server
         {
             if (_isConnected && _isCommanded)
             {
-                _TrajectoryHandler.GetCommandAxis(newPose, _lastFiltVelocity.LastElement, newAngle);
+                //_TrajectoryHandler.GetCommandAxis(newPose, _lastFiltVelocity.LastElement, newAngle);
+                _TrajectoryHandler.GetCommandCart(newPose, _lastFiltVelocity.LastElement, newAngle, _EndEffector);
             }
             else
             {
@@ -548,7 +551,7 @@ namespace LightWeight_Server
 
         public void updateRobotPosition(Pose newPose, long ipoc)
         {
-            double delT = 4;
+            double delT = 12;
             lock (telemetryLock)
             {
                 delT = _loopTime;

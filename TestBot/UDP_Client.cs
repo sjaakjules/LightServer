@@ -411,7 +411,7 @@ namespace TestBot
 
                 for (int i = 0; i < 6; i++)
                 {
-                    _AxisSpeed[i] = newAngle[i] / 4;
+                    _AxisSpeed[i] = newAngle[i] / 12;
                     //_kukaAngles[i] += newAngle[i];
                 }
             }
@@ -464,7 +464,7 @@ namespace TestBot
                 //_loopTimer.Restart();
                 //   }
                 // isReadyToSend.WaitOne(4);
-                Thread.Sleep(4);
+                Thread.Sleep(12);
             }
         }
 
