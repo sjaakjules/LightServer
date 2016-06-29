@@ -426,7 +426,7 @@ namespace LightWeight_Server
                 haveReceived.Set();
                 processDataTimer.Stop();
                 _Robot._processDataTimer.Enqueue(processDataTimer.Elapsed.TotalMilliseconds);
-                if (processDataTimer.Elapsed.TotalMilliseconds > 12)
+                if (processDataTimer.Elapsed.TotalMilliseconds > RobotInfo.serverSpeed)
                 {
                     _Robot._maxProcessDataTimer.Enqueue(processDataTimer.Elapsed.TotalMilliseconds);
                 }
@@ -568,9 +568,9 @@ namespace LightWeight_Server
                         {
                             _Robot.updateError(string.Format("send Ipoc was out of order with Ipoc{0} sent and {1} sent last time", lastPacket.IPOC, lastlastpacket.IPOC), new KukaException("Constrant sender error"));
                         }
-                        if (Math.Abs(lastPacket.IPOC - lastlastpacket.IPOC) > 12)
+                        if (Math.Abs(lastPacket.IPOC - lastlastpacket.IPOC) > RobotInfo.serverSpeed)
                         {
-                            _Robot.updateError(string.Format("The ipoc difference of {2} so dropped {3} frames \n {0} Ipoc sent \n {1} sent last time\n", lastPacket.IPOC, lastlastpacket.IPOC, lastPacket.IPOC- lastlastpacket.IPOC, (lastPacket.IPOC- lastlastpacket.IPOC)/12), new KukaException("Connection dropped to kuka"));
+                            _Robot.updateError(string.Format("The ipoc difference of {2} so dropped {3} frames \n {0} Ipoc sent \n {1} sent last time\n", lastPacket.IPOC, lastlastpacket.IPOC, lastPacket.IPOC- lastlastpacket.IPOC, (lastPacket.IPOC- lastlastpacket.IPOC)/RobotInfo.serverSpeed), new KukaException("Connection dropped to kuka"));
                         }
                     }
                 }

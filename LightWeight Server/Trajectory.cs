@@ -321,11 +321,11 @@ namespace LightWeight_Server
             _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
 
             // calculate the time to rotate to final orientation assuming max angular rotation Note in radians
-            double angularVelocity = ((_robot == null) ? (0.002) : (_robot._MaxAngularChange)) / 4.0;
+            double angularVelocity = ((_robot == null) ? (0.002) : (_robot._MaxAngularChange)) / RobotInfo.serverSpeed;
             AngularTrajectoryTime = TimeSpan.FromMilliseconds(1.15 * _finalAngle * angularVelocity);
 
             // Check if its moving linearly and set midpoint and velocities
-            averageVelocity = (AverageVelocty == 0) ? 1.0 * robot._MaxCartesianChange / (2.0 * 4.0) : AverageVelocty;
+            averageVelocity = (AverageVelocty == 0) ? 1.0 * robot._MaxCartesianChange / (2.0 * RobotInfo.serverSpeed) : AverageVelocty;
 
             // Check if it is linearly moving, ie 0.5mm distance
             if (Vector3.Distance(xf, x0) > 2)
@@ -408,7 +408,7 @@ namespace LightWeight_Server
             _TrajectoryAxis = Vector3.Transform(_TrajectoryAxis, StartPose.Orientation);
 
             // calculate the time to rotate to final orientation assuming max angular rotation
-            double angularVelocity = ((_robot == null) ? (0.002) : (_robot._MaxAngularChange)) / 4.0;
+            double angularVelocity = ((_robot == null) ? (0.002) : (_robot._MaxAngularChange)) / RobotInfo.serverSpeed;
             AngularTrajectoryTime = TimeSpan.FromMilliseconds(1.15 * _finalAngle * angularVelocity);
 
             // Check if its moving linearly and set midpoint and velocities
